@@ -111,10 +111,10 @@ async def get_user_secrets(
         },
         "azure": {
             "has_credentials": (
-                secrets.azure_client_id is not None and
-                secrets.azure_client_secret is not None and
-                secrets.azure_tenant_id is not None and
-                secrets.azure_subscription_id is not None
+                secrets.azure_client_id is not None
+                and secrets.azure_client_secret is not None
+                and secrets.azure_tenant_id is not None
+                and secrets.azure_subscription_id is not None
             ),
             "created_at": azure_created_at,
         },
