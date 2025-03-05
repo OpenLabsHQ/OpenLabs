@@ -109,7 +109,7 @@ async def deploy_range_from_template_endpoint(
         date=datetime.now(tz=timezone.utc),
         template=template.model_dump_json(),
         state_file=range_to_deploy.get_state_file(),
-        state=RangeState.OFF,  # User manually starts after deployment
+        state=RangeState.ON,  # User manually starts after deployment
     )
 
     # Save deployed range info to database
