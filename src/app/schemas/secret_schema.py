@@ -42,3 +42,17 @@ class SecretSchema(SecretBaseSchema):
     """Secret object for OpenLabs."""
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AWSSecrets(BaseModel):
+    """AWS secret object for setting secrets on OpenLabs."""
+
+    aws_access_key: str
+    aws_secret_key: str
+
+
+class AzureSecrets(BaseModel):
+    """Azure secret object for setting secrets on OpenLabs."""
+
+    azure_client_id: str
+    azure_client_secret: str

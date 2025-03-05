@@ -35,6 +35,7 @@ class UserBaseSchema(BaseModel):
 
         """
         # This import is not used, but must match for UserCreateBaseSchema
+        del info
 
         try:
             emailinfo = validate_email(email, check_deliverability=False)
@@ -102,3 +103,24 @@ class UserCreateSchema(UserCreateBaseSchema, UserID):
     """User creation object for OpenLabs."""
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserInfoResponseSchema(BaseModel):
+    """User information response object for user page on OpenLabs Frontend."""
+
+    name: str
+    email: str
+
+
+class PasswordUpdateSchema(BaseModel):
+    """Schema for updating user password."""
+
+    current_password: str = Field(
+        ...,
+        description="Current password of user",
+        min_length=1,
+        examples=["password123"],
+    )
+    new_password: str = Field(
+        ..., description="New password of user", min_length=1, examples=["password123!"]
+    )
