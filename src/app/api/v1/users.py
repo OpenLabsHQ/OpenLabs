@@ -51,7 +51,7 @@ async def update_password(
         dict[str, str]: Success message.
 
     """
-    success = update_user_password(
+    success = await update_user_password(
         db,
         current_user.id,
         password_update.current_password,
