@@ -41,6 +41,35 @@ async def create_secret(
     return secret_obj
 
 
+async def get_secrets(db: AsyncSession, user_id: UserID) -> SecretModel | None:
+    """Get a user's cloud secrets.
+
+    Args:
+    ----
+        db (AsyncSession): Database connection.
+        user_id (UserID): User who owns secrets.
+
+    Returns:
+    -------
+        SecretModel: The user's secret.
+
+    """
+    mapped_secret_model = inspect(SecretModel)
+    main_columns = [
+        getattr(SecretModel, attr.key) for attr in mapped_secret_model.column_attrs
+    ]
+
+    stmt = (
+        select(SecretModel)
+        .where(SecretModel.user_id == user_id.id)
+        .options(load_only(*main_columns))
+    )
+
+    result = await db.execute(stmt)
+
+    return result.scalars().first()
+
+
 async def get_user(db: AsyncSession, email: str) -> UserModel | None:
     """Get a user by email.
 

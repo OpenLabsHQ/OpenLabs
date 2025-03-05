@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String
@@ -11,7 +12,7 @@ class SecretModel(Base):
 
     __tablename__ = "secrets"
 
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False, primary_key=True
     )
 
