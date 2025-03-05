@@ -133,7 +133,10 @@ async def update_aws_secrets(
         dict[str, str]: Success message.
 
     """
-    secrets = current_user.secrets
+    # Fetch secrets explicitly from the database
+    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
+    result = await db.execute(stmt)
+    secrets = result.scalars().first()
     if not secrets:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -168,7 +171,10 @@ async def update_azure_secrets(
         dict[str, str]: Success message.
 
     """
-    secrets = current_user.secrets
+    # Fetch secrets explicitly from the database
+    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
+    result = await db.execute(stmt)
+    secrets = result.scalars().first()
     if not secrets:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
