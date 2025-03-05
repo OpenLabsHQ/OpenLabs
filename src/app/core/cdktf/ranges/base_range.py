@@ -207,6 +207,7 @@ class CdktfBaseRange(ABC):
 
         try:
             # Change to directory with `cdk.tf.json`
+            initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
             if not self.create_state_file():
                 msg = f"Unable to destroy range: {self.template.name} ({self.id}) missing state file!"
@@ -223,6 +224,8 @@ class CdktfBaseRange(ABC):
                 check=True,
                 env=env,
             )
+
+            os.chdir(initial_dir)
 
             # Delete synth files
             self.cleanup_synth()
