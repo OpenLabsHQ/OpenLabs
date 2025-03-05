@@ -5,10 +5,12 @@ import subprocess
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
 from cdktf import App
 
 from ....enums.regions import OpenLabsRegion
+from ....schemas.secret_schema import SecretSchema
 from ....schemas.template_range_schema import TemplateRangeSchema
 from ....schemas.user_schema import UserID
 from ...config import settings
@@ -30,6 +32,7 @@ class CdktfBaseRange(ABC):
     stack_name: str | None
     state: str | None  # Terraform state
     owner_id: UserID
+    secrets: SecretSchema
 
     # State varibles
     _is_synthesized: bool
@@ -41,12 +44,14 @@ class CdktfBaseRange(ABC):
         template: TemplateRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
+        secrets: SecretSchema,
     ) -> None:
         """Initialize CDKTF base range object."""
         self.id = range_id
         self.template = template
         self.region = region
         self.owner_id = owner_id
+        self.secrets = secrets
 
         # Initial values
         self.stack_name = None
@@ -61,6 +66,28 @@ class CdktfBaseRange(ABC):
         Returns
         -------
         Type[TStack]: Provider stack class.
+
+        """
+        pass
+
+    @abstractmethod
+    def has_secrets(self) -> bool:
+        """Return if range has correct provider cloud credentials.
+
+        Returns
+        -------
+            bool: True if correct provider creds exist. False otherwise.
+
+        """
+        pass
+
+    @abstractmethod
+    def get_cred_env_vars(self) -> dict[str, Any]:
+        """Return dictionary of BASH Terraform cloud credential environment variables.
+
+        Returns
+        -------
+            dict[str, Any]: Dict of BASH environment variables.
 
         """
         pass
@@ -118,10 +145,17 @@ class CdktfBaseRange(ABC):
             self.synthesize()
 
         try:
+            initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
             subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
+
+            # Terraform apply
+            env = os.environ.copy()
+            env.update(self.get_cred_env_vars())
             subprocess.run(  # noqa: S603
-                ["terraform", "apply", "--auto-approve"], check=True  # noqa: S607
+                ["terraform", "apply", "--auto-approve"],  # noqa: S607
+                check=True,
+                env=env,
             )
 
             # Load state
@@ -132,6 +166,7 @@ class CdktfBaseRange(ABC):
 
             self._is_deployed = True
             logger.info("Range deployment successful for %s", self.template.name)
+            os.chdir(initial_dir)
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)

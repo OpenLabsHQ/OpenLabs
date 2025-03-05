@@ -23,7 +23,9 @@ class AWSStack(AbstractBaseStack):
     """Stack for generating terraform for AWS."""
 
     def build_resources(
-        self, template_range: TemplateRangeSchema, region: OpenLabsRegion
+        self,
+        template_range: TemplateRangeSchema,
+        region: OpenLabsRegion,
     ) -> None:
         """Initialize AWS terraform stack.
 
@@ -31,13 +33,18 @@ class AWSStack(AbstractBaseStack):
         ----
             template_range (TemplateRangeSchema): Template range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
+            secrets (SecretSchema): Cloud secrets.
 
         Returns:
         -------
             None
 
         """
-        AwsProvider(self, "AWS", region=AWS_REGION_MAP[region])
+        AwsProvider(
+            self,
+            "AWS",
+            region=AWS_REGION_MAP[region],
+        )
 
         # Step 5: Create the key access to all instances provisioned on AWS
         key_pair = KeyPair(

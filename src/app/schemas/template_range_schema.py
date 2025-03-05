@@ -15,7 +15,6 @@ class TemplateRangeBaseSchema(BaseModel):
         description="Cloud provider",
         examples=[OpenLabsProvider.AWS, OpenLabsProvider.AZURE],
     )
-
     name: str = Field(
         ..., description="Template name", min_length=1, examples=["template-range-1"]
     )

@@ -32,6 +32,7 @@ class AbstractBaseStack(TerraformStack):
             cdktf_id (str): Unique ID for CDKTF app
             cdktf_dir (str): Directory location for all terraform files
             region (OpenLabsRegion): Supported OpenLabs cloud region.
+            secrets (SecretSchema): Cloud secrets.
 
         Returns:
         -------
@@ -48,10 +49,12 @@ class AbstractBaseStack(TerraformStack):
         )
 
         # Will raise NotImplementedError when not-overriden by child class
-        self.build_resources(template_range, region)
+        self.build_resources(template_range=template_range, region=region)
 
     def build_resources(
-        self, template_range: TemplateRangeSchema, region: OpenLabsRegion
+        self,
+        template_range: TemplateRangeSchema,
+        region: OpenLabsRegion,
     ) -> None:
         """'Psuedo-abtract' method to build the CDKTF resources.
 
@@ -59,6 +62,7 @@ class AbstractBaseStack(TerraformStack):
         ----
             template_range (TemplateRangeSchema): Template range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
+            secrets (SecretScehma): Cloud secrets.
 
         Returns:
         -------

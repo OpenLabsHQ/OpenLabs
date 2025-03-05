@@ -2,43 +2,26 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..enums.providers import OpenLabsProvider
 from ..enums.regions import OpenLabsRegion
-from .template_range_schema import TemplateRangeSchema
 
 
-class RangeBaseSchema(BaseModel):
-    """Based schema deployed range object."""
+class DeployRangeBaseSchema(BaseModel):
+    """Deploy range to cloud provider schema."""
 
-    name: str = Field(
-        ..., description="Range name", min_length=1, examples=["live-range-1"]
+    name: str = Field(..., description="Range name", min_length=1, examples=["range-1"])
+    description: str = Field(
+        ..., description="Description of range", examples=["This is my test range."]
     )
-    template: TemplateRangeSchema = Field(..., description="Range template to deploy")
-    provider: OpenLabsProvider = Field(
-        ...,
-        description="Cloud provider",
-        examples=[OpenLabsProvider.AWS, OpenLabsProvider.AZURE],
-    )
+    template_id: uuid.UUID = Field(..., description="Template range ID")
     region: OpenLabsRegion = Field(
-        ...,
-        description="Cloud region to deploy range",
-        examples=[OpenLabsRegion.US_EAST_1, OpenLabsRegion.US_EAST_2],
+        ..., description="Cloud region to deploy template range"
     )
-    vnc: bool = Field(default=False, description="Has VNC configuration")
-    vpn: bool = Field(default=False, description="Has VPN configuration")
 
 
 class RangeID(BaseModel):
-    """Class for range ID."""
+    """Identity class for the template range object."""
 
     id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, description="Unique object identifier."
+        default_factory=uuid.uuid4, description="Unique range identifier."
     )
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RangeSchema(RangeID, RangeBaseSchema):
-    """Deployed range object schema."""
-
     model_config = ConfigDict(from_attributes=True)
