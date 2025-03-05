@@ -28,6 +28,7 @@ async def test_user_register(client: AsyncClient) -> None:
     uuid_obj = uuid.UUID(uuid_response, version=4)
     assert str(uuid_obj) == uuid_response
 
+
 async def test_user_register_bad_email(client: AsyncClient) -> None:
     """Test that we get a 422 response when registering a user with an invalid email."""
     invalid_payload = copy.deepcopy(user_register_payload)
@@ -35,6 +36,7 @@ async def test_user_register_bad_email(client: AsyncClient) -> None:
 
     response = await client.post(f"{BASE_ROUTE}/auth/register", json=invalid_payload)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
 
 async def test_duplicate_user_register(client: AsyncClient) -> None:
     """Test that we get a 400 response when registering a user with the same email."""
