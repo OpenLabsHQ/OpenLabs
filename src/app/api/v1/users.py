@@ -110,7 +110,12 @@ async def get_user_secrets(
             "created_at": aws_created_at,
         },
         "azure": {
-            "has_credentials": secrets.azure_client_id is not None,
+            "has_credentials": (
+                secrets.azure_client_id is not None and
+                secrets.azure_client_secret is not None and
+                secrets.azure_tenant_id is not None and
+                secrets.azure_subscription_id is not None
+            ),
             "created_at": azure_created_at,
         },
     }
@@ -186,6 +191,8 @@ async def update_azure_secrets(
     # Update the secrets
     secrets.azure_client_id = azure_secrets.azure_client_id
     secrets.azure_client_secret = azure_secrets.azure_client_secret
+    secrets.azure_tenant_id = azure_secrets.azure_tenant_id
+    secrets.azure_subscription_id = azure_secrets.azure_subscription_id
     secrets.azure_created_at = datetime.now(UTC)
     await db.commit()
 

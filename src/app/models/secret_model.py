@@ -23,6 +23,8 @@ class SecretModel(Base):
 
     azure_client_id: Mapped[str] = mapped_column(String, nullable=True)
     azure_client_secret: Mapped[str] = mapped_column(String, nullable=True)
+    azure_tenant_id: Mapped[str] = mapped_column(String, nullable=True)
+    azure_subscription_id: Mapped[str] = mapped_column(String, nullable=True)
     azure_created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

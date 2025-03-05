@@ -30,6 +30,16 @@ class SecretBaseSchema(BaseModel):
         default=None,
         description="Client secret for Azure",
     )
+    
+    azure_tenant_id: str | None = Field(
+        default=None,
+        description="Tenant ID for Azure",
+    )
+    
+    azure_subscription_id: str | None = Field(
+        default=None,
+        description="Subscription ID for Azure",
+    )
 
     azure_created_at: datetime | None = Field(
         default=None,
@@ -56,3 +66,5 @@ class AzureSecrets(BaseModel):
 
     azure_client_id: str
     azure_client_secret: str
+    azure_tenant_id: str
+    azure_subscription_id: str
