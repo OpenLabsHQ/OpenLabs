@@ -93,5 +93,4 @@ async def deploy_range_from_template(
     range_to_deploy.synthesize()
     range_to_deploy.deploy()
 
-    # deployed_range_obj = DeployedRange(deployed_range_id, range_template, state_file, range_template.provider, account: OpenLabsAccount, cloud_account_id: uuid/int) OpenLabsAccount --> Provider --> Cloud Account ID --> AWS Creds
     return RangeID(id=deployed_range_id)
