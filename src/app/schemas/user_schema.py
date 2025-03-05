@@ -105,8 +105,23 @@ class UserCreateSchema(UserCreateBaseSchema, UserID):
 class UserInfoResponseSchema(BaseModel):
     """User information response object for user page on OpenLabs Frontend."""
 
-    name: str
-    email: str
+    name: str = Field(
+        ...,
+        description="Full name of user",
+        min_length=1,
+        examples=["Adam Hassan", "Alex Christy", "Naresh Panchal"],
+    )
+    email: str = Field(
+        ...,
+        description="Email of user",
+        min_length=1,
+        examples=["adam@ufsit.club", "alex@christy.com", "naresh@panch.al"],
+    )
+    admin: bool = Field(
+        ...,
+        description="Admin status of user",
+        examples=[True, False],
+    )
 
 
 class PasswordUpdateSchema(BaseModel):

@@ -31,7 +31,9 @@ async def get_user_info(
         UserInfoResponse: User's profile information.
 
     """
-    return UserInfoResponseSchema(name=current_user.name, email=current_user.email)
+    return UserInfoResponseSchema(
+        name=current_user.name, email=current_user.email, admin=current_user.is_admin
+    )
 
 
 @router.post("/me/password")
