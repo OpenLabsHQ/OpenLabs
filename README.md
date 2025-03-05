@@ -156,40 +156,40 @@ All tests are located in `tests/`. The structure of the `tests/` directory mirro
 src/
 └── app
     ├── api
-    │   └── v1                  # API Version 1 routes (/v1)
-    |       |                   # ------------------------- #
-    │       ├── auth.py         # /auth routes
-    │       ├── health.py       # /health routes
-    │       ├── ranges.py       # /ranges routes
-    │       ├── templates.py    # /templates routes
-    │       └── users.py        # /users routes
+    │   └── v1                   # API Version 1 routes (/v1)
+    |       |                    # ------------------------- #
+    │       ├── auth.py          # /auth routes
+    │       ├── health.py        # /health routes
+    │       ├── ranges.py        # /ranges routes
+    │       ├── templates.py     # /templates routes
+    │       └── users.py         # /users routes
     |
-    ├── core                    # Core Application Logic
-    |   |                       # ---------------------- #
-    │   ├── auth/               # Authentication utilities
+    ├── core                     # Core Application Logic
+    |   |                        # ---------------------- #
+    │   ├── auth/                # Authentication utilities
     │   │   └── auth.py
-    │   ├── cdktf/              # CDKTF Libraries
-    │   │   └── aws/            # AWS provider configuration
-    │   ├── config.py           # Application settings
-    │   ├── db                  # Database configuration
+    │   ├── cdktf/               # CDKTF Libraries
+    │   │   └── aws/             # AWS provider configuration
+    │   ├── config.py            # Application settings
+    │   ├── db                   # Database configuration
     │   │   └── database.py
-    │   ├── logger.py           # Shared logger utility
-    │   └── setup.py            # Application setup logic
+    │   ├── logger.py            # Shared logger utility
+    │   └── setup.py             # Application setup logic
     | 
-    ├── crud                    # Database CRUD operations
+    ├── crud                     # Database CRUD operations
     │   ├── crud_host_templates.py
     │   ├── crud_range_templates.py
     │   ├── crud_subnet_templates.py
     │   ├── crud_users.py
     │   └── crud_vpc_templates.py
     |
-    ├── enums                   # Enums (Constants)
-    |   |                       # ---------------- #
+    ├── enums                    # Enums (Constants)
+    |   |                        # ---------------- #
     │   ├── operating_systems.py # OS configurations
-    │   ├── providers.py        # Defined cloud providers
-    │   └── specs.py            # Preset VM hardware configurations
+    │   ├── providers.py         # Defined cloud providers
+    │   └── specs.py             # Preset VM hardware configurations
     |
-    ├── models                  # Database Models
+    ├── models                   # Database Models
     │   ├── secret_model.py
     │   ├── template_base_model.py
     │   ├── template_host_model.py
@@ -198,8 +198,8 @@ src/
     │   ├── template_vpc_model.py
     │   └── user_model.py
     |
-    ├── schemas                 # API Schema (Objects)
-    |   |                       # ------------------ #
+    ├── schemas                  # API Schema (Objects)
+    |   |                        # ------------------ #
     │   ├── secret_schema.py
     │   ├── template_host_schema.py
     │   ├── template_range_schema.py
@@ -207,15 +207,15 @@ src/
     │   ├── template_vpc_schema.py
     │   └── user_schema.py
     |
-    ├── utils                   # Utility Functions
+    ├── utils                    # Utility Functions
     │   └── cdktf_utils.py
     |
-    ├── validators              # Data Validation
-    |   |                       # --------------- #
-    │   ├── id.py               # ID validation
-    │   └── network.py          # Networking config input validation
+    ├── validators               # Data Validation
+    |   |                        # --------------- #
+    │   ├── id.py                # ID validation
+    │   └── network.py           # Networking config input validation
     |
-    └── main.py                 # Main App Entry Point
+    └── main.py                  # Main App Entry Point
 ```
 
 ## VScode Extensions
