@@ -17,7 +17,7 @@ security = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     request: Request,
-    token: str | None = Cookie(None, alias="token"),
+    token: str | None = Cookie(None, alias="token", include_in_schema=False),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> UserModel:

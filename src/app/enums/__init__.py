@@ -1,1 +1,1 @@
-"""Enums for the OpenLabsX API."""
+"""Enums for the OpenLabs API."""

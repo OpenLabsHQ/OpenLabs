@@ -3,8 +3,10 @@ from typing import Any, AsyncContextManager, AsyncGenerator, Callable
 
 from fastapi import APIRouter, FastAPI
 
-from .config import AppSettings, DatabaseSettings
-from .db.database import Base
+from ..crud.crud_users import create_user, get_user
+from ..schemas.user_schema import UserCreateBaseSchema
+from .config import AppSettings, DatabaseSettings, settings
+from .db.database import Base, local_session
 from .db.database import async_engine as engine
 
 
@@ -13,6 +15,26 @@ async def create_tables() -> None:
     """Create SQL tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+# Function to initialize admin user
+async def initialize_admin_user() -> None:
+    """Create admin user if it doesn't exist."""
+    try:
+        async with local_session() as db:
+            # Create a UserCreateBaseSchema with the admin details
+            admin_schema = UserCreateBaseSchema(
+                email=settings.ADMIN_EMAIL,
+                password=settings.ADMIN_PASSWORD,
+                name=settings.ADMIN_NAME,
+            )
+
+            admin_user = await get_user(db, settings.ADMIN_EMAIL)
+            if not admin_user:
+                await create_user(db, admin_schema, is_admin=True)
+    except Exception as e:
+        msg = "Failed to create admin user. Check logs for more details."
+        raise ValueError(msg) from e
 
 
 # Lifespan factory to manage app lifecycle events
@@ -27,6 +49,7 @@ def lifespan_factory(
 
         if isinstance(settings, DatabaseSettings) and create_tables_on_start:
             await create_tables()
+            await initialize_admin_user()
 
         yield
 

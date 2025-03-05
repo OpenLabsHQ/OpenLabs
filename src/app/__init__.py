@@ -1,1 +1,1 @@
-"""Base app of the OpenLabsX API."""
+"""Base app of the OpenLabs API."""

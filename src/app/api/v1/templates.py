@@ -70,16 +70,23 @@ async def get_range_template_headers_endpoint(
 
     Returns:
     -------
-        list[TemplateRangeID]: List of range template headers owned by the current user.
+        list[TemplateRangeID]: List of range template headers. For admin users, shows all templates.
+                               For regular users, shows only templates they own.
 
     """
-    # Get only templates owned by the current user
-    range_headers = await get_range_template_headers(db, user_id=current_user.id)
+    # If user is admin, get all templates, otherwise only get templates owned by the user
+    user_id = None if current_user.is_admin else current_user.id
+    range_headers = await get_range_template_headers(db, user_id=user_id)
 
     if not range_headers:
+        detail = (
+            "No range templates found!"
+            if current_user.is_admin
+            else "Unable to find any range templates that you own!"
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Unable to find any range templates that you own!",
+            detail=detail,
         )
 
     return [
@@ -104,7 +111,7 @@ async def get_range_template_endpoint(
 
     Returns:
     -------
-        TemplateRangeSchema: Range template data from database if it belongs to the user.
+        TemplateRangeSchema: Range template data from database. Admin users can access any template.
 
     """
     if not is_valid_uuid4(range_id):
@@ -113,9 +120,12 @@ async def get_range_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # Get the template and check if the user is the owner
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
+    # Get the template
     range_template = await get_range_template(
-        db, TemplateRangeID(id=range_id), user_id=current_user.id
+        db, TemplateRangeID(id=range_id), user_id=user_id
     )
 
     if not range_template:
@@ -176,8 +186,11 @@ async def delete_range_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
     range_template = await get_range_template(
-        db, TemplateRangeID(id=range_id), user_id=current_user.id
+        db, TemplateRangeID(id=range_id), user_id=user_id
     )
 
     # Does not exist
@@ -216,15 +229,23 @@ async def get_vpc_template_headers_endpoint(
         list[TemplateVPCID]: List of vpc template headers owned by the current user.
 
     """
-    # Get only templates owned by the current user
+    # If user is admin, get all templates, otherwise only get templates owned by the user
+    user_id = None if current_user.is_admin else current_user.id
+
     vpc_headers = await get_vpc_template_headers(
-        db, user_id=current_user.id, standalone_only=standalone_only
+        db, user_id=user_id, standalone_only=standalone_only
     )
 
     if not vpc_headers:
+        standalone_text = " standalone" if standalone_only else ""
+        detail = (
+            f"No{standalone_text} VPC templates found!"
+            if current_user.is_admin
+            else f"Unable to find any{standalone_text} VPC templates that you own!"
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unable to find any{" standalone" if standalone_only else ""} vpc templates that you own!",
+            detail=detail,
         )
 
     return [
@@ -258,10 +279,11 @@ async def get_vpc_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # Get the template and check if the user is the owner
-    vpc_template = await get_vpc_template(
-        db, TemplateVPCID(id=vpc_id), user_id=current_user.id
-    )
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
+    # Get the template
+    vpc_template = await get_vpc_template(db, TemplateVPCID(id=vpc_id), user_id=user_id)
 
     if not vpc_template:
         raise HTTPException(
@@ -322,9 +344,10 @@ async def delete_vpc_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    vpc_template = await get_vpc_template(
-        db, TemplateVPCID(id=vpc_id), user_id=current_user.id
-    )
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
+    vpc_template = await get_vpc_template(db, TemplateVPCID(id=vpc_id), user_id=user_id)
 
     # Does not exist
     if not vpc_template:
@@ -362,15 +385,24 @@ async def get_subnet_template_headers_endpoint(
         list[TemplateSubnetHeaderSchema]: List of subnet template headers owned by the current user.
 
     """
-    # Get subnet headers filtered by owner_id
+    # If user is admin, get all templates, otherwise only get templates owned by the user
+    user_id = None if current_user.is_admin else current_user.id
+
+    # Get subnet headers
     subnet_headers = await get_subnet_template_headers(
-        db, standalone_only=standalone_only, user_id=current_user.id
+        db, standalone_only=standalone_only, user_id=user_id
     )
 
     if not subnet_headers:
+        standalone_text = " standalone" if standalone_only else ""
+        detail = (
+            f"No{standalone_text} subnet templates found!"
+            if current_user.is_admin
+            else f"Unable to find any{standalone_text} subnet templates that you own!"
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unable to find any{" standalone" if standalone_only else ""} subnet templates that you own!",
+            detail=detail,
         )
 
     return [
@@ -395,7 +427,7 @@ async def get_subnet_template_endpoint(
 
     Returns:
     -------
-        TemplateSubnetSchema: Subnet data from database if it belongs to the user.
+        TemplateSubnetSchema: Subnet data from database. Admin users can access any template.
 
     """
     if not is_valid_uuid4(subnet_id):
@@ -404,8 +436,11 @@ async def get_subnet_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
     subnet_template = await get_subnet_template(
-        db, TemplateSubnetID(id=subnet_id), user_id=current_user.id
+        db, TemplateSubnetID(id=subnet_id), user_id=user_id
     )
 
     if not subnet_template:
@@ -470,8 +505,11 @@ async def delete_subnet_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
     subnet_template = await get_subnet_template(
-        db, TemplateSubnetID(id=subnet_id), user_id=current_user.id
+        db, TemplateSubnetID(id=subnet_id), user_id=user_id
     )
 
     # Does not exist
@@ -510,15 +548,24 @@ async def get_host_template_headers_endpoint(
         list[TemplateHostID]: List of host template UUIDs owned by the current user.
 
     """
-    # Get host headers filtered by owner_id
+    # If user is admin, get all templates, otherwise only get templates owned by the user
+    user_id = None if current_user.is_admin else current_user.id
+
+    # Get host headers
     host_headers = await get_host_template_headers(
-        db, standalone_only=standalone_only, user_id=current_user.id
+        db, standalone_only=standalone_only, user_id=user_id
     )
 
     if not host_headers:
+        standalone_text = " standalone" if standalone_only else ""
+        detail = (
+            f"No{standalone_text} host templates found!"
+            if current_user.is_admin
+            else f"Unable to find any{standalone_text} host templates that you own!"
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unable to find any{" standalone" if standalone_only else ""} host templates that you own!",
+            detail=detail,
         )
 
     return [
@@ -543,7 +590,7 @@ async def get_host_template_endpoint(
 
     Returns:
     -------
-        TemplateHostSchema: Host data from database if it belongs to the user.
+        TemplateHostSchema: Host data from database. Admin users can access any template.
 
     """
     if not is_valid_uuid4(host_id):
@@ -552,8 +599,11 @@ async def get_host_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
     host_template = await get_host_template(
-        db, TemplateHostID(id=host_id), user_id=current_user.id
+        db, TemplateHostID(id=host_id), user_id=user_id
     )
 
     if not host_template:
@@ -618,8 +668,11 @@ async def delete_host_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
+    # For admin users, don't filter by user_id to allow access to all templates
+    user_id = None if current_user.is_admin else current_user.id
+
     host_template = await get_host_template(
-        db, TemplateHostID(id=host_id), user_id=current_user.id
+        db, TemplateHostID(id=host_id), user_id=user_id
     )
 
     # Does not exist

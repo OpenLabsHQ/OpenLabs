@@ -1,1 +1,1 @@
-"""Source code of the OpenLabsX API."""
+"""Source code of the OpenLabs API."""

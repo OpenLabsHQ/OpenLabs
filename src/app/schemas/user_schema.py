@@ -1,7 +1,7 @@
 import uuid
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 
 class UserBaseSchema(BaseModel):
@@ -20,13 +20,14 @@ class UserBaseSchema(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validate_email(cls, email: str) -> str:
+    def validate_email(cls, email: str, _: ValidationInfo) -> str:
         """Check that email format is valid.
 
         Args:
         ----
             cls: OpenLabsUser object.
             email (str): User email address.
+            info (ValidatonInfo): Validator context
 
         Returns:
         -------
@@ -54,20 +55,27 @@ class UserCreateBaseSchema(UserBaseSchema):
 
     @field_validator("email")
     @classmethod
-    def validate_email(cls, email: str) -> str:
+    def validate_email(cls, email: str, info: ValidationInfo) -> str:
         """Check that email format is valid.
 
         Args:
         ----
             cls: OpenLabsUser object.
             email (str): User email address.
+            info (ValidatonInfo): Validator context
 
         Returns:
         -------
             str: User email address.
 
         """
+        is_admin: bool = info.data.get("is_admin", False)
         try:
+            # Skip deliverability check if user is admin (system default)
+            if is_admin:
+                emailinfo = validate_email(email, check_deliverability=False)
+                return emailinfo.normalized
+
             # Makes a DNS query to validate deliverability
             # We do this, as users will only be added to DB on registration
             emailinfo = validate_email(email, check_deliverability=True)
@@ -92,3 +100,39 @@ class UserCreateSchema(UserCreateBaseSchema, UserID):
     """User creation object for OpenLabs."""
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserInfoResponseSchema(BaseModel):
+    """User information response object for user page on OpenLabs Frontend."""
+
+    name: str = Field(
+        ...,
+        description="Full name of user",
+        min_length=1,
+        examples=["Adam Hassan", "Alex Christy", "Naresh Panchal"],
+    )
+    email: str = Field(
+        ...,
+        description="Email of user",
+        min_length=1,
+        examples=["adam@ufsit.club", "alex@christy.com", "naresh@panch.al"],
+    )
+    admin: bool = Field(
+        ...,
+        description="Admin status of user",
+        examples=[True, False],
+    )
+
+
+class PasswordUpdateSchema(BaseModel):
+    """Schema for updating user password."""
+
+    current_password: str = Field(
+        ...,
+        description="Current password of user",
+        min_length=1,
+        examples=["password123"],
+    )
+    new_password: str = Field(
+        ..., description="New password of user", min_length=1, examples=["password123!"]
+    )

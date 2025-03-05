@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
-from bcrypt import gensalt, hashpw
+from bcrypt import checkpw, gensalt, hashpw
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import load_only
@@ -128,7 +129,7 @@ async def get_user_by_id(db: AsyncSession, user_id: UserID) -> UserModel | None:
 
 
 async def create_user(
-    db: AsyncSession, openlabs_user: UserCreateBaseSchema
+    db: AsyncSession, openlabs_user: UserCreateBaseSchema, is_admin: bool = False
 ) -> UserModel:
     """Create and add a new OpenLabsUser to the database.
 
@@ -136,6 +137,7 @@ async def create_user(
     ----
         db (Session): Database connection.
         openlabs_user (UserBaseSchema): Dictionary containing User data.
+        is_admin (bool): Whether the user should be an admin. Defaults to False.
 
     Returns:
     -------
@@ -156,7 +158,7 @@ async def create_user(
     user_dict["created_at"] = datetime.now(UTC)
     user_dict["last_active"] = datetime.now(UTC)
 
-    user_dict["is_admin"] = False
+    user_dict["is_admin"] = is_admin
 
     user_obj = UserModel(**user_dict)
     db.add(user_obj)
@@ -172,3 +174,43 @@ async def create_user(
     await db.commit()
 
     return user_obj
+
+
+async def update_user_password(
+    db: AsyncSession, user_id: UUID, current_password: str, new_password: str
+) -> bool:
+    """Update a user's password.
+
+    Args:
+    ----
+        db (AsyncSession): Async database connection.
+        user_id (UUID): User ID.
+        current_password (str): Current password.
+        new_password (str): New password.
+
+    Returns:
+    -------
+        bool: True if the password was successfully updated, False otherwise.
+
+    """
+    # Get the user
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+
+    if not user:
+        return False
+
+    # Check if the current password is correct
+    if not checkpw(current_password.encode(), user.hashed_password.encode()):
+        return False
+
+    # Hash the new password
+    hash_salt = gensalt()
+    hashed_password = hashpw(new_password.encode(), hash_salt)
+
+    # Update the user's password
+    user.hashed_password = hashed_password.decode()
+    await db.commit()
+
+    return True

@@ -1,1 +1,1 @@
-"""Core authentication logic of the OpenLabsX API."""
+"""Core authentication logic of the OpenLabs API."""

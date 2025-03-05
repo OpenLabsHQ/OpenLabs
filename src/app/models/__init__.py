@@ -1,1 +1,1 @@
-"""SQLAlchemy models for OpenLabsX API."""
+"""SQLAlchemy models for OpenLabs API."""
