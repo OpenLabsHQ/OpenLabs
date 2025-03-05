@@ -29,8 +29,8 @@ class RangeFactory:
     @classmethod
     def create_range(
         cls,
-        deployed_range_id: uuid.UUID,
-        template_range: TemplateRangeSchema,
+        id: uuid.UUID,  # noqa: A002
+        template: TemplateRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
@@ -40,8 +40,8 @@ class RangeFactory:
         Args:
         ----
             cls (RangeFactory class): The RangeFactory class.
-            deployed_range_id (uuid.UUID): The UUID for the deployed range object.
-            template_range (TemplateRangeSchema): The range template object.
+            id (uuid.UUID): The UUID for the deployed range object.
+            template (TemplateRangeSchema): The range template object.
             region (OpenLabsRegion): Supported cloud region.
             owner_id (UserID): The ID of the user deploying range.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
@@ -51,16 +51,16 @@ class RangeFactory:
             CdktfBaseRange: Cdktf range object that can be deployed.
 
         """
-        range_class = cls._registry.get(template_range.provider)
+        range_class = cls._registry.get(template.provider)
 
         if range_class is None:
-            msg = f"Failed to build range object. Non-existent provider given: {template_range.provider}"
+            msg = f"Failed to build range object. Non-existent provider given: {template.provider}"
             logger.error(msg)
             raise ValueError(msg)
 
         return range_class(
-            range_id=deployed_range_id,
-            template=template_range,
+            id=id,
+            template=template,
             region=region,
             owner_id=owner_id,
             secrets=secrets,

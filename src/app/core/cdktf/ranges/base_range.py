@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -28,9 +29,9 @@ class CdktfBaseRange(ABC):
 
     id: uuid.UUID
     template: TemplateRangeSchema
+    state_file: dict[str, Any] | None  # Terraform state
     region: OpenLabsRegion
-    stack_name: str | None
-    state: str | None  # Terraform state
+    stack_name: str
     owner_id: UserID
     secrets: SecretSchema
 
@@ -38,24 +39,25 @@ class CdktfBaseRange(ABC):
     _is_synthesized: bool
     _is_deployed: bool
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
-        range_id: uuid.UUID,
+        id: uuid.UUID,  # noqa: A002
         template: TemplateRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
+        state_file: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
-        self.id = range_id
+        self.id = id
         self.template = template
         self.region = region
         self.owner_id = owner_id
         self.secrets = secrets
+        self.state_file = state_file
 
         # Initial values
-        self.stack_name = None
-        self.state = None
+        self.stack_name = f"{self.template.name}-{self.id}"
         self._is_synthesized = False
         self._is_deployed = False
 
@@ -95,8 +97,9 @@ class CdktfBaseRange(ABC):
     def synthesize(self) -> None:
         """Abstract method to synthesize terraform configuration."""
         try:
-            self.stack_name = f"{self.template.name}-{self.id}"
-            logger.info("Syntehsizing stack: %s", self.stack_name)
+            logger.info(
+                "Synthesizing selected range: %s (%s)", self.template.name, self.id
+            )
 
             # Create CDKTF app
             app = App(outdir=settings.CDKTF_DIR)
@@ -114,8 +117,9 @@ class CdktfBaseRange(ABC):
             # Synthesize Terraform files
             app.synth()
             logger.info(
-                "Range: %s synthesized successfully as: %s",
+                "Range: %s (%s) synthesized successfully as: %s",
                 self.template.name,
+                self.id,
                 self.stack_name,
             )
 
@@ -152,6 +156,9 @@ class CdktfBaseRange(ABC):
             # Terraform apply
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
+            logger.info(
+                "Deploying selected range: %s (%s)", self.template.name, self.id
+            )
             subprocess.run(  # noqa: S603
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
@@ -159,13 +166,15 @@ class CdktfBaseRange(ABC):
             )
 
             # Load state
-            state_path = self.get_synth_dir() / f"terraform.{self.stack_name}.tfstate"
-            if state_path.exists():
-                with open(state_path, "r", encoding="utf-8") as file:
-                    self.state = file.read()
+            state_file_path = self.get_state_file_path()
+            if state_file_path.exists():
+                with open(state_file_path, "r", encoding="utf-8") as file:
+                    self.state_file = json.loads(file.read())
 
             self._is_deployed = True
-            logger.info("Range deployment successful for %s", self.template.name)
+            logger.info(
+                "Successfully deployed range: %s (%s)", self.template.name, self.id
+            )
             os.chdir(initial_dir)
             return True
         except subprocess.CalledProcessError as e:
@@ -197,13 +206,22 @@ class CdktfBaseRange(ABC):
             self.synthesize()
 
         try:
-            # Change to directory with `cdk.tf.json` and terraform state file
+            # Change to directory with `cdk.tf.json`
             os.chdir(self.get_synth_dir())
+            if not self.create_state_file():
+                msg = f"Unable to destroy range: {self.template.name} ({self.id}) missing state file!"
+                raise ValueError(msg)
 
             # Run Terraform commands
-            print("Tearing down selected range: %s", self.template.name)
+            env = os.environ.copy()
+            env.update(self.get_cred_env_vars())
+            logger.info(
+                "Tearing down selected range: %s (%s)", self.template.name, self.id
+            )
             subprocess.run(  # noqa: S603
-                ["terraform", "destroy", "--auto-approve"], check=True  # noqa: S607
+                ["terraform", "destroy", "--auto-approve"],  # noqa: S607
+                check=True,
+                env=env,
             )
 
             # Delete synth files
@@ -211,6 +229,9 @@ class CdktfBaseRange(ABC):
             self._is_deployed = False
             self._is_synthesized = False
 
+            logger.info(
+                "Successfully destroyed range: %s (%s)", self.template.name, self.id
+            )
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)
@@ -230,6 +251,39 @@ class CdktfBaseRange(ABC):
     def get_synth_dir(self) -> Path:
         """Get CDKTF synthesis directory."""
         return Path(f"{settings.CDKTF_DIR}/stacks/{self.stack_name}")
+
+    def get_state_file(self) -> dict[str, Any] | None:
+        """Return state file content.
+
+        Range must have been deployed or have a state file passed on object creation.
+        """
+        return self.state_file
+
+    def get_state_file_path(self) -> Path:
+        """Get CDKTF state file path."""
+        return self.get_synth_dir() / f"terraform.{self.stack_name}.tfstate"
+
+    def create_state_file(self) -> bool:
+        """Create state file with contents.
+
+        Range must have been deployed or have a state file passed on object creation.
+
+        Returns
+        -------
+            bool: True if state file successfully written. False otherwise.
+
+        """
+        if not self.state_file:
+            msg = f"Can't write state file none exists! Attempted on range: {self.id}"
+            logger.warning(msg)
+            return False
+
+        with open(self.get_state_file_path(), mode="w") as file:
+            json.dump(self.state_file, file, indent=4)
+
+        msg = f"Successfully created state file: {self.get_state_file_path()} "
+        logger.info(msg)
+        return True
 
     def cleanup_synth(self) -> bool:
         """Delete Terraform files generated by CDKTF synthesis."""
