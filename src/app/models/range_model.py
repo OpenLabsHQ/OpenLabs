@@ -20,7 +20,7 @@ class RangeModel(Base, OwnableObjectMixin):
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     template: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     readme: Mapped[str] = mapped_column(String, nullable=True)
-    state_file: Mapped[str] = mapped_column(String, nullable=False)
+    state_file: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     state: Mapped[RangeState] = mapped_column(Enum(RangeState), nullable=False)
     region: Mapped[OpenLabsRegion] = mapped_column(Enum(OpenLabsRegion), nullable=False)
 
