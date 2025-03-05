@@ -2,11 +2,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
 from ...core.db.database import async_get_db
 from ...crud.crud_users import update_user_password
+from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
 from ...schemas.secret_schema import AWSSecrets, AzureSecrets
 from ...schemas.user_schema import PasswordUpdateSchema, UserInfoResponseSchema
@@ -68,40 +70,45 @@ async def update_password(
 @router.get("/me/secrets")
 async def get_user_secrets(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> dict[str, Any]:
     """Get the current user's cloud provider secrets status.
 
     Args:
     ----
         current_user (UserModel): The authenticated user.
+        db (AsyncSession): Database connection.
 
     Returns:
     -------
         dict: Status of user's cloud provider credentials.
 
     """
+    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
+    result = await db.execute(stmt)
+    secrets = result.scalars().first()
     # Check if the user has secrets
-    if not current_user.secrets:
+    if not secrets:
         return {
             "aws": {"has_credentials": False},
             "azure": {"has_credentials": False},
         }
 
     aws_created_at = None
-    if current_user.secrets.aws_created_at:
-        aws_created_at = current_user.secrets.aws_created_at.isoformat()
+    if secrets.aws_created_at:
+        aws_created_at = secrets.aws_created_at.isoformat()
 
     azure_created_at = None
-    if current_user.secrets.azure_created_at:
-        azure_created_at = current_user.secrets.azure_created_at.isoformat()
+    if secrets.azure_created_at:
+        azure_created_at = secrets.azure_created_at.isoformat()
 
     return {
         "aws": {
-            "has_credentials": current_user.secrets.aws_access_key is not None,
+            "has_credentials": secrets.aws_access_key is not None,
             "created_at": aws_created_at,
         },
         "azure": {
-            "has_credentials": current_user.secrets.azure_client_id is not None,
+            "has_credentials": secrets.azure_client_id is not None,
             "created_at": azure_created_at,
         },
     }
