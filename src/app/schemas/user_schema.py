@@ -20,7 +20,7 @@ class UserBaseSchema(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validate_email(cls, email: str, info: ValidationInfo) -> str:
+    def validate_email(cls, email: str, _: ValidationInfo) -> str:
         """Check that email format is valid.
 
         Args:
@@ -34,9 +34,6 @@ class UserBaseSchema(BaseModel):
             str: User email address.
 
         """
-        # This import is not used, but must match for UserCreateBaseSchema
-        del info
-
         try:
             emailinfo = validate_email(email, check_deliverability=False)
 
