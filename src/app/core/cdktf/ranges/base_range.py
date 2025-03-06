@@ -224,6 +224,7 @@ class CdktfBaseRange(ABC):
             logger.info(
                 "Tearing down selected range: %s (%s)", self.template.name, self.id
             )
+            subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
             subprocess.run(  # noqa: S603
                 ["terraform", "destroy", "--auto-approve"],  # noqa: S607
                 check=True,
