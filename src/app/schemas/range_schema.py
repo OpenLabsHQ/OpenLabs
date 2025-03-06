@@ -19,7 +19,7 @@ class RangeBaseSchema(BaseModel):
         description="Time range was created",
         examples=[datetime(2025, 2, 5, tzinfo=timezone.utc)],
     )
-    template: str = Field(
+    template: dict[str, Any] = Field(
         ..., description="Range template JSON string"
     )  # Dictionary not TemplateRange object to store JSON
     readme: str | None = Field(default=None, description="Markdown readme for range")

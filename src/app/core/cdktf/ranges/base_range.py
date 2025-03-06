@@ -47,6 +47,7 @@ class CdktfBaseRange(ABC):
         owner_id: UserID,
         secrets: SecretSchema,
         state_file: dict[str, Any] | None = None,
+        is_deployed: bool | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
         self.id = id
@@ -55,11 +56,11 @@ class CdktfBaseRange(ABC):
         self.owner_id = owner_id
         self.secrets = secrets
         self.state_file = state_file
+        self._is_deployed = is_deployed
 
         # Initial values
         self.stack_name = f"{self.template.name}-{self.id}"
         self._is_synthesized = False
-        self._is_deployed = False
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -175,7 +176,11 @@ class CdktfBaseRange(ABC):
             logger.info(
                 "Successfully deployed range: %s (%s)", self.template.name, self.id
             )
+
+            # Delete files made during deployment
             os.chdir(initial_dir)
+            self.cleanup_synth()
+            self._is_synthesized = False
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)

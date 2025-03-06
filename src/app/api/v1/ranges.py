@@ -107,7 +107,7 @@ async def deploy_range_from_template_endpoint(
         **deploy_range.model_dump(),
         id=range_to_deploy.id,
         date=datetime.now(tz=timezone.utc),
-        template=template.model_dump_json(),
+        template=template.model_dump(mode="json"),
         state_file=range_to_deploy.get_state_file(),
         state=RangeState.ON,  # User manually starts after deployment
     )
@@ -184,13 +184,17 @@ async def delete_range_endpoint(
     range_schema = RangeSchema.model_validate(range_model)
     range_template = TemplateRangeSchema.model_validate(range_schema.template)
     range_obj = RangeFactory.create_range(
-        **range_schema.model_dump(),
+        id=range_schema.id,
         template=range_template,
+        region=range_schema.region,
         owner_id=user_id,
         secrets=secrets,
+        statefile=range_schema.state_file,
+        is_deployed=True
     )
 
     # Destroy range
+    range_obj.synthesize()
     successful_destroy = range_obj.destroy()
     if not successful_destroy:
         raise HTTPException(

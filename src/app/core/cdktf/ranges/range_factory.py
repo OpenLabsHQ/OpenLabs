@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import ClassVar, Type
+from typing import Any, ClassVar, Type
 
 from ....enums.providers import OpenLabsProvider
 from ....enums.regions import OpenLabsRegion
@@ -34,6 +34,8 @@ class RangeFactory:
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
+        statefile: dict[str, Any] | None = None,
+        is_deployed: bool = False,
     ) -> CdktfBaseRange:
         """Create range object.
 
@@ -64,4 +66,6 @@ class RangeFactory:
             region=region,
             owner_id=owner_id,
             secrets=secrets,
+            state_file=statefile,
+            is_deployed=is_deployed
         )
