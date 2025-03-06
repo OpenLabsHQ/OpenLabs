@@ -20,6 +20,7 @@ from ...utils.crypto import generate_master_key
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
 @router.post("/login")
 async def login(
     openlabs_user: UserBaseSchema,

@@ -50,11 +50,11 @@ async def deploy_range_from_template(
     # Decode the encryption key
     try:
         master_key = base64.b64decode(enc_key)
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid encryption key. Please try logging in again.",
-        )
+        ) from e
 
     ranges: list[TemplateRangeSchema] = []
     for range_id in range_ids:
@@ -94,7 +94,11 @@ async def deploy_range_from_template(
     # Check if we have the appropriate credentials based on the provider
     # For now we'll check AWS only since that's what's implemented
     aws_secrets = decrypted_secrets.get("aws")
-    if not aws_secrets or not aws_secrets.get("aws_access_key") or not aws_secrets.get("aws_secret_key"):
+    if (
+        not aws_secrets
+        or not aws_secrets.get("aws_access_key")
+        or not aws_secrets.get("aws_secret_key")
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="AWS credentials not found or incomplete. Please add your AWS credentials.",
@@ -102,6 +106,7 @@ async def deploy_range_from_template(
 
     # Set environment variables for AWS provider
     import os
+
     os.environ["AWS_ACCESS_KEY_ID"] = aws_secrets["aws_access_key"]
     os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secrets["aws_secret_key"]
 

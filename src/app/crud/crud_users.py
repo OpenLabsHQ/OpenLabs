@@ -170,18 +170,16 @@ async def create_user(
 
 
 async def get_decrypted_secrets(
-    user: UserModel,
-    db: AsyncSession,
-    master_key: bytes
+    user: UserModel, db: AsyncSession, master_key: bytes
 ) -> Dict[str, Any] | None:
     """Get decrypted secrets for the user.
-    
+
     Args:
     ----
         user (UserModel): The user whose secrets to decrypt
         db (AsyncSession): Database connection
         master_key (bytes): The decryption master key
-        
+
     Returns:
     -------
         Dict | None: Decrypted secrets or None if decryption fails
@@ -215,8 +213,12 @@ async def get_decrypted_secrets(
             aws_secrets = decrypt_with_private_key(encrypted_aws, private_key_b64)
 
         # Decrypt Azure secrets if they exist
-        if (secrets.azure_client_id and secrets.azure_client_secret and
-            secrets.azure_tenant_id and secrets.azure_subscription_id):
+        if (
+            secrets.azure_client_id
+            and secrets.azure_client_secret
+            and secrets.azure_tenant_id
+            and secrets.azure_subscription_id
+        ):
             encrypted_azure = {
                 "azure_client_id": secrets.azure_client_id,
                 "azure_client_secret": secrets.azure_client_secret,
@@ -225,10 +227,7 @@ async def get_decrypted_secrets(
             }
             azure_secrets = decrypt_with_private_key(encrypted_azure, private_key_b64)
 
-        return {
-            "aws": aws_secrets,
-            "azure": azure_secrets
-        }
+        return {"aws": aws_secrets, "azure": azure_secrets}
     except Exception:
         # If decryption fails, return None
         return None
@@ -274,13 +273,17 @@ async def update_user_password(
 
         # Decrypt the private key using the old master key
         try:
-            private_key_b64 = decrypt_private_key(user.encrypted_private_key, old_master_key)
+            private_key_b64 = decrypt_private_key(
+                user.encrypted_private_key, old_master_key
+            )
 
             # Generate a new master key and salt
             new_master_key, new_key_salt = generate_master_key(new_password)
 
             # Re-encrypt the private key with the new master key
-            new_encrypted_private_key = encrypt_private_key(private_key_b64, new_master_key)
+            new_encrypted_private_key = encrypt_private_key(
+                private_key_b64, new_master_key
+            )
 
             # Update the user's encrypted private key and salt
             user.encrypted_private_key = new_encrypted_private_key

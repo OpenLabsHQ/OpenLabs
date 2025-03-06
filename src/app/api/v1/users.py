@@ -1,5 +1,5 @@
 import base64
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -26,21 +26,19 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 async def get_decrypted_secrets(
-    user: UserModel,
-    db: AsyncSession,
-    enc_key: str | None
-) -> dict[str, Any]:
+    user: UserModel, db: AsyncSession, enc_key: str | None
+) -> dict[str, Any] | None:
     """Get decrypted secrets for the user.
-    
+
     Args:
     ----
         user (UserModel): The user whose secrets to decrypt
         db (AsyncSession): Database connection
         enc_key (str | None): Base64-encoded encryption key from cookie
-        
+
     Returns:
     -------
-        dict: Decrypted secrets or None if decryption fails
+        dict[str, Any] | None: Decrypted secrets or None if decryption fails
 
     """
     if not enc_key or not user.encrypted_private_key:
@@ -74,8 +72,12 @@ async def get_decrypted_secrets(
             aws_secrets = decrypt_with_private_key(encrypted_aws, private_key_b64)
 
         # Decrypt Azure secrets if they exist
-        if (secrets.azure_client_id and secrets.azure_client_secret and
-            secrets.azure_tenant_id and secrets.azure_subscription_id):
+        if (
+            secrets.azure_client_id
+            and secrets.azure_client_secret
+            and secrets.azure_tenant_id
+            and secrets.azure_subscription_id
+        ):
             encrypted_azure = {
                 "azure_client_id": secrets.azure_client_id,
                 "azure_client_secret": secrets.azure_client_secret,
@@ -84,10 +86,7 @@ async def get_decrypted_secrets(
             }
             azure_secrets = decrypt_with_private_key(encrypted_azure, private_key_b64)
 
-        return {
-            "aws": aws_secrets,
-            "azure": azure_secrets
-        }
+        return {"aws": aws_secrets, "azure": azure_secrets}
     except Exception:
         # If decryption fails, return None
         return None
@@ -151,11 +150,12 @@ async def update_password(
         return JSONResponse(content={"message": "Password updated successfully"})
 
     # Generate a new master key with the new password and updated salt
-    master_key, _ = generate_master_key(password_update.new_password, updated_user.key_salt)
+    master_key, _ = generate_master_key(
+        password_update.new_password, updated_user.key_salt
+    )
     master_key_b64 = base64.b64encode(master_key).decode("utf-8")
 
-    # Set expiry time to match the authentication token
-    expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    # Set cookie expiry time
     expire_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
     # Create the response with updated cookie

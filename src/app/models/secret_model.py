@@ -8,7 +8,7 @@ from ..core.db.database import Base
 
 class SecretModel(Base):
     """SQLAlchemy ORM model for OpenLabs Secrets.
-    
+
     All secret fields are now stored encrypted using the user's public key.
     """
 

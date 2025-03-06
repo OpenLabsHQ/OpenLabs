@@ -26,8 +26,12 @@ class UserModel(Base, OpenLabsUserMixin):
 
     # Encryption-related fields
     public_key: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
-    encrypted_private_key: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
-    key_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, default=None)
+    encrypted_private_key: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
+    )
+    key_salt: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, default=None
+    )
 
     # One-to-one relationship with secrets.
     # For now, users can only have one azure or one aws secret

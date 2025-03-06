@@ -48,7 +48,9 @@ async def initialize_admin_user() -> None:
                 master_key, key_salt = generate_master_key(settings.ADMIN_PASSWORD)
 
                 # Encrypt the private key with the master key
-                encrypted_private_key_b64 = encrypt_private_key(private_key_b64, master_key)
+                encrypted_private_key_b64 = encrypt_private_key(
+                    private_key_b64, master_key
+                )
 
                 # Update the user with encryption keys
                 admin_user.public_key = public_key_b64
