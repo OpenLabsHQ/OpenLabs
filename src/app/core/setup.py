@@ -5,6 +5,11 @@ from fastapi import APIRouter, FastAPI
 
 from ..crud.crud_users import create_user, get_user
 from ..schemas.user_schema import UserCreateBaseSchema
+from ..utils.crypto import (
+    encrypt_private_key,
+    generate_master_key,
+    generate_rsa_key_pair,
+)
 from .config import AppSettings, DatabaseSettings, settings
 from .db.database import Base, local_session
 from .db.database import async_engine as engine
@@ -30,8 +35,27 @@ async def initialize_admin_user() -> None:
             )
 
             admin_user = await get_user(db, settings.ADMIN_EMAIL)
+
             if not admin_user:
+                # This will create the user with RSA keys and proper encryption
                 await create_user(db, admin_schema, is_admin=True)
+            elif admin_user and not admin_user.public_key:
+                # If admin user exists but doesn't have encryption keys (legacy migration),
+                # generate keys and add them
+                private_key_b64, public_key_b64 = generate_rsa_key_pair()
+
+                # Generate master key from password using Argon2
+                master_key, key_salt = generate_master_key(settings.ADMIN_PASSWORD)
+
+                # Encrypt the private key with the master key
+                encrypted_private_key_b64 = encrypt_private_key(private_key_b64, master_key)
+
+                # Update the user with encryption keys
+                admin_user.public_key = public_key_b64
+                admin_user.encrypted_private_key = encrypted_private_key_b64
+                admin_user.key_salt = key_salt
+
+                await db.commit()
     except Exception as e:
         msg = "Failed to create admin user. Check logs for more details."
         raise ValueError(msg) from e

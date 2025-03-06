@@ -1,13 +1,15 @@
+import base64
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
 from ...crud.crud_range_templates import get_range_template, is_range_template_owner
+from ...crud.crud_users import get_decrypted_secrets
 from ...models.user_model import UserModel
 from ...schemas.template_range_schema import TemplateRangeID, TemplateRangeSchema
 
@@ -19,6 +21,7 @@ async def deploy_range_from_template(
     range_ids: list[TemplateRangeID],
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    enc_key: str | None = Cookie(None, alias="enc_key"),
 ) -> dict[str, Any]:
     """Deploy range templates.
 
@@ -27,6 +30,7 @@ async def deploy_range_from_template(
         range_ids (list[TemplateRangeID]): List of range template IDs to deploy.
         db (AsyncSession): Async database connection.
         current_user (UserModel): Currently authenticated user.
+        enc_key (str): Encryption key from cookie for decrypting secrets.
 
     Returns:
     -------
@@ -35,6 +39,22 @@ async def deploy_range_from_template(
     """
     # Import CDKTF dependencies to avoid long import times
     from ...core.cdktf.aws.aws import create_aws_stack, deploy_infrastructure
+
+    # Check if we have the encryption key needed to decrypt secrets
+    if not enc_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Encryption key not found. Please try logging in again.",
+        )
+
+    # Decode the encryption key
+    try:
+        master_key = base64.b64decode(enc_key)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid encryption key. Please try logging in again.",
+        )
 
     ranges: list[TemplateRangeSchema] = []
     for range_id in range_ids:
@@ -62,6 +82,28 @@ async def deploy_range_from_template(
         ranges.append(
             TemplateRangeSchema.model_validate(range_model, from_attributes=True)
         )
+
+    # Get the decrypted credentials
+    decrypted_secrets = await get_decrypted_secrets(current_user, db, master_key)
+    if not decrypted_secrets:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to decrypt cloud credentials. Please try logging in again.",
+        )
+
+    # Check if we have the appropriate credentials based on the provider
+    # For now we'll check AWS only since that's what's implemented
+    aws_secrets = decrypted_secrets.get("aws")
+    if not aws_secrets or not aws_secrets.get("aws_access_key") or not aws_secrets.get("aws_secret_key"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AWS credentials not found or incomplete. Please add your AWS credentials.",
+        )
+
+    # Set environment variables for AWS provider
+    import os
+    os.environ["AWS_ACCESS_KEY_ID"] = aws_secrets["aws_access_key"]
+    os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secrets["aws_secret_key"]
 
     for deploy_range in ranges:
         deployed_range_id = uuid.uuid4()

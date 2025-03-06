@@ -1,3 +1,4 @@
+import base64
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -15,9 +16,9 @@ from ...schemas.user_schema import (
     UserCreateBaseSchema,
     UserID,
 )
+from ...utils.crypto import generate_master_key
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
 
 @router.post("/login")
 async def login(
@@ -33,7 +34,7 @@ async def login(
 
     Returns:
     -------
-        JSONResponse: Response with cookie containing JWT.
+        JSONResponse: Response with cookies containing JWT and encryption key.
 
     """
     user = await get_user(db, openlabs_user.email)
@@ -60,7 +61,19 @@ async def login(
 
     data_dict.update({"exp": expire})
     token = jwt.encode(data_dict, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+    # Generate master encryption key from password and salt
+    master_key = None
+    if user.key_salt:
+        master_key, _ = generate_master_key(openlabs_user.password, user.key_salt)
+        master_key_b64 = base64.b64encode(master_key).decode("utf-8")
+    else:
+        # If no salt exists yet (legacy user), we'll set an empty key
+        master_key_b64 = ""
+
     response = JSONResponse(content={"success": True})
+
+    # Set authentication token cookie
     response.set_cookie(
         key="token",
         value=token,
@@ -70,6 +83,18 @@ async def login(
         max_age=expire_seconds,
         path="/",
     )
+
+    # Set encryption key cookie
+    response.set_cookie(
+        key="enc_key",
+        value=master_key_b64,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=expire_seconds,
+        path="/",
+    )
+
     return response
 
 
@@ -109,16 +134,20 @@ async def register_new_user(
 
 @router.post("/logout")
 async def logout() -> JSONResponse:
-    """Logout a user by clearing the authentication cookie.
+    """Logout a user by clearing the authentication and encryption key cookies.
 
     Returns
     -------
-        JSONResponse: Response with cleared cookie.
+        JSONResponse: Response with cleared cookies.
 
     """
     response = JSONResponse(content={"success": True})
     response.delete_cookie(
         key="token",
+        path="/",
+    )
+    response.delete_cookie(
+        key="enc_key",
         path="/",
     )
     return response
