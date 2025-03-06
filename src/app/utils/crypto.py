@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 
 
 # RSA Key Generation
@@ -98,9 +99,10 @@ def encrypt_with_public_key(
 ) -> Dict[str, str]:
     """Encrypt a dictionary of string data using the RSA public key."""
     public_key_bytes = base64.b64decode(public_key_b64)
-    public_key = serialization.load_pem_public_key(
+    loaded_key: RSAPublicKey = serialization.load_pem_public_key(  # type: ignore
         public_key_bytes, backend=default_backend()
     )
+    public_key = loaded_key
 
     encrypted_data = {}
 
@@ -133,9 +135,10 @@ def decrypt_with_private_key(
 ) -> Dict[str, str]:
     """Decrypt a dictionary of encrypted data using the RSA private key."""
     private_key_bytes = base64.b64decode(private_key_b64)
-    private_key = serialization.load_pem_private_key(
+    loaded_key: RSAPrivateKey = serialization.load_pem_private_key(  # type: ignore
         private_key_bytes, password=None, backend=default_backend()
     )
+    private_key = loaded_key
 
     decrypted_data = {}
 
