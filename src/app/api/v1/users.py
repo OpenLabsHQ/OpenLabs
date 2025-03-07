@@ -16,80 +16,11 @@ from ...models.user_model import UserModel
 from ...schemas.secret_schema import AWSSecrets, AzureSecrets
 from ...schemas.user_schema import PasswordUpdateSchema, UserID, UserInfoResponseSchema
 from ...utils.crypto import (
-    decrypt_private_key,
-    decrypt_with_private_key,
     encrypt_with_public_key,
     generate_master_key,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-async def get_decrypted_secrets(
-    user: UserModel, db: AsyncSession, enc_key: str | None
-) -> dict[str, Any] | None:
-    """Get decrypted secrets for the user.
-
-    Args:
-    ----
-        user (UserModel): The user whose secrets to decrypt
-        db (AsyncSession): Database connection
-        enc_key (str | None): Base64-encoded encryption key from cookie
-
-    Returns:
-    -------
-        dict[str, Any] | None: Decrypted secrets or None if decryption fails
-
-    """
-    if not enc_key or not user.encrypted_private_key:
-        return None
-
-    # Fetch the user's secrets from the database
-    stmt = select(SecretModel).where(SecretModel.user_id == user.id)
-    result = await db.execute(stmt)
-    secrets = result.scalars().first()
-
-    if not secrets:
-        return None
-
-    try:
-        # Decode the encryption key
-        master_key = base64.b64decode(enc_key)
-
-        # Decrypt the private key
-        private_key_b64 = decrypt_private_key(user.encrypted_private_key, master_key)
-
-        # Prepare containers for decrypted secrets
-        aws_secrets = None
-        azure_secrets = None
-
-        # Decrypt AWS secrets if they exist
-        if secrets.aws_access_key and secrets.aws_secret_key:
-            encrypted_aws = {
-                "aws_access_key": secrets.aws_access_key,
-                "aws_secret_key": secrets.aws_secret_key,
-            }
-            aws_secrets = decrypt_with_private_key(encrypted_aws, private_key_b64)
-
-        # Decrypt Azure secrets if they exist
-        if (
-            secrets.azure_client_id
-            and secrets.azure_client_secret
-            and secrets.azure_tenant_id
-            and secrets.azure_subscription_id
-        ):
-            encrypted_azure = {
-                "azure_client_id": secrets.azure_client_id,
-                "azure_client_secret": secrets.azure_client_secret,
-                "azure_tenant_id": secrets.azure_tenant_id,
-                "azure_subscription_id": secrets.azure_subscription_id,
-            }
-            azure_secrets = decrypt_with_private_key(encrypted_azure, private_key_b64)
-
-        return {"aws": aws_secrets, "azure": azure_secrets}
-    except Exception:
-        # If decryption fails, return None
-        return None
 
 
 @router.get("/me", response_model=UserInfoResponseSchema)
