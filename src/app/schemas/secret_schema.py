@@ -68,3 +68,17 @@ class AzureSecrets(BaseModel):
     azure_client_secret: str
     azure_tenant_id: str
     azure_subscription_id: str
+
+
+class CloudSecretStatusSchema(BaseModel):
+    """General response schema for a single cloud provider."""
+
+    has_credentials: bool
+    created_at: datetime | None
+
+
+class UserSecretResponseSchema(BaseModel):
+    """Response schema for retrieving user secret status."""
+
+    aws: CloudSecretStatusSchema
+    azure: CloudSecretStatusSchema

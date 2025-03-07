@@ -1,6 +1,5 @@
 import base64
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -13,7 +12,17 @@ from ...core.db.database import async_get_db
 from ...crud.crud_users import get_user_by_id, update_user_password
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
-from ...schemas.secret_schema import AWSSecrets, AzureSecrets
+from ...schemas.message_schema import (
+    AWSUpdateSecretMessageSchema,
+    AzureUpdateSecretMessageSchema,
+    UpdatePasswordMessageSchema,
+)
+from ...schemas.secret_schema import (
+    AWSSecrets,
+    AzureSecrets,
+    CloudSecretStatusSchema,
+    UserSecretResponseSchema,
+)
 from ...schemas.user_schema import PasswordUpdateSchema, UserID, UserInfoResponseSchema
 from ...utils.crypto import (
     encrypt_with_public_key,
@@ -23,7 +32,7 @@ from ...utils.crypto import (
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserInfoResponseSchema)
+@router.get("/me")
 async def get_user_info(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
 ) -> UserInfoResponseSchema:
@@ -43,7 +52,7 @@ async def get_user_info(
     )
 
 
-@router.post("/me/password")
+@router.post("/me/password", response_model=UpdatePasswordMessageSchema)
 async def update_password(
     password_update: PasswordUpdateSchema,
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
@@ -59,7 +68,7 @@ async def update_password(
 
     Returns:
     -------
-        JSONResponse: Success message with updated cookie.
+        JSONResponse: Status message with updated cookie.
 
     """
     success = await update_user_password(
@@ -110,7 +119,7 @@ async def update_password(
 async def get_user_secrets(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
-) -> dict[str, Any]:
+) -> UserSecretResponseSchema:
     """Get the current user's cloud provider secrets status.
 
     Args:
@@ -120,7 +129,7 @@ async def get_user_secrets(
 
     Returns:
     -------
-        dict: Status of user's cloud provider credentials.
+        UserSecretResponseSchema: Status of user's cloud provider credentials.
 
     """
     stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
@@ -128,10 +137,10 @@ async def get_user_secrets(
     secrets = result.scalars().first()
     # Check if the user has secrets
     if not secrets:
-        return {
-            "aws": {"has_credentials": False},
-            "azure": {"has_credentials": False},
-        }
+        return UserSecretResponseSchema(
+            aws=CloudSecretStatusSchema(has_credentials=False, created_at=None),
+            azure=CloudSecretStatusSchema(has_credentials=False, created_at=None),
+        )
 
     aws_created_at = None
     if secrets.aws_created_at:
@@ -141,21 +150,24 @@ async def get_user_secrets(
     if secrets.azure_created_at:
         azure_created_at = secrets.azure_created_at.isoformat()
 
-    return {
-        "aws": {
-            "has_credentials": secrets.aws_access_key is not None,
-            "created_at": aws_created_at,
-        },
-        "azure": {
-            "has_credentials": (
+    return UserSecretResponseSchema(
+        aws=CloudSecretStatusSchema(
+            has_credentials=(
+                secrets.aws_access_key is not None
+                and secrets.aws_secret_key is not None
+            ),
+            created_at=aws_created_at,
+        ),
+        azure=CloudSecretStatusSchema(
+            has_credentials=(
                 secrets.azure_client_id is not None
                 and secrets.azure_client_secret is not None
                 and secrets.azure_tenant_id is not None
                 and secrets.azure_subscription_id is not None
             ),
-            "created_at": azure_created_at,
-        },
-    }
+            created_at=azure_created_at,
+        ),
+    )
 
 
 @router.post("/me/secrets/aws")
@@ -163,7 +175,7 @@ async def update_aws_secrets(
     aws_secrets: AWSSecrets,
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
-) -> dict[str, str]:
+) -> AWSUpdateSecretMessageSchema:
     """Update the current user's AWS secrets.
 
     Args:
@@ -174,7 +186,7 @@ async def update_aws_secrets(
 
     Returns:
     -------
-        dict[str, str]: Success message.
+        AWSUpdateSecretMessageSchema: Status message.
 
     """
     # Fetch secrets explicitly from the database
@@ -209,7 +221,7 @@ async def update_aws_secrets(
     secrets.aws_created_at = datetime.now(UTC)
     await db.commit()
 
-    return {"message": "AWS credentials updated successfully"}
+    return AWSUpdateSecretMessageSchema(message="AWS credentials updated successfully")
 
 
 @router.post("/me/secrets/azure")
@@ -217,7 +229,7 @@ async def update_azure_secrets(
     azure_secrets: AzureSecrets,
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
-) -> dict[str, str]:
+) -> AzureUpdateSecretMessageSchema:
     """Update the current user's Azure secrets.
 
     Args:
@@ -228,7 +240,7 @@ async def update_azure_secrets(
 
     Returns:
     -------
-        dict[str, str]: Success message.
+        AzureUpdateSecretMessageSchema: Success message.
 
     """
     # Fetch secrets explicitly from the database
@@ -267,4 +279,6 @@ async def update_azure_secrets(
     secrets.azure_created_at = datetime.now(UTC)
     await db.commit()
 
-    return {"message": "Azure credentials updated successfully"}
+    return AzureUpdateSecretMessageSchema(
+        message="Azure credentials updated successfully"
+    )

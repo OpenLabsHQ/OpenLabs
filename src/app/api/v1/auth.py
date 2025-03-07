@@ -11,17 +11,14 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from ...core.config import settings
 from ...core.db.database import async_get_db
 from ...crud.crud_users import create_user, get_user
-from ...schemas.user_schema import (
-    UserBaseSchema,
-    UserCreateBaseSchema,
-    UserID,
-)
+from ...schemas.message_schema import UserLoginMessageSchema, UserLogoutMessageSchema
+from ...schemas.user_schema import UserBaseSchema, UserCreateBaseSchema, UserID
 from ...utils.crypto import generate_master_key
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/login")
+@router.post("/login", response_model=UserLoginMessageSchema)
 async def login(
     openlabs_user: UserBaseSchema,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
@@ -133,7 +130,7 @@ async def register_new_user(
     return UserID.model_validate(created_user, from_attributes=True)
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=UserLogoutMessageSchema)
 async def logout() -> JSONResponse:
     """Logout a user by clearing the authentication and encryption key cookies.
 
