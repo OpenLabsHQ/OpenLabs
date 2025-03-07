@@ -15,7 +15,7 @@ class UserBaseSchema(BaseModel):
     )
 
     password: str = Field(
-        ..., description="Password of user", min_length=1, examples=["password123"]
+        ..., description="Password of user", min_length=8, examples=["password123"]
     )
 
     @field_validator("email")
@@ -130,9 +130,9 @@ class PasswordUpdateSchema(BaseModel):
     current_password: str = Field(
         ...,
         description="Current password of user",
-        min_length=1,
+        min_length=8,
         examples=["password123"],
     )
     new_password: str = Field(
-        ..., description="New password of user", min_length=1, examples=["password123!"]
+        ..., description="New password of user", min_length=8, examples=["password123!"]
     )
