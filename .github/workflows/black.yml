@@ -1,4 +1,4 @@
-name: Tests
+name: Black
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r dev-requirements.txt
 
-      # Run Tests
-      - name: Run Tests
+      # Run Black formatter
+      - name: Run Black
         run: |
-          pytest
+          black .
