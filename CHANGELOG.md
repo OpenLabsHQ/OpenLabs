@@ -1,3 +1,21 @@
+# v0.7.0 (Sat Mar 08 2025)
+
+#### 🚀 Enhancement
+
+- Add ownership to templates and ranges + Implement auth endpoints [#56](https://github.com/OpenLabsHQ/API/pull/56) ([@Adamkadaban](https://github.com/Adamkadaban) [@alexchristy](https://github.com/alexchristy))
+
+#### 📝 Documentation
+
+- Update .autorc [#63](https://github.com/OpenLabsHQ/API/pull/63) ([@alexchristy](https://github.com/alexchristy))
+- Split old test workflow [#62](https://github.com/OpenLabsHQ/API/pull/62) ([@alexchristy](https://github.com/alexchristy))
+
+#### Authors: 2
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
 # v0.6.2 (Thu Feb 27 2025)
 
 #### 🐛 Bug Fix
