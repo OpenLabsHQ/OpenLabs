@@ -117,8 +117,8 @@ async def test_update_password_with_incorrect_current(client: AsyncClient) -> No
     assert update_response.json()["detail"] == "Current password is incorrect"
 
 
-async def test_secrets_operations(client: AsyncClient) -> None:
-    """Test all secret-related operations."""
+async def test_get_initial_secrets_status(client: AsyncClient) -> None:
+    """Test getting the initial secrets status."""
     # Set the authorization header with the token
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
 
@@ -127,8 +127,13 @@ async def test_secrets_operations(client: AsyncClient) -> None:
     assert status_response.status_code == status.HTTP_200_OK
 
     # Check the status response is valid JSON
-    # (not asserting specific values as test order may vary)
     _ = status_response.json()
+
+
+async def test_update_aws_credentials(client: AsyncClient) -> None:
+    """Test updating AWS credentials."""
+    # Set the authorization header with the token
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
 
     # Add AWS credentials
     aws_response = await client.post(
@@ -145,6 +150,12 @@ async def test_secrets_operations(client: AsyncClient) -> None:
     assert aws_status["aws"]["has_credentials"] is True
     assert "created_at" in aws_status["aws"]
 
+
+async def test_update_azure_credentials(client: AsyncClient) -> None:
+    """Test updating Azure credentials."""
+    # Set the authorization header with the token
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+
     # Add Azure credentials
     azure_response = await client.post(
         f"{BASE_ROUTE}/users/me/secrets/azure", json=azure_secrets_payload
@@ -152,14 +163,29 @@ async def test_secrets_operations(client: AsyncClient) -> None:
     assert azure_response.status_code == status.HTTP_200_OK
     assert azure_response.json()["message"] == "Azure credentials updated successfully"
 
-    # Final status check
-    final_status_response = await client.get(f"{BASE_ROUTE}/users/me/secrets")
-    assert final_status_response.status_code == status.HTTP_200_OK
+    # Check updated status
+    status_response = await client.get(f"{BASE_ROUTE}/users/me/secrets")
+    assert status_response.status_code == status.HTTP_200_OK
 
-    final_status = final_status_response.json()
-    assert final_status["aws"]["has_credentials"] is True
-    assert final_status["azure"]["has_credentials"] is True
-    assert "created_at" in final_status["azure"]
+    azure_status = status_response.json()
+    assert azure_status["azure"]["has_credentials"] is True
+    assert "created_at" in azure_status["azure"]
+
+
+async def test_both_provider_credentials_status(client: AsyncClient) -> None:
+    """Test that status shows both provider credentials when set."""
+    # Set the authorization header with the token
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+
+    # Check final status with both credentials
+    status_response = await client.get(f"{BASE_ROUTE}/users/me/secrets")
+    assert status_response.status_code == status.HTTP_200_OK
+
+    provider_status = status_response.json()
+    assert provider_status["aws"]["has_credentials"] is True
+    assert provider_status["azure"]["has_credentials"] is True
+    assert "created_at" in provider_status["aws"]
+    assert "created_at" in provider_status["azure"]
 
 
 async def test_unauthenticated_access(client: AsyncClient) -> None:
