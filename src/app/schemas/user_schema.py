@@ -10,7 +10,7 @@ class UserBaseSchema(BaseModel):
     email: str = Field(
         ...,
         description="Email of user",
-        min_length=1,
+        min_length=3,
         examples=["adam@ufsit.club", "alex@christy.com", "naresh@panch.al"],
     )
 
@@ -114,7 +114,7 @@ class UserInfoResponseSchema(BaseModel):
     email: str = Field(
         ...,
         description="Email of user",
-        min_length=1,
+        min_length=3,
         examples=["adam@ufsit.club", "alex@christy.com", "naresh@panch.al"],
     )
     admin: bool = Field(
