@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -21,6 +22,8 @@ from ..utils.crypto import (
     generate_master_key,
     generate_rsa_key_pair,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def create_secret(
@@ -240,7 +243,11 @@ async def get_decrypted_secrets(
 
         return decrypted_secrets
     except Exception:
-        # If decryption fails, return None
+        logger.warning(
+            "Failed to decrypt secret when getting a secret for user: %s (%s)",
+            user.name,
+            user.id,
+        )
         return None
 
 
@@ -300,7 +307,11 @@ async def update_user_password(
             user.encrypted_private_key = new_encrypted_private_key
             user.key_salt = new_key_salt
         except Exception:
-            # If decryption fails, don't update the password
+            logger.warning(
+                "Failed to decrypt secret when updating a secret for user: %s (%s)",
+                user.name,
+                user.id,
+            )
             return False
 
     # Update the user's password
