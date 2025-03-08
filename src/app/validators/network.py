@@ -5,7 +5,7 @@ from ..enums.operating_systems import OS_SIZE_THRESHOLD, OpenLabsOS
 
 
 def is_valid_hostname(hostname: str) -> bool:
-    """Check if string is a valid hostname based on RRFC 1035.
+    """Check if string is a valid hostname based on RFC 1035.
 
     Args:
     ----

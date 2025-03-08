@@ -1,1 +1,1 @@
-"""CDKTF logic for the OpenLabsX API."""
+"""CDKTF logic for the OpenLabs API."""

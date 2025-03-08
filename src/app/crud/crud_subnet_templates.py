@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_subnet_template_headers(
-    db: AsyncSession, standalone_only: bool = True
+    db: AsyncSession, standalone_only: bool = True, user_id: uuid.UUID | None = None
 ) -> list[TemplateSubnetModel]:
     """Get list of subnet template headers.
 
@@ -27,6 +28,7 @@ async def get_subnet_template_headers(
         db (Session): Database connection.
         standalone_only (bool): Include only subnets that are standalone templates
             (i.e. those with a null vpc_id). Defaults to True.
+        user_id (Optional[uuid.UUID]): If provided, only return templates owned by this user.
 
     Returns:
     -------
@@ -40,33 +42,35 @@ async def get_subnet_template_headers(
         for attr in mapped_subnet_model.column_attrs
     ]
 
-    # Build the query: filter for rows where vpc_id is null if standalone_only is True
+    # Start building the query
+    stmt = select(TemplateSubnetModel)
+
     if standalone_only:
-        stmt = (
-            select(TemplateSubnetModel)
-            .where(TemplateSubnetModel.vpc_id.is_(None))
-            .options(load_only(*main_columns))
-        )
-    else:
-        stmt = select(TemplateSubnetModel).options(load_only(*main_columns))
+        stmt = stmt.where(TemplateSubnetModel.vpc_id.is_(None))
+
+    if user_id:
+        stmt = stmt.filter(TemplateSubnetModel.owner_id == user_id)
+
+    stmt = stmt.options(load_only(*main_columns))
 
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
 async def get_subnet_template(
-    db: AsyncSession, subnet_id: TemplateSubnetID
+    db: AsyncSession, subnet_id: TemplateSubnetID, user_id: uuid.UUID | None = None
 ) -> TemplateSubnetModel | None:
     """Get subnet template by id (uuid).
 
     Args:
     ----
         db (Session): Database connection.
-        subnet_id (TemplateSubnetID): UUID of the VPC.
+        subnet_id (TemplateSubnetID): UUID of the subnet.
+        user_id (Optional[uuid.UUID]): If provided, only return templates owned by this user.
 
     Returns:
     -------
-        Optional[OpenLabsSubnet]: TemplateSubnetModel if it exists in database.
+        Optional[TemplateSubnetModel]: TemplateSubnetModel if it exists in database.
 
     """
     stmt = (
@@ -74,6 +78,10 @@ async def get_subnet_template(
         .options(selectinload(TemplateSubnetModel.hosts))
         .filter(TemplateSubnetModel.id == subnet_id.id)
     )
+
+    if user_id:
+        stmt = stmt.filter(TemplateSubnetModel.owner_id == user_id)
+
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -82,6 +90,7 @@ async def create_subnet_template(
     db: AsyncSession,
     template_subnet: TemplateSubnetBaseSchema,
     vpc_id: TemplateVPCID | None = None,
+    owner_id: uuid.UUID | None = None,
 ) -> TemplateSubnetModel:
     """Create and add a new subnet template to the database.
 
@@ -90,6 +99,7 @@ async def create_subnet_template(
         db (Session): Database connection.
         template_subnet (TemplateSubnetBaseSchema): Dictionary containing OpenLabsSubnet data.
         vpc_id (Optional[TemplateVPCID]): VPC ID to link subnet back too.
+        owner_id (Optional[uuid.UUID]): ID of the user who owns this template.
 
     Returns:
     -------
@@ -101,12 +111,20 @@ async def create_subnet_template(
     if vpc_id:
         subnet_dict["vpc_id"] = vpc_id.id
 
+    if owner_id:
+        subnet_dict["owner_id"] = owner_id
+
     subnet_obj = TemplateSubnetModel(**subnet_dict)
     db.add(subnet_obj)
 
-    # Add subnets
+    # Add hosts
     host_objects = [
-        await create_host_template(db, host_data, TemplateSubnetID(id=subnet_obj.id))
+        await create_host_template(
+            db,
+            host_data,
+            TemplateSubnetID(id=subnet_obj.id),
+            owner_id=owner_id,  # Pass owner_id to hosts
+        )
         for host_data in template_subnet.hosts
     ]
 

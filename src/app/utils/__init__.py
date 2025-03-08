@@ -1,1 +1,1 @@
-"""Utilities for the OpenLabsX API."""
+"""Utilities for the OpenLabs API."""

@@ -1,1 +1,1 @@
-"""Validator tests for the OpenLabsX API."""
+"""Validator tests for the OpenLabs API."""

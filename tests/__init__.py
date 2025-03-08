@@ -1,1 +1,1 @@
-"""Tests for OpenLabsX API."""
+"""Tests for OpenLabs API."""

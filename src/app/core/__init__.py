@@ -1,1 +1,1 @@
-"""Core app logic of the OpenLabsX API."""
+"""Core app logic of the OpenLabs API."""

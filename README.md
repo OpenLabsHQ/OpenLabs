@@ -32,6 +32,15 @@ POSTGRES_DB=openlabsx
 
 # Docker Compose Configuration
 POSTGRES_DEBUG_PORT=5432  # Expose PostgreSQL on host port for debugging
+
+# Admin User Configuration (optional)
+ADMIN_EMAIL=admin@test.com        # Default admin email 
+ADMIN_PASSWORD=admin123           # Default admin password
+ADMIN_NAME=Administrator          # Default admin name
+# Admin user is automatically created when database is initialized
+
+# Authentication Configuration
+SECRET_KEY=your-secret-key-here   # JWT token signing key (CHANGE THIS!)
 ```
 </details>
 
@@ -150,35 +159,67 @@ All tests are located in `tests/`. The structure of the `tests/` directory mirro
 src/
 └── app
     ├── api
-    │   └── v1                  # API Version 1 routes (/v1)
-    |       |                   # ------------------------- #
-    │       ├── health.py       # /health routes
-    │       └── templates.py    # /templates routes
+    │   └── v1                   # API Version 1 routes (/v1)
+    |       |                    # ------------------------- #
+    │       ├── auth.py          # /auth routes
+    │       ├── health.py        # /health routes
+    │       ├── ranges.py        # /ranges routes
+    │       ├── templates.py     # /templates routes
+    │       └── users.py         # /users routes
     |
-    ├── core                    # Core Application Logic
-    |   |                       # ---------------------- #
-    │   ├── cdktf/              # CDKTF Libraries
-    │   ├── config.py           # Application settings
-    │   ├── db                  # Database configuration
+    ├── core                     # Core Application Logic
+    |   |                        # ---------------------- #
+    │   ├── auth/                # Authentication utilities
+    │   │   └── auth.py
+    │   ├── cdktf/               # CDKTF Libraries
+    │   │   └── aws/             # AWS provider configuration
+    │   ├── config.py            # Application settings
+    │   ├── db                   # Database configuration
     │   │   └── database.py
-    │   ├── logger.py           # Shared logger utility
-    │   └── setup.py            # Application setup logic
+    │   ├── logger.py            # Shared logger utility
+    │   └── setup.py             # Application setup logic
     | 
-    ├── enums                   # Enums (Constants)
-    |   |                       # ---------------- #
-    │   ├── providers.py        # Defined cloud providers
-    │   └── specs.py            # Preset VM hardware configurations
+    ├── crud                     # Database CRUD operations
+    │   ├── crud_host_templates.py
+    │   ├── crud_range_templates.py
+    │   ├── crud_subnet_templates.py
+    │   ├── crud_users.py
+    │   └── crud_vpc_templates.py
     |
-    ├── schemas                 # API Schema (Objects)
-    |   |                       # ------------------ #
-    │   ├── openlabs.py         # OpenLabs network objects
-    │   └── templates.py        # Template objects
+    ├── enums                    # Enums (Constants)
+    |   |                        # ---------------- #
+    │   ├── operating_systems.py # OS configurations
+    │   ├── providers.py         # Defined cloud providers
+    │   └── specs.py             # Preset VM hardware configurations
     |
-    └── validators              # Data Validation
-    |   |                       # --------------- #
-    |   └── network.py          # Networking config input validation
+    ├── models                   # Database Models
+    │   ├── secret_model.py        # Encrypted cloud provider credentials (AWS, Azure)
+    │   ├── template_base_model.py
+    │   ├── template_host_model.py
+    │   ├── template_range_model.py
+    │   ├── template_subnet_model.py
+    │   ├── template_vpc_model.py
+    │   └── user_model.py
     |
-    └── main.py                 # Main App Entry Point
+    ├── schemas                  # API Schema (Objects)
+    |   |                        # ------------------ #
+    │   ├── secret_schema.py      # Cloud provider credential schemas
+    │   ├── template_host_schema.py
+    │   ├── template_range_schema.py
+    │   ├── template_subnet_schema.py
+    │   ├── template_vpc_schema.py
+    │   └── user_schema.py
+    |
+    ├── utils                    # Utility Functions
+    │   ├── cdktf_utils.py       # CDKTF configuration utilities
+    │   └── crypto.py            # Cryptography utilities for encrypting cloud provider credentials
+    |
+    ├── validators               # Data Validation
+    |   |                        # --------------- #
+    │   ├── id.py                # ID validation
+    │   └── network.py           # Networking config input validation
+    |
+    └── main.py                  # Main App Entry Point
 ```
 
 ## VScode Extensions
@@ -261,7 +302,7 @@ This workflow automatically creates GitHub tagged releases based on the tag of t
 
 5) Create a GitHub App
 
-    ***Note:** OpenLabsX already has the `auto-release-app` installed. Skip to step 7.*
+    ***Note:** OpenLabs already has the `auto-release-app` installed. Skip to step 7.*
 
     This allows us to enforce branch protection rules while allowing the Auto release tool to bypass the protections when running automated workflows. (Source: [Comment Link](https://github.com/orgs/community/discussions/13836#discussioncomment-8535364))
     

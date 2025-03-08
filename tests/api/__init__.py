@@ -1,1 +1,1 @@
-"""API endpoint tests for the OpenLabsX API."""
+"""API endpoint tests for the OpenLabs API."""

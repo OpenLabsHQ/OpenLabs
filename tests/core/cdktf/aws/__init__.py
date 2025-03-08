@@ -1,1 +1,1 @@
-"""AWS CDKTF tests for the OpenLabsX API."""
+"""AWS CDKTF tests for the OpenLabs API."""

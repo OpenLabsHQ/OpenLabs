@@ -1,4 +1,4 @@
-"""Base of OpenLabsX API."""
+"""Base of OpenLabs API."""
 
 from fastapi import APIRouter
 
