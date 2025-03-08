@@ -11,7 +11,7 @@ from ..utils.crypto import (
     generate_rsa_key_pair,
 )
 from .config import AppSettings, DatabaseSettings, settings
-from .db.database import Base, local_session
+from .db.database import Base, async_get_db
 from .db.database import async_engine as engine
 
 
@@ -26,7 +26,7 @@ async def create_tables() -> None:
 async def initialize_admin_user() -> None:
     """Create admin user if it doesn't exist."""
     try:
-        async with local_session() as db:
+        async for session in async_get_db():
             # Create a UserCreateBaseSchema with the admin details
             admin_schema = UserCreateBaseSchema(
                 email=settings.ADMIN_EMAIL,
@@ -34,11 +34,11 @@ async def initialize_admin_user() -> None:
                 name=settings.ADMIN_NAME,
             )
 
-            admin_user = await get_user(db, settings.ADMIN_EMAIL)
+            admin_user = await get_user(session, settings.ADMIN_EMAIL)
 
             if not admin_user:
                 # This will create the user with RSA keys and proper encryption
-                await create_user(db, admin_schema, is_admin=True)
+                await create_user(session, admin_schema, is_admin=True)
             elif admin_user and not admin_user.public_key:
                 # If admin user exists but doesn't have encryption keys (legacy migration),
                 # generate keys and add them
@@ -57,7 +57,7 @@ async def initialize_admin_user() -> None:
                 admin_user.encrypted_private_key = encrypted_private_key_b64
                 admin_user.key_salt = key_salt
 
-                await db.commit()
+                await session.commit()
     except Exception as e:
         msg = "Failed to create admin user. Check logs for more details."
         raise ValueError(msg) from e
