@@ -5,16 +5,13 @@ import copy
 from httpx import AsyncClient
 
 from fastapi import status
+from .config import base_user_register_payload, base_user_login_payload
 
+user_register_payload = copy.deepcopy(base_user_register_payload)
+user_login_payload = copy.deepcopy(base_user_login_payload)
 
-user_register_payload = {
-    "email": "test-auth@ufsit.club",
-    "password": "password123",
-    "name": "Adam Hassan",
-}
-
-user_login_payload = copy.deepcopy(user_register_payload)
-user_login_payload.pop("name")
+user_register_payload["email"] = "test-auth@ufsit.club"
+user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_user_register(client: AsyncClient) -> None:

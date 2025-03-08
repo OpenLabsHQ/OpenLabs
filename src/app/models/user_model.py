@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -23,6 +23,15 @@ class UserModel(Base, OpenLabsUserMixin):
     )
 
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Encryption-related fields
+    public_key: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    encrypted_private_key: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
+    )
+    key_salt: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, default=None
+    )
 
     # One-to-one relationship with secrets.
     # For now, users can only have one azure or one aws secret

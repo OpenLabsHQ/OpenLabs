@@ -1,7 +1,6 @@
 import copy
 import json
 import uuid
-from typing import Any
 
 import pytest
 from fastapi import status
@@ -12,53 +11,24 @@ from src.app.schemas.template_host_schema import TemplateHostSchema
 from src.app.schemas.template_subnet_schema import TemplateSubnetHeaderSchema
 
 from .config import BASE_ROUTE
+from .config import base_user_register_payload, base_user_login_payload
+from .config import (
+    valid_range_payload,
+    valid_vpc_payload,
+    valid_subnet_payload,
+    valid_host_payload,
+)
 
 ###### Test /template/range #######
 
-# Valid payload for comparison
-valid_range_payload: dict[str, Any] = {
-    "vpcs": [
-        {
-            "cidr": "192.168.0.0/16",
-            "name": "example-vpc-1",
-            "subnets": [
-                {
-                    "cidr": "192.168.1.0/24",
-                    "name": "example-subnet-1",
-                    "hosts": [
-                        {
-                            "hostname": "example-host-1",
-                            "os": "debian_11",
-                            "spec": "tiny",
-                            "size": 8,
-                            "tags": ["web", "linux"],
-                        }
-                    ],
-                }
-            ],
-        }
-    ],
-    "provider": "aws",
-    "name": "example-range-1",
-    "vnc": False,
-    "vpn": False,
-}
-
-valid_vpc_payload = copy.deepcopy(valid_range_payload["vpcs"][0])
-valid_subnet_payload = copy.deepcopy(valid_vpc_payload["subnets"][0])
-valid_host_payload = copy.deepcopy(valid_subnet_payload["hosts"][0])
-
-user_register_payload = {
-    "email": "test-templates@ufsit.club",
-    "password": "password123",
-    "name": "Adam Hassan",
-}
-
-user_login_payload = copy.deepcopy(user_register_payload)
-user_login_payload.pop("name")
-
 # global auth token to be used in all tests
 auth_token = None
+
+user_register_payload = copy.deepcopy(base_user_register_payload)
+user_login_payload = copy.deepcopy(base_user_login_payload)
+
+user_register_payload["email"] = "test-templates@ufsit.club"
+user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_get_auth_token(client: AsyncClient) -> None:
