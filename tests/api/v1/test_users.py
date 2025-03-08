@@ -4,39 +4,21 @@ from fastapi import status
 from httpx import AsyncClient
 
 from .config import BASE_ROUTE
-
-# Test user credentials
-user_register_payload = {
-    "email": "test-users@ufsit.club",
-    "password": "password123",
-    "name": "Test User",
-}
-
-user_login_payload = copy.deepcopy(user_register_payload)
-user_login_payload.pop("name")
-
-# Test data for password update
-password_update_payload = {
-    "current_password": "password123",
-    "new_password": "newpassword123",
-}
-
-# Test data for AWS secrets
-aws_secrets_payload = {
-    "aws_access_key": "AKIAIOSFODNN7EXAMPLE",
-    "aws_secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-}
-
-# Test data for Azure secrets
-azure_secrets_payload = {
-    "azure_client_id": "00000000-0000-0000-0000-000000000000",
-    "azure_client_secret": "example-client-secret-value",
-    "azure_tenant_id": "00000000-0000-0000-0000-000000000000",
-    "azure_subscription_id": "00000000-0000-0000-0000-000000000000",
-}
+from .config import (
+    base_user_register_payload,
+    base_user_login_payload,
+    password_update_payload,
+)
+from .config import aws_secrets_payload, azure_secrets_payload
 
 # Global auth token to be used in all tests
 auth_token = None
+
+user_register_payload = copy.deepcopy(base_user_register_payload)
+user_login_payload = copy.deepcopy(base_user_login_payload)
+
+user_register_payload["email"] = "test-users@ufsit.club"
+user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_get_auth_token(client: AsyncClient) -> None:
