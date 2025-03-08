@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from typing import Any, Dict
 from uuid import UUID
 
 from bcrypt import checkpw, gensalt, hashpw
@@ -171,7 +170,7 @@ async def create_user(
 
 async def get_decrypted_secrets(
     user: UserModel, db: AsyncSession, master_key: bytes
-) -> Dict[str, Any] | None:
+) -> SecretSchema | None:
     """Get decrypted secrets for the user.
 
     Args:
@@ -182,7 +181,7 @@ async def get_decrypted_secrets(
 
     Returns:
     -------
-        Dict | None: Decrypted secrets or None if decryption fails
+        SecretSchema | None: A schema containing decrypted secrets, or None if decryption fails
 
     """
     if not master_key or not user.encrypted_private_key:
@@ -200,9 +199,11 @@ async def get_decrypted_secrets(
         # Decrypt the private key
         private_key_b64 = decrypt_private_key(user.encrypted_private_key, master_key)
 
-        # Prepare containers for decrypted secrets
-        aws_secrets = None
-        azure_secrets = None
+        # Create a new SecretSchema for the decrypted secrets
+        decrypted_secrets = SecretSchema(
+            aws_created_at=secrets.aws_created_at,
+            azure_created_at=secrets.azure_created_at,
+        )
 
         # Decrypt AWS secrets if they exist
         if secrets.aws_access_key and secrets.aws_secret_key:
@@ -210,7 +211,9 @@ async def get_decrypted_secrets(
                 "aws_access_key": secrets.aws_access_key,
                 "aws_secret_key": secrets.aws_secret_key,
             }
-            aws_secrets = decrypt_with_private_key(encrypted_aws, private_key_b64)
+            decrypted_aws = decrypt_with_private_key(encrypted_aws, private_key_b64)
+            decrypted_secrets.aws_access_key = decrypted_aws["aws_access_key"]
+            decrypted_secrets.aws_secret_key = decrypted_aws["aws_secret_key"]
 
         # Decrypt Azure secrets if they exist
         if (
@@ -225,9 +228,17 @@ async def get_decrypted_secrets(
                 "azure_tenant_id": secrets.azure_tenant_id,
                 "azure_subscription_id": secrets.azure_subscription_id,
             }
-            azure_secrets = decrypt_with_private_key(encrypted_azure, private_key_b64)
+            decrypted_azure = decrypt_with_private_key(encrypted_azure, private_key_b64)
+            decrypted_secrets.azure_client_id = decrypted_azure["azure_client_id"]
+            decrypted_secrets.azure_client_secret = decrypted_azure[
+                "azure_client_secret"
+            ]
+            decrypted_secrets.azure_tenant_id = decrypted_azure["azure_tenant_id"]
+            decrypted_secrets.azure_subscription_id = decrypted_azure[
+                "azure_subscription_id"
+            ]
 
-        return {"aws": aws_secrets, "azure": azure_secrets}
+        return decrypted_secrets
     except Exception:
         # If decryption fails, return None
         return None

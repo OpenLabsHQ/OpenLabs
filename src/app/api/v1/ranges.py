@@ -93,11 +93,9 @@ async def deploy_range_from_template(
 
     # Check if we have the appropriate credentials based on the provider
     # For now we'll check AWS only since that's what's implemented
-    aws_secrets = decrypted_secrets.get("aws")
     if (
-        not aws_secrets
-        or not aws_secrets.get("aws_access_key")
-        or not aws_secrets.get("aws_secret_key")
+        not decrypted_secrets.aws_access_key
+        or not decrypted_secrets.aws_secret_key
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,8 +105,8 @@ async def deploy_range_from_template(
     # Set environment variables for AWS provider
     import os
 
-    os.environ["AWS_ACCESS_KEY_ID"] = aws_secrets["aws_access_key"]
-    os.environ["AWS_SECRET_ACCESS_KEY"] = aws_secrets["aws_secret_key"]
+    os.environ["AWS_ACCESS_KEY_ID"] = decrypted_secrets.aws_access_key
+    os.environ["AWS_SECRET_ACCESS_KEY"] = decrypted_secrets.aws_secret_key
 
     for deploy_range in ranges:
         deployed_range_id = uuid.uuid4()
