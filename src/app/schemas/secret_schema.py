@@ -57,28 +57,59 @@ class SecretSchema(SecretBaseSchema):
 class AWSSecrets(BaseModel):
     """AWS secret object for setting secrets on OpenLabs."""
 
-    aws_access_key: str
-    aws_secret_key: str
+    aws_access_key: str = Field(
+        ...,
+        description="Access key for AWS account",
+    )
+    aws_secret_key: str = Field(
+        ...,
+        description="Secret key for AWS account",
+    )
 
 
 class AzureSecrets(BaseModel):
     """Azure secret object for setting secrets on OpenLabs."""
 
-    azure_client_id: str
-    azure_client_secret: str
-    azure_tenant_id: str
-    azure_subscription_id: str
+    azure_client_id: str = Field(
+        ...,
+        description="Client ID for Azure",
+    )
+    azure_client_secret: str = Field(
+        ...,
+        description="Client secret for Azure",
+    )
+    azure_tenant_id: str = Field(
+        ...,
+        description="Tenant ID for Azure",
+    )
+    azure_subscription_id: str = Field(
+        ...,
+        description="Subscription ID for Azure",
+    )
 
 
 class CloudSecretStatusSchema(BaseModel):
     """General response schema for a single cloud provider."""
 
-    has_credentials: bool
-    created_at: datetime | None
+    has_credentials: bool = Field(
+        ...,
+        description="Indicates if the credentials are present",
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        description="Time the secrets were created",
+        examples=[datetime(2025, 2, 5, tzinfo=timezone.utc)],
+    )
 
 
 class UserSecretResponseSchema(BaseModel):
     """Response schema for retrieving user secret status."""
 
-    aws: CloudSecretStatusSchema
-    azure: CloudSecretStatusSchema
+    aws: CloudSecretStatusSchema = Field(
+        ...,
+        description="Status of AWS credentials",
+    )
+    azure: CloudSecretStatusSchema = Field(
+        ...,
+        description="Status of Azure credentials",
+    )
