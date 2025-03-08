@@ -1,4 +1,4 @@
-name: Tests
+name: Mypy
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r dev-requirements.txt
 
-      # Run Tests
-      - name: Run Tests
+      # Run MyPy checks
+      - name: Run MyPy
         run: |
-          pytest
+          mypy --install-types --non-interactive .
