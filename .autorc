@@ -2,7 +2,7 @@
   "plugins": [
     "git-tag"
   ],
-  "owner": "OpenLabsX",
+  "owner": "OpenLabsHQ",
   "repo": "API",
   "name": "Alex Christy",
   "email": "a.christy@ufl.edu"

@@ -1,7 +1,8 @@
+import base64
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
@@ -11,6 +12,7 @@ from ...crud.crud_range_templates import get_range_template, is_range_template_o
 from ...crud.crud_ranges import create_range, delete_range, get_range, is_range_owner
 from ...crud.crud_users import get_secrets
 from ...enums.range_states import RangeState
+from ...crud.crud_users import get_decrypted_secrets
 from ...models.user_model import UserModel
 from ...schemas.range_schema import DeployRangeBaseSchema, RangeID, RangeSchema
 from ...schemas.secret_schema import SecretSchema
@@ -34,6 +36,7 @@ async def deploy_range_from_template_endpoint(
         deploy_range (DeployRangeBaseSchema): Range template to deploy.
         db (AsyncSession): Async database connection.
         current_user (UserModel): Currently authenticated user.
+        enc_key (str): Encryption key from cookie for decrypting secrets.
 
     Returns:
     -------
@@ -59,7 +62,7 @@ async def deploy_range_from_template_endpoint(
             detail=f"Range template with ID: {deploy_range.template_id} not found or you don't have access to it!",
         )
 
-    # Create deployed range
+    # Create deployed range schema
     template = TemplateRangeSchema.model_validate(
         template_range_model, from_attributes=True
     )

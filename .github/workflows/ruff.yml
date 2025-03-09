@@ -1,4 +1,4 @@
-name: Tests
+name: Ruff
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           pip install -r requirements.txt
           pip install -r dev-requirements.txt
 
-      # Run Tests
-      - name: Run Tests
+      # Run Ruff linter and formatter
+      - name: Run Ruff
         run: |
-          pytest
+          ruff check --fix .

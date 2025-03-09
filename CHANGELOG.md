@@ -1,8 +1,26 @@
+# v0.7.0 (Sat Mar 08 2025)
+
+#### 🚀 Enhancement
+
+- Add ownership to templates and ranges + Implement auth endpoints [#56](https://github.com/OpenLabsHQ/API/pull/56) ([@Adamkadaban](https://github.com/Adamkadaban) [@alexchristy](https://github.com/alexchristy))
+
+#### 📝 Documentation
+
+- Update .autorc [#63](https://github.com/OpenLabsHQ/API/pull/63) ([@alexchristy](https://github.com/alexchristy))
+- Split old test workflow [#62](https://github.com/OpenLabsHQ/API/pull/62) ([@alexchristy](https://github.com/alexchristy))
+
+#### Authors: 2
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
 # v0.6.2 (Thu Feb 27 2025)
 
 #### 🐛 Bug Fix
 
-- Add template delete endpoints [#55](https://github.com/OpenLabs/API/pull/55) ([@alexchristy](https://github.com/alexchristy))
+- Add template delete endpoints [#55](https://github.com/OpenLabsHQ/API/pull/55) ([@alexchristy](https://github.com/alexchristy))
 
 #### Authors: 1
 
@@ -14,7 +32,7 @@
 
 #### 🐛 Bug Fix
 
-- Naming refactor [#52](https://github.com/OpenLabs/API/pull/52) ([@alexchristy](https://github.com/alexchristy))
+- Naming refactor [#52](https://github.com/OpenLabsHQ/API/pull/52) ([@alexchristy](https://github.com/alexchristy))
 
 #### Authors: 1
 
@@ -26,7 +44,7 @@
 
 #### 🚀 Enhancement
 
-- Cdktf [#50](https://github.com/OpenLabs/API/pull/50) ([@Nareshp1](https://github.com/Nareshp1) [@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
+- Cdktf [#50](https://github.com/OpenLabsHQ/API/pull/50) ([@Nareshp1](https://github.com/Nareshp1) [@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
 
 #### Authors: 3
 
@@ -40,11 +58,11 @@
 
 #### 🚀 Enhancement
 
-- SQLAlchemy  ORM Models ✅ [#46](https://github.com/OpenLabs/API/pull/46) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
+- SQLAlchemy  ORM Models ✅ [#46](https://github.com/OpenLabsHQ/API/pull/46) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
 
 #### 📝 Documentation
 
-- Add debug docker config to work with vscode debugging extension [#32](https://github.com/OpenLabs/API/pull/32) ([@Adamkadaban](https://github.com/Adamkadaban))
+- Add debug docker config to work with vscode debugging extension [#32](https://github.com/OpenLabsHQ/API/pull/32) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### Authors: 2
 
@@ -57,11 +75,11 @@
 
 #### 🚀 Enhancement
 
-- Specify minimum disk size for each OS [#35](https://github.com/OpenLabs/API/pull/35) ([@Adamkadaban](https://github.com/Adamkadaban))
+- Specify minimum disk size for each OS [#35](https://github.com/OpenLabsHQ/API/pull/35) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### 📝 Documentation
 
-- ignore .vscode folder to make my life easier [#30](https://github.com/OpenLabs/API/pull/30) ([@Adamkadaban](https://github.com/Adamkadaban))
+- ignore .vscode folder to make my life easier [#30](https://github.com/OpenLabsHQ/API/pull/30) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### Authors: 1
 
@@ -73,8 +91,8 @@
 
 #### 🐛 Bug Fix
 
-- Ignore enums directory when running black so we can have nice spacing [#23](https://github.com/OpenLabs/API/pull/23) ([@Adamkadaban](https://github.com/Adamkadaban))
-- add .swp to gitignore to make my life easier [#21](https://github.com/OpenLabs/API/pull/21) ([@Adamkadaban](https://github.com/Adamkadaban))
+- Ignore enums directory when running black so we can have nice spacing [#23](https://github.com/OpenLabsHQ/API/pull/23) ([@Adamkadaban](https://github.com/Adamkadaban))
+- add .swp to gitignore to make my life easier [#21](https://github.com/OpenLabsHQ/API/pull/21) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### Authors: 1
 
@@ -86,7 +104,7 @@
 
 #### 🐛 Bug Fix
 
-- Update Mypy Precommit Dependencies [#25](https://github.com/OpenLabs/API/pull/25) ([@alexchristy](https://github.com/alexchristy))
+- Update Mypy Precommit Dependencies [#25](https://github.com/OpenLabsHQ/API/pull/25) ([@alexchristy](https://github.com/alexchristy))
 
 #### Authors: 1
 
@@ -98,11 +116,11 @@
 
 #### 🚀 Enhancement
 
-- add some operating system AMIs and URNs [#11](https://github.com/OpenLabs/API/pull/11) ([@Adamkadaban](https://github.com/Adamkadaban))
+- add some operating system AMIs and URNs [#11](https://github.com/OpenLabsHQ/API/pull/11) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### 📝 Documentation
 
-- Clarify Docker Documentation [#19](https://github.com/OpenLabs/API/pull/19) ([@alexchristy](https://github.com/alexchristy))
+- Clarify Docker Documentation [#19](https://github.com/OpenLabsHQ/API/pull/19) ([@alexchristy](https://github.com/alexchristy))
 
 #### Authors: 2
 
@@ -115,7 +133,7 @@
 
 #### 🚀 Enhancement
 
-- Add Docker configurations [#17](https://github.com/OpenLabs/API/pull/17) ([@alexchristy](https://github.com/alexchristy))
+- Add Docker configurations [#17](https://github.com/OpenLabsHQ/API/pull/17) ([@alexchristy](https://github.com/alexchristy))
 
 #### Authors: 1
 
@@ -127,7 +145,7 @@
 
 #### 🐛 Bug Fix
 
-- add codeowners file so we are auto requested for review [#12](https://github.com/OpenLabs/API/pull/12) ([@Adamkadaban](https://github.com/Adamkadaban))
+- add codeowners file so we are auto requested for review [#12](https://github.com/OpenLabsHQ/API/pull/12) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### Authors: 1
 
@@ -139,15 +157,15 @@
 
 #### 🚀 Enhancement
 
-- Project Boilerplate [#3](https://github.com/OpenLabs/API/pull/3) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
+- Project Boilerplate [#3](https://github.com/OpenLabsHQ/API/pull/3) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
 
 #### 🐛 Bug Fix
 
-- Working Auto Release GH App Bypass [#6](https://github.com/OpenLabs/API/pull/6) ([@alexchristy](https://github.com/alexchristy))
-- Auto release GitHub App [#5](https://github.com/OpenLabs/API/pull/5) ([@alexchristy](https://github.com/alexchristy))
-- Remove workflow permission from release.yml workflow [#4](https://github.com/OpenLabs/API/pull/4) ([@alexchristy](https://github.com/alexchristy))
-- Add aws and azure size mappings [#2](https://github.com/OpenLabs/API/pull/2) ([@Adamkadaban](https://github.com/Adamkadaban))
-- add classes and enums [#1](https://github.com/OpenLabs/API/pull/1) ([@Adamkadaban](https://github.com/Adamkadaban))
+- Working Auto Release GH App Bypass [#6](https://github.com/OpenLabsHQ/API/pull/6) ([@alexchristy](https://github.com/alexchristy))
+- Auto release GitHub App [#5](https://github.com/OpenLabsHQ/API/pull/5) ([@alexchristy](https://github.com/alexchristy))
+- Remove workflow permission from release.yml workflow [#4](https://github.com/OpenLabsHQ/API/pull/4) ([@alexchristy](https://github.com/alexchristy))
+- Add aws and azure size mappings [#2](https://github.com/OpenLabsHQ/API/pull/2) ([@Adamkadaban](https://github.com/Adamkadaban))
+- add classes and enums [#1](https://github.com/OpenLabsHQ/API/pull/1) ([@Adamkadaban](https://github.com/Adamkadaban))
 
 #### ⚠️ Pushed to `main`
 

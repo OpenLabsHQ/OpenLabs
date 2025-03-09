@@ -38,6 +38,9 @@ ADMIN_EMAIL=admin@test.com        # Default admin email
 ADMIN_PASSWORD=admin123           # Default admin password
 ADMIN_NAME=Administrator          # Default admin name
 # Admin user is automatically created when database is initialized
+
+# Authentication Configuration
+SECRET_KEY=your-secret-key-here   # JWT token signing key (CHANGE THIS!)
 ```
 </details>
 
@@ -190,7 +193,7 @@ src/
     │   └── specs.py             # Preset VM hardware configurations
     |
     ├── models                   # Database Models
-    │   ├── secret_model.py
+    │   ├── secret_model.py        # Encrypted cloud provider credentials (AWS, Azure)
     │   ├── template_base_model.py
     │   ├── template_host_model.py
     │   ├── template_range_model.py
@@ -200,7 +203,7 @@ src/
     |
     ├── schemas                  # API Schema (Objects)
     |   |                        # ------------------ #
-    │   ├── secret_schema.py
+    │   ├── secret_schema.py      # Cloud provider credential schemas
     │   ├── template_host_schema.py
     │   ├── template_range_schema.py
     │   ├── template_subnet_schema.py
@@ -208,7 +211,8 @@ src/
     │   └── user_schema.py
     |
     ├── utils                    # Utility Functions
-    │   └── cdktf_utils.py
+    │   ├── cdktf_utils.py       # CDKTF configuration utilities
+    │   └── crypto.py            # Cryptography utilities for encrypting cloud provider credentials
     |
     ├── validators               # Data Validation
     |   |                        # --------------- #
