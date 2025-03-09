@@ -111,6 +111,7 @@ def synthesize_factory(
         stack_name: str = "test_range",
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
     ) -> str:
+        """Synthesize generic stack using CDKTF testing library."""
         app = Testing.app()
         test_dir = create_cdktf_dir()
 
