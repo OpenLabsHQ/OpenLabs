@@ -47,7 +47,6 @@ class CdktfBaseRange(ABC):
         owner_id: UserID,
         secrets: SecretSchema,
         state_file: dict[str, Any] | None = None,
-        is_deployed: bool = False,
     ) -> None:
         """Initialize CDKTF base range object."""
         self.id = id
@@ -56,7 +55,10 @@ class CdktfBaseRange(ABC):
         self.owner_id = owner_id
         self.secrets = secrets
         self.state_file = state_file
-        self._is_deployed = is_deployed
+        if not self.state_file:
+            self._is_deployed = False
+        else:
+            self._is_deployed = True
 
         # Initial values
         self.stack_name = f"{self.template.name}-{self.id}"

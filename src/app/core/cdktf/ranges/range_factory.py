@@ -27,7 +27,7 @@ class RangeFactory:
     }
 
     @classmethod
-    def create_range(
+    def create_range(  # noqa: PLR0913
         cls,
         id: uuid.UUID,  # noqa: A002
         template: TemplateRangeSchema,
@@ -35,7 +35,6 @@ class RangeFactory:
         owner_id: UserID,
         secrets: SecretSchema,
         statefile: dict[str, Any] | None = None,
-        is_deployed: bool = False,
     ) -> CdktfBaseRange:
         """Create range object.
 
@@ -69,5 +68,4 @@ class RangeFactory:
             owner_id=owner_id,
             secrets=secrets,
             state_file=statefile,
-            is_deployed=is_deployed,
         )

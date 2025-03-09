@@ -1,21 +1,21 @@
 import base64
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
 from ...core.cdktf.ranges.range_factory import RangeFactory
+from ...core.config import settings
 from ...core.db.database import async_get_db
 from ...crud.crud_range_templates import get_range_template, is_range_template_owner
 from ...crud.crud_ranges import create_range, delete_range, get_range, is_range_owner
-from ...crud.crud_users import get_secrets
-from ...enums.range_states import RangeState
 from ...crud.crud_users import get_decrypted_secrets
+from ...enums.range_states import RangeState
 from ...models.user_model import UserModel
 from ...schemas.range_schema import DeployRangeBaseSchema, RangeID, RangeSchema
-from ...schemas.secret_schema import SecretSchema
 from ...schemas.template_range_schema import TemplateRangeID, TemplateRangeSchema
 from ...schemas.user_schema import UserID
 from ...validators.id import is_valid_uuid4
@@ -28,6 +28,7 @@ async def deploy_range_from_template_endpoint(
     deploy_range: DeployRangeBaseSchema,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
 ) -> RangeID:
     """Deploy range templates.
 
@@ -43,18 +44,39 @@ async def deploy_range_from_template_endpoint(
         RangeID: ID of deployed range.
 
     """
-    # Check if the user is the template owner
-    is_owner = await is_range_template_owner(
-        db, TemplateRangeID(id=deploy_range.template_id), user_id=current_user.id
-    )
-    if not is_owner:
+    # Check if we have the encryption key needed to decrypt secrets
+    if not enc_key:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"You don't have permission to deploy range with using template: {deploy_range.template_id}",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Encryption key not found. Please try logging in again.",
         )
 
+    # Decode the encryption key
+    try:
+        master_key = base64.b64decode(enc_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid encryption key. Please try logging in again.",
+        ) from e
+
+    # For admin users, skip ownership check to allow deploying any range
+    if not current_user.is_admin:
+        # Check if the user is the template owner
+        is_owner = await is_range_template_owner(
+            db, TemplateRangeID(id=deploy_range.template_id), user_id=current_user.id
+        )
+        if not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You don't have permission to deploy range with using template: {deploy_range.template_id}",
+            )
+
+    # Set user_id to None for admin to allow accessing any template
+    user_id = None if current_user.is_admin else current_user.id
+
     template_range_model = await get_range_template(
-        db, TemplateRangeID(id=deploy_range.template_id), user_id=current_user.id
+        db, TemplateRangeID(id=deploy_range.template_id), user_id=user_id
     )
     if not template_range_model:
         raise HTTPException(
@@ -67,27 +89,21 @@ async def deploy_range_from_template_endpoint(
         template_range_model, from_attributes=True
     )
 
-    # Create User ID
-    user_id = UserID.model_validate(current_user, from_attributes=True)
-
-    # Get Secrets
-    secrets_model = await get_secrets(db, user_id)
-
-    if secrets_model is None:
+    # Get the decrypted credentials
+    decrypted_secrets = await get_decrypted_secrets(current_user, db, master_key)
+    if not decrypted_secrets:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No configured credentials found.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to decrypt cloud credentials. Please try logging in again.",
         )
-
-    secrets = SecretSchema.model_validate(secrets_model, from_attributes=True)
 
     # Create deployable range object
     range_to_deploy = RangeFactory.create_range(
         id=uuid.uuid4(),
         template=template,
         region=deploy_range.region,
-        owner_id=user_id,
-        secrets=secrets,
+        owner_id=UserID(id=current_user.id),
+        secrets=decrypted_secrets,
     )
 
     if not range_to_deploy.has_secrets():
@@ -116,7 +132,7 @@ async def deploy_range_from_template_endpoint(
     )
 
     # Save deployed range info to database
-    created_range_model = await create_range(db, range_schema, owner_id=user_id.id)
+    created_range_model = await create_range(db, range_schema, owner_id=current_user.id)
     if not created_range_model:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -131,6 +147,7 @@ async def delete_range_endpoint(
     range_id: str,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
 ) -> bool:
     """Destroy a deployed range.
 
@@ -139,10 +156,11 @@ async def delete_range_endpoint(
         range_id (str): ID of deployed range.
         db (AsyncSession): Async database connection.
         current_user (UserModel): Currently authenticated user.
+        enc_key (str): Encryption key from cookie for decrypting secrets.
 
     Returns:
     -------
-        bool: True if successfully deployed. False otherwise.
+        bool: True if successfully deleted. False otherwise.
 
     """
     if not is_valid_uuid4(range_id):
@@ -151,20 +169,39 @@ async def delete_range_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    is_owner = await is_range_owner(db, RangeID(id=range_id), user_id=current_user.id)
-    if not is_owner:
+    # Check if we have the encryption key needed to decrypt secrets
+    if not enc_key:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"You don't have permission to destroy range with ID: {range_id}",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Encryption key not found. Please try logging in again.",
         )
 
-    # Create User ID
-    user_id = UserID.model_validate(current_user, from_attributes=True)
+    # Decode the encryption key
+    try:
+        master_key = base64.b64decode(enc_key)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid encryption key. Please try logging in again.",
+        ) from e
+
+    # For admin users, skip ownership check to allow deploying any range
+    if not current_user.is_admin:
+        # Check if the user is the template owner
+        is_owner = await is_range_owner(
+            db, RangeID(id=range_id), user_id=current_user.id
+        )
+        if not is_owner:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You don't have permission to destroy range with ID: {range_id}",
+            )
+
+    # Set user_id to None for admin to allow accessing any range
+    user_id = None if current_user.is_admin else current_user.id
 
     # Get range from database
-    range_model = await get_range(
-        db, RangeID(id=uuid.UUID(range_id)), user_id=current_user.id
-    )
+    range_model = await get_range(db, RangeID(id=uuid.UUID(range_id)), user_id=user_id)
 
     if not range_model:
         raise HTTPException(
@@ -172,16 +209,13 @@ async def delete_range_endpoint(
             detail=f"Range with ID: {range_id} not found or you don't have access to it!",
         )
 
-    # Get Secrets
-    secrets_model = await get_secrets(db, user_id)
-
-    if secrets_model is None:
+    # Get the decrypted credentials
+    decrypted_secrets = await get_decrypted_secrets(current_user, db, master_key)
+    if not decrypted_secrets:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No configured credentials found.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to decrypt cloud credentials. Please try logging in again.",
         )
-
-    secrets = SecretSchema.model_validate(secrets_model, from_attributes=True)
 
     # Build range object
     range_schema = RangeSchema.model_validate(range_model)
@@ -190,10 +224,9 @@ async def delete_range_endpoint(
         id=range_schema.id,
         template=range_template,
         region=range_schema.region,
-        owner_id=user_id,
-        secrets=secrets,
+        owner_id=UserID(id=current_user.id),
+        secrets=decrypted_secrets,
         statefile=range_schema.state_file,
-        is_deployed=True
     )
 
     # Destroy range
