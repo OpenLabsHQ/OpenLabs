@@ -47,6 +47,8 @@ class RangeFactory:
             region (OpenLabsRegion): Supported cloud region.
             owner_id (UserID): The ID of the user deploying range.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
+            statefile (dict[str, Any]): The statefile of the deployed resources
+            is_deployed (bool): Whether the range is deployed or not (true for when destroying or updating a range, false for when deploying a range template)
 
         Returns:
         -------
@@ -67,5 +69,5 @@ class RangeFactory:
             owner_id=owner_id,
             secrets=secrets,
             state_file=statefile,
-            is_deployed=is_deployed
+            is_deployed=is_deployed,
         )

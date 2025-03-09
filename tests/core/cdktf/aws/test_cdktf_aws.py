@@ -73,11 +73,16 @@ def synthesized() -> str:
     """Synthesizes the CDKTF stack to JSON once for all tests."""
     from cdktf import Testing
 
-    from src.app.core.cdktf.aws.aws_stack import AWSStack
+    from src.app.core.cdktf.stacks.aws_stack import AWSStack
+    from src.app.enums.regions import OpenLabsRegion
 
     app = Testing.app()
     test_dir = create_cdktf_dir()
-    return str(Testing.synth(AWSStack(app, "test-stack", cyber_range, test_dir)))
+    return str(
+        Testing.synth(
+            AWSStack(app, cyber_range, "test_range", test_dir, OpenLabsRegion.US_EAST_1)
+        )
+    )
 
 
 def test_every_vpc_is_valid(synthesized: str) -> None:
