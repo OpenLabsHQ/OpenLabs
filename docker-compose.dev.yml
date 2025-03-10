@@ -35,7 +35,7 @@ services:
       - fastapi_network
     command: [
       "python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client",
-      "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"
+      "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--workers", "4"
     ]
 
 volumes:

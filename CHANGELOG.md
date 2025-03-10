@@ -1,3 +1,15 @@
+# v0.7.1 (Sun Mar 09 2025)
+
+#### 🐛 Bug Fix
+
+- increase number of worker threads so we can get response while deploy… [#70](https://github.com/OpenLabsHQ/API/pull/70) ([@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 1
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+
+---
+
 # v0.7.0 (Sat Mar 08 2025)
 
 #### 🚀 Enhancement
