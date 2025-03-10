@@ -1,16 +1,14 @@
 import base64
 import uuid
 from datetime import datetime, timezone
-from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
 from ...core.cdktf.ranges.range_factory import RangeFactory
-from ...core.config import settings
 from ...core.db.database import async_get_db
-from ...crud.crud_range_templates import get_range_template, is_range_template_owner
+from ...crud.crud_range_templates import get_range_template
 from ...crud.crud_ranges import create_range, delete_range, get_range, is_range_owner
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.range_states import RangeState
@@ -60,18 +58,6 @@ async def deploy_range_from_template_endpoint(
             detail="Invalid encryption key. Please try logging in again.",
         ) from e
 
-    # For admin users, skip ownership check to allow deploying any range
-    if not current_user.is_admin:
-        # Check if the user is the template owner
-        is_owner = await is_range_template_owner(
-            db, TemplateRangeID(id=deploy_range.template_id), user_id=current_user.id
-        )
-        if not is_owner:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You don't have permission to deploy range with using template: {deploy_range.template_id}",
-            )
-
     # Set user_id to None for admin to allow accessing any template
     user_id = None if current_user.is_admin else current_user.id
 
@@ -113,7 +99,13 @@ async def deploy_range_from_template_endpoint(
         )
 
     # Deploy range
-    range_to_deploy.synthesize()
+    sucessful_synthesize = range_to_deploy.synthesize()
+    if not sucessful_synthesize:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to synthesize range: {template.name} ({range_to_deploy.id})!",
+        )
+
     successful_deploy = range_to_deploy.deploy()
     if not successful_deploy:
         raise HTTPException(
@@ -226,11 +218,17 @@ async def delete_range_endpoint(
         region=range_schema.region,
         owner_id=UserID(id=current_user.id),
         secrets=decrypted_secrets,
-        statefile=range_schema.state_file,
+        state_file=range_schema.state_file,
     )
 
     # Destroy range
-    range_obj.synthesize()
+    successful_synthesize = range_obj.synthesize()
+    if not successful_synthesize:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to synthesize range: {range_template.name} ({range_obj.id})!",
+        )
+
     successful_destroy = range_obj.destroy()
     if not successful_destroy:
         raise HTTPException(

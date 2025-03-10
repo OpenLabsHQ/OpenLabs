@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # TStack = TypeVar("TStack", bound=AbstractBaseStack)
 
 
-class CdktfBaseRange(ABC):
+class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
     id: uuid.UUID
@@ -97,7 +97,7 @@ class CdktfBaseRange(ABC):
         """
         pass
 
-    def synthesize(self) -> None:
+    def synthesize(self) -> bool:
         """Abstract method to synthesize terraform configuration."""
         try:
             logger.info(
@@ -127,10 +127,12 @@ class CdktfBaseRange(ABC):
             )
 
             self._is_synthesized = True
+            return True
         except Exception as e:
             logger.error(
                 "Error during synthesis of stack: %s. Error: %s", self.stack_name, e
             )
+            return False
 
     def deploy(self) -> bool:
         """Run `terraform deploy --auto-approve` programmatically.
@@ -146,10 +148,8 @@ class CdktfBaseRange(ABC):
 
         """
         if not self.is_synthesized():
-            logger.warning(
-                "Deployed range that was not synthesized. Synthesizing now..."
-            )
-            self.synthesize()
+            logger.error("Range to destory is not synthesized!")
+            return False
 
         try:
             initial_dir = os.getcwd()
@@ -209,8 +209,8 @@ class CdktfBaseRange(ABC):
             return False
 
         if not self.is_synthesized():
-            logger.info("Range to destory is not synethized. Re-synthesizing now...")
-            self.synthesize()
+            logger.error("Range to destory is not synthesized!")
+            return False
 
         try:
             # Change to directory with `cdk.tf.json`
@@ -262,6 +262,10 @@ class CdktfBaseRange(ABC):
     def get_synth_dir(self) -> Path:
         """Get CDKTF synthesis directory."""
         return Path(f"{settings.CDKTF_DIR}/stacks/{self.stack_name}")
+
+    def get_synth_file_path(self) -> Path:
+        """Get path to terraform HCL from CDKTF synthesis."""
+        return Path(f"{self.get_synth_dir()}/cdk.tf.json")
 
     def get_state_file(self) -> dict[str, Any] | None:
         """Return state file content.

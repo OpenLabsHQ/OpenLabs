@@ -26,7 +26,7 @@ def aws_one_all_synthesis(
     )
 
 
-def test_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
+def test_aws_stack_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
     """Ensure every VPC is valid."""
     from cdktf import Testing
     from cdktf_cdktf_provider_aws.vpc import Vpc
@@ -41,7 +41,7 @@ def test_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
         )
 
 
-def test_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
+def test_aws_stack_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one public subnet."""
     from cdktf import Testing
     from cdktf_cdktf_provider_aws.subnet import Subnet
@@ -61,7 +61,9 @@ def test_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
         )
 
 
-def test_each_vpc_has_a_jumpbox_ec2_instance(aws_one_all_synthesis: str) -> None:
+def test_aws_stack_each_vpc_has_a_jumpbox_ec2_instance(
+    aws_one_all_synthesis: str,
+) -> None:
     """Ensure each VPC has a jumpbox EC2 instance."""
     from cdktf import Testing
     from cdktf_cdktf_provider_aws.instance import Instance
@@ -76,7 +78,7 @@ def test_each_vpc_has_a_jumpbox_ec2_instance(aws_one_all_synthesis: str) -> None
         )
 
 
-def test_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
+def test_aws_stack_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one subnet."""
     from cdktf import Testing
     from cdktf_cdktf_provider_aws.subnet import Subnet
@@ -95,7 +97,9 @@ def test_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
             )
 
 
-def test_each_subnet_has_at_least_one_ec2_instance(aws_one_all_synthesis: str) -> None:
+def test_aws_stack_each_subnet_has_at_least_one_ec2_instance(
+    aws_one_all_synthesis: str,
+) -> None:
     """Ensure each subnet has at least one EC2 instance."""
     from cdktf import Testing
     from cdktf_cdktf_provider_aws.instance import Instance

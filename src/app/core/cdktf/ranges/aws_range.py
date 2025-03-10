@@ -1,10 +1,10 @@
 from typing import Any
 
 from ..stacks.aws_stack import AWSStack
-from .base_range import CdktfBaseRange
+from .base_range import AbstractBaseRange
 
 
-class AWSRange(CdktfBaseRange):
+class AWSRange(AbstractBaseRange):
     """Range deployed to AWS."""
 
     def get_provider_stack_class(self) -> type[AWSStack]:

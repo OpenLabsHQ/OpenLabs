@@ -8,7 +8,7 @@ from ....schemas.secret_schema import SecretSchema
 from ....schemas.template_range_schema import TemplateRangeSchema
 from ....schemas.user_schema import UserID
 from .aws_range import AWSRange
-from .base_range import CdktfBaseRange
+from .base_range import AbstractBaseRange
 
 # from .azure_range import AzureRange
 # from .gcp_range import GCPRange
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class RangeFactory:
     """Create range objects."""
 
-    _registry: ClassVar[dict[OpenLabsProvider, Type[CdktfBaseRange]]] = {
+    _registry: ClassVar[dict[OpenLabsProvider, Type[AbstractBaseRange]]] = {
         OpenLabsProvider.AWS: AWSRange,
         # OpenLabsProvider.AZURE: AzureRange,
         # OpenLabsProvider.GCP: GCPRange
@@ -34,8 +34,8 @@ class RangeFactory:
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
-        statefile: dict[str, Any] | None = None,
-    ) -> CdktfBaseRange:
+        state_file: dict[str, Any] | None = None,
+    ) -> AbstractBaseRange:
         """Create range object.
 
         Args:
@@ -46,12 +46,12 @@ class RangeFactory:
             region (OpenLabsRegion): Supported cloud region.
             owner_id (UserID): The ID of the user deploying range.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
-            statefile (dict[str, Any]): The statefile of the deployed resources
+            state_file (dict[str, Any]): The statefile of the deployed resources
             is_deployed (bool): Whether the range is deployed or not (true for when destroying or updating a range, false for when deploying a range template)
 
         Returns:
         -------
-            CdktfBaseRange: Cdktf range object that can be deployed.
+            AbstractBaseRange: Cdktf range object that can be deployed.
 
         """
         range_class = cls._registry.get(template.provider)
@@ -67,5 +67,5 @@ class RangeFactory:
             region=region,
             owner_id=owner_id,
             secrets=secrets,
-            state_file=statefile,
+            state_file=state_file,
         )
