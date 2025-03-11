@@ -1,13 +1,12 @@
-import copy
 import logging
 import os
 import shutil
 import uuid
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
-from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,14 +18,14 @@ from sqlalchemy.ext.asyncio import (
 )
 from testcontainers.postgres import PostgresContainer
 
-import tests.api.v1.config as api_v1_config
+from src.app.core.auth.auth import get_current_user
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
-from src.app.main import app
+from src.app.models.user_model import UserModel
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
@@ -190,30 +189,47 @@ async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, N
     await engine.dispose()
 
 
+async def override_get_current_user() -> UserModel:
+    """Override get_current_user() auth function."""
+    return UserModel(
+        id=uuid.uuid4(),
+        name="Test User",
+        email="test@example.com",
+        hashed_password="dummy",  # noqa: S106 (Testing only)
+        created_at=datetime.now(tz=timezone.utc),
+        last_active=datetime.now(tz=timezone.utc),
+        is_admin=False,
+        public_key=None,
+        encrypted_private_key=None,
+        key_salt=None,
+    )
+
+
 @pytest_asyncio.fixture
-async def client(async_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]:
-    """Async client fixture that overrides the DB dependency with async sessions.
-
-    Args:
-    ----
-        async_engine (AsyncEngine): Async database engine object.
-
-    Returns:
-    -------
-        AsyncGenerator[AsyncClient, None]: Async client for interacting with FastAPI.
-
-    """
-    # Create the async session factory
+async def db_override(
+    async_engine: AsyncEngine,
+) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
+    """Fixture to override database dependency in test FastAPI app."""
+    # Create a session factory using the captured engine.
     async_session = async_sessionmaker(
         bind=async_engine, expire_on_commit=False, class_=AsyncSession
     )
 
-    # Override the FastAPI dependency to use this session factory
-    async def _override_async_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_async_get_db() -> AsyncGenerator[AsyncSession, None]:
         async with async_session() as session:
             yield session
 
-    app.dependency_overrides[async_get_db] = _override_async_get_db
+    return override_async_get_db
+
+
+@pytest_asyncio.fixture
+async def client(
+    db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
+) -> AsyncGenerator[AsyncClient, None]:
+    """Get async client fixture connected to the FastAPI app and test database container."""
+    from src.app.main import app
+
+    app.dependency_overrides[async_get_db] = db_override
 
     # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
     transport = ASGITransport(app=app)
@@ -227,47 +243,22 @@ async def client(async_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]
 
 @pytest_asyncio.fixture
 async def auth_client(
-    client: AsyncClient,
+    db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Fixture that registers and logs in a test user and returns an authenticated client.
+    """Get authenticated async client fixture conntected to the FastAPI app and test database container."""
+    from src.app.main import app
 
-    It uses the provided client fixture to register the user (if not already registered)
-    and then logs in to obtain the JWT cookie. A new AsyncClient is created with the
-    authentication cookie and returned.
-    """
-    # Prepare payloads for user registration and login
-    user_register_payload = copy.deepcopy(api_v1_config.base_user_register_payload)
-    user_login_payload = copy.deepcopy(api_v1_config.base_user_login_payload)
+    # Override database dependency
+    app.dependency_overrides[async_get_db] = db_override
 
-    # Use a fixed test email for authentication
-    test_email = "test-auth@ufsit.club"
-    user_register_payload["email"] = test_email
-    user_login_payload["email"] = test_email
+    # Override authentication depdency
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
-    # Register the user.
-    # Note: if the user already exists, you might get a 409 conflict which you can ignore.
-    register_response = await client.post(
-        f"{api_v1_config.BASE_ROUTE}/auth/register", json=user_register_payload
-    )
-    if register_response.status_code not in (
-        status.HTTP_200_OK,
-        status.HTTP_409_CONFLICT,
-    ):
-        msg = f"User registration failed: {register_response.text}"
-        raise Exception(msg)
+    # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
+    transport = ASGITransport(app=app)
 
-    # Log in the user to obtain authentication cookies
-    login_response = await client.post(
-        f"{api_v1_config.BASE_ROUTE}/auth/login", json=user_login_payload
-    )
-    assert (  # noqa: S101
-        login_response.status_code == status.HTTP_200_OK
-    ), f"Login failed: {login_response.text}"
-    assert (  # noqa: S101
-        "token" in login_response.cookies
-    ), "JWT token not set in cookies"
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
 
-    # Create a new authenticated client with the cookies from login
-    auth_client = AsyncClient(cookies=login_response.cookies, base_url=client.base_url)
-    yield auth_client
-    await auth_client.aclose()
+    # Clean up overrides after the test finishes
+    app.dependency_overrides.clear()
