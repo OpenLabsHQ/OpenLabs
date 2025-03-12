@@ -268,13 +268,13 @@ def auth_override(
             id=test_user_id,
             name="Test User",
             email="test@example.com",
-            hashed_password="dummy",  # noqa: S106 (Testing only)
+            hashed_password="nicetrydummy",  # noqa: S106 (Testing only)
             created_at=datetime.now(tz=timezone.utc),
             last_active=datetime.now(tz=timezone.utc),
             is_admin=False,
-            public_key=None,
-            encrypted_private_key=None,
-            key_salt=None,
+            public_key="fakepublickey==",
+            encrypted_private_key="fakeprivatekey=",
+            key_salt="thisisasalt",
         )
 
     return override_get_current_user
