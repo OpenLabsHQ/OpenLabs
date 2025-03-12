@@ -1,16 +1,17 @@
 import asyncio
+import copy
 import logging
 import os
 import shutil
 import socket
 import uuid
 from datetime import datetime, timezone
-from typing import AsyncGenerator, Callable, Generator
-from fastapi import status
+from typing import Any, AsyncGenerator, Callable, Coroutine, Generator
 
+import httpx
 import pytest
 import pytest_asyncio
-from fastapi import status
+from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -39,22 +40,6 @@ from tests.api.v1.config import BASE_ROUTE, base_user_register_payload
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def skip_if_env(var: str, reason: str) -> pytest.MarkDecorator:
-    """Return a pytest mark to skip tests if the specified environment variable is set.
-
-    Args:
-    ----
-        var (str): Environment var to check if set.
-        reason (str): Reason why test is being skipped.
-
-    Returns:
-    -------
-        pytest.MarkDecorator: Pytest skip test decorator.
-
-    """
-    return pytest.mark.skipif(os.getenv(var) is not None, reason=reason)
 
 
 @pytest.fixture(autouse=True)
@@ -179,7 +164,7 @@ def range_factory() -> Callable[
 
 @pytest_asyncio.fixture(scope="function")
 async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, None]:
-    """Create async database engine for the entire test session.
+    """Create async database engine.
 
     Args:
     ----
@@ -195,23 +180,7 @@ async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, N
     await engine.dispose()
 
 
-async def override_get_current_user(user_id: uuid.UUID) -> UserModel:
-    """Override get_current_user() auth function."""
-    return UserModel(
-        id=user_id,
-        name="Test User",
-        email="test@example.com",
-        hashed_password="dummy",  # noqa: S106 (Testing only)
-        created_at=datetime.now(tz=timezone.utc),
-        last_active=datetime.now(tz=timezone.utc),
-        is_admin=False,
-        public_key=None,
-        encrypted_private_key=None,
-        key_salt=None,
-    )
-
-
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def db_override(
     async_engine: AsyncEngine,
 ) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
@@ -228,53 +197,121 @@ async def db_override(
     return override_async_get_db
 
 
-@pytest_asyncio.fixture
-async def client(
+@pytest.fixture(scope="function")
+def client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
+) -> FastAPI:
+    """Create app for client fixture."""
+    from src.app.main import app
+
+    app.dependency_overrides[async_get_db] = db_override
+
+    return app
+
+
+@pytest.fixture(scope="function")
+def auth_client_app(
+    db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
+) -> FastAPI:
+    """Create app for auth_client fixture."""
+    from src.app.main import app
+
+    app.dependency_overrides[async_get_db] = db_override
+
+    return app
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_user_id(
+    auth_client_app: FastAPI,
+) -> uuid.UUID:
+    """Register a user for testing auth_client fixture."""
+    registration_payload = copy.deepcopy(base_user_register_payload)
+
+    unique_str = str(uuid.uuid4())
+
+    # Create unique email
+    email_split = registration_payload["email"].split("@")
+    email_split_len = 2  # username and domain from email
+    assert len(email_split) == email_split_len
+    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
+
+    # Make name unique for debugging
+    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
+
+    reg_transport = ASGITransport(app=auth_client_app)
+    user_id = ""
+    async with AsyncClient(
+        transport=reg_transport, base_url="http://register"
+    ) as client:
+        response = await client.post(
+            f"{BASE_ROUTE}/auth/register", json=registration_payload
+        )
+        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
+
+        user_id = response.json()["id"]
+
+        assert user_id, "Failed to retrieve test user ID."
+
+    return uuid.UUID(user_id, version=4)
+
+
+@pytest.fixture(scope="function")
+def auth_override(
+    test_user_id: uuid.UUID,
+) -> Callable[[], UserModel]:
+    """Override get_current_user() auth function."""
+
+    def override_get_current_user() -> UserModel:
+        return UserModel(
+            id=test_user_id,
+            name="Test User",
+            email="test@example.com",
+            hashed_password="dummy",  # noqa: S106 (Testing only)
+            created_at=datetime.now(tz=timezone.utc),
+            last_active=datetime.now(tz=timezone.utc),
+            is_admin=False,
+            public_key=None,
+            encrypted_private_key=None,
+            key_salt=None,
+        )
+
+    return override_get_current_user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(
+    client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get async client fixture connected to the FastAPI app and test database container."""
-    from src.app.main import app
-
-    app.dependency_overrides[async_get_db] = db_override
-
-    # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=client_app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
     # Clean up overrides after the test finishes
-    app.dependency_overrides.clear()
+    client_app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def auth_client(
-    db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
+    auth_client_app: FastAPI,
+    auth_override: Callable[[], UserModel],
+    test_user_id: uuid.UUID,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get authenticated async client fixture conntected to the FastAPI app and test database container."""
-    from src.app.main import app
+    logger.info("Authenticaed tests happening as user: %s", test_user_id)
 
-    # Override database dependency
-    app.dependency_overrides[async_get_db] = db_override
-
-    response = await client.post( #TODO FIX HERE FOR HAVING AUTH_CLIENT REGISTER A USER TO USE FOR UPLOADING TEMPLATES TO DATABASE AND PULLING FROM DATABASE
-        f"{BASE_ROUTE}/auth/register", json=base_user_register_payload
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-    user_id = response.json()["id"]
-
-    # Override authentication depdency
-    app.dependency_overrides[get_current_user] = override_get_current_user
+    auth_client_app.dependency_overrides[get_current_user] = auth_override
 
     # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=auth_client_app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
 
     # Clean up overrides after the test finishes
-    app.dependency_overrides.clear()
+    auth_client_app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")
