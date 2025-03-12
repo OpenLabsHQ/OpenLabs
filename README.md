@@ -23,6 +23,10 @@ Create a `.env` file in the project root. This file configures both FastAPI and 
 <summary><strong>Sample <code>.env</code> File</strong></summary>
 
 ```env
+# API Configuration
+API_IP_ADDR=127.0.0.1
+API_PORT=8000
+
 # PostgreSQL Configuration
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
