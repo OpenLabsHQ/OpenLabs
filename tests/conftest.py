@@ -350,9 +350,11 @@ async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
 @pytest.fixture(scope="session")
 def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
+    ip_var_name = "API_IP_ADDR"
     port_var_name = "API_PORT"
 
     # Export test config
+    os.environ[ip_var_name] = "localhost"
     os.environ[port_var_name] = str(get_free_port)
 
     with DockerCompose(
@@ -368,6 +370,7 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
         yield compose
 
     compose.stop(down=True)
+    del os.environ[ip_var_name]
     del os.environ[port_var_name]
     logger.info("Docker Compose environment stopped.")
 
@@ -383,6 +386,52 @@ async def integration_client(
     await wait_for_fastapi_service(base_url, timeout=60)
 
     async with AsyncClient(base_url=base_url) as client:
+        yield client
+
+
+@pytest_asyncio.fixture(scope="session")
+async def auth_integration_client(
+    docker_services: DockerCompose, get_free_port: int
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create authenticated async client to live FastAPI docker compose container."""
+    base_url = f"http://localhost:{get_free_port}"
+
+    # Wait for docker compose and container to start
+    await wait_for_fastapi_service(base_url, timeout=60)
+
+    # Register test user
+    registration_payload = copy.deepcopy(base_user_register_payload)
+
+    unique_str = str(uuid.uuid4())
+
+    # Create unique email
+    email_split = registration_payload["email"].split("@")
+    email_split_len = 2  # username and domain from email
+    assert len(email_split) == email_split_len
+    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
+
+    # Make name unique for debugging
+    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
+
+    reg_transport = ASGITransport(base_url=base_url)
+    user_id = ""
+    async with AsyncClient(
+        transport=reg_transport, base_url="http://register"
+    ) as client:
+        # Register user
+        response = await client.post(
+            f"{BASE_ROUTE}/auth/register", json=registration_payload
+        )
+        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
+        user_id = response.json()["id"]
+        assert user_id, "Failed to retrieve test user ID."
+
+        # Login user
+        login_payload = copy.deepcopy(registration_payload)
+        login_payload.pop()
+        response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
+        assert response.status_code == status.HTTP_200_OK
+
         yield client
 
 
