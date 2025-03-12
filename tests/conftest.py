@@ -4,6 +4,7 @@ import shutil
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Callable, Generator
+from fastapi import status
 
 import pytest
 import pytest_asyncio
@@ -30,6 +31,7 @@ from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
 from src.app.utils.cdktf_utils import create_cdktf_dir
+from tests.api.v1.config import BASE_ROUTE, base_user_register_payload
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -189,10 +191,10 @@ async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, N
     await engine.dispose()
 
 
-async def override_get_current_user() -> UserModel:
+async def override_get_current_user(user_id: uuid.UUID) -> UserModel:
     """Override get_current_user() auth function."""
     return UserModel(
-        id=uuid.uuid4(),
+        id=user_id,
         name="Test User",
         email="test@example.com",
         hashed_password="dummy",  # noqa: S106 (Testing only)
@@ -250,6 +252,13 @@ async def auth_client(
 
     # Override database dependency
     app.dependency_overrides[async_get_db] = db_override
+
+    response = await client.post( ## FIX HERE FOR HAVING AUTH_CLIENT REGISTER A USER TO USE FOR UPLOADING TEMPLATES TO DATABASE AND PULLING FROM DATABASE
+        f"{BASE_ROUTE}/auth/register", json=base_user_register_payload
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    user_id = response.json()["id"]
 
     # Override authentication depdency
     app.dependency_overrides[get_current_user] = override_get_current_user
