@@ -384,3 +384,70 @@ async def integration_client(
 
     async with AsyncClient(base_url=base_url) as client:
         yield client
+
+
+@pytest.fixture
+def mock_decrypt_no_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass secrets decryption to return a fake secrets record for the user."""
+
+    async def mock_get_decrypted_secrets(
+        user: UserModel, db: AsyncSession, master_key: bytes
+    ) -> SecretSchema:
+        return SecretSchema(
+            aws_access_key=None,
+            aws_secret_key=None,
+            aws_created_at=None,
+            azure_client_id=None,
+            azure_client_secret=None,
+            azure_tenant_id=None,
+            azure_subscription_id=None,
+            azure_created_at=None,
+        )
+
+    # Patch the function
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets
+    )
+
+
+@pytest.fixture
+def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass secrets decryption to return a fake secrets record for the user."""
+
+    async def mock_get_decrypted_secrets(
+        user: UserModel, db: AsyncSession, master_key: bytes
+    ) -> SecretSchema:
+        return SecretSchema(
+            aws_access_key="AKIAIOSFODNN7EXAMPLE",
+            aws_secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # noqa: S106
+            aws_created_at=datetime.now(tz=timezone.utc),
+            azure_client_id=None,
+            azure_client_secret=None,
+            azure_tenant_id=None,
+            azure_subscription_id=None,
+            azure_created_at=None,
+        )
+
+    # Patch the function
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets
+    )
+
+
+@pytest.fixture
+async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch the synthesize method on the base class."""
+    monkeypatch.setattr(
+        RangeFactory,
+        "create_range",
+        lambda *args, **kwargs: type(
+            "MockRange",
+            (AbstractBaseRange,),
+            {
+                "get_provider_stack_class": lambda self: None,
+                "has_secrets": lambda self: True,
+                "get_cred_env_vars": lambda self: {},
+                "synthesize": lambda self: False,
+            },
+        )(None, None, None, None, None),
+    )
