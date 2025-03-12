@@ -274,7 +274,7 @@ def auth_override(
             is_admin=False,
             public_key="fakepublickey==",
             encrypted_private_key="fakeprivatekey=",
-            key_salt="thisisasalt",
+            key_salt=b"thisisasalt",
         )
 
     return override_get_current_user
