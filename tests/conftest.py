@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine
+from sqlalchemy import NullPool, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -175,7 +175,9 @@ async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, N
         AsyncGenerator[AsyncEngine, None]: Async database engine.
 
     """
-    engine = create_async_engine(postgres_container, echo=False, future=True)
+    engine = create_async_engine(
+        postgres_container, echo=False, future=True, poolclass=NullPool
+    )
     yield engine
     await engine.dispose()
 
