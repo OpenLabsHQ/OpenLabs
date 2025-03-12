@@ -253,7 +253,7 @@ async def auth_client(
     # Override database dependency
     app.dependency_overrides[async_get_db] = db_override
 
-    response = await client.post( ## FIX HERE FOR HAVING AUTH_CLIENT REGISTER A USER TO USE FOR UPLOADING TEMPLATES TO DATABASE AND PULLING FROM DATABASE
+    response = await client.post( #TODO FIX HERE FOR HAVING AUTH_CLIENT REGISTER A USER TO USE FOR UPLOADING TEMPLATES TO DATABASE AND PULLING FROM DATABASE
         f"{BASE_ROUTE}/auth/register", json=base_user_register_payload
     )
 
