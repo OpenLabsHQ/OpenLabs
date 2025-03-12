@@ -6,9 +6,8 @@ import shutil
 import socket
 import uuid
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Callable, Coroutine, Generator
+from typing import AsyncGenerator, Callable, Generator
 
-import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI, status
@@ -162,7 +161,7 @@ def range_factory() -> Callable[
     return _range_synthesize
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, None]:
     """Create async database engine.
 
@@ -182,7 +181,7 @@ async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, N
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def db_override(
     async_engine: AsyncEngine,
 ) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
