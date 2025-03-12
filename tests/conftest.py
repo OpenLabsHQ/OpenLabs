@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import shutil
+import socket
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Callable, Generator
@@ -8,6 +10,7 @@ from fastapi import status
 
 import pytest
 import pytest_asyncio
+from fastapi import status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,6 +20,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from testcontainers.compose import DockerCompose
 from testcontainers.postgres import PostgresContainer
 
 from src.app.core.auth.auth import get_current_user
@@ -271,3 +275,74 @@ async def auth_client(
 
     # Clean up overrides after the test finishes
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="session")
+def get_free_port() -> int:
+    """Get an unused port on the host."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return int(s.getsockname()[1])
+
+
+async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
+    """Poll the FastAPI health endpoint until it returns a 200 status code or the timeout is reached."""
+    url = f"{base_url}/health/ping"
+    start = asyncio.get_event_loop().time()
+
+    while True:
+        try:
+            async with AsyncClient() as client:
+                response = await client.get(url)
+            if response.status_code == status.HTTP_200_OK:
+                logger.info("FastAPI service is available.")
+                return True
+        except Exception as e:
+            logger.debug("FastAPI service not yet available: %s", e)
+
+        # Wait
+        await asyncio.sleep(1)
+
+        # Timeout expired
+        if asyncio.get_event_loop().time() - start > timeout:
+            logger.error("FastAPI service did not become available in time.")
+            return False
+
+
+@pytest.fixture(scope="session")
+def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
+    """Spin up docker compose environment using `docker-compose.yml` in project root."""
+    port_var_name = "API_PORT"
+
+    # Export test config
+    os.environ[port_var_name] = str(get_free_port)
+
+    with DockerCompose(
+        context=".",
+        compose_file_name="docker-compose.yml",
+        pull=True,
+        build=True,
+        wait=True,
+        keep_volumes=False,
+    ) as compose:
+        logger.info("Docker Compose environment started.")
+
+        yield compose
+
+    compose.stop(down=True)
+    del os.environ[port_var_name]
+    logger.info("Docker Compose environment stopped.")
+
+
+@pytest_asyncio.fixture(scope="session")
+async def integration_client(
+    docker_services: DockerCompose, get_free_port: int
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create async client that connects to live FastAPI docker compose container."""
+    base_url = f"http://localhost:{get_free_port}"
+
+    # Wait for docker compose and container to start
+    await wait_for_fastapi_service(base_url, timeout=60)
+
+    async with AsyncClient(base_url=base_url) as client:
+        yield client
