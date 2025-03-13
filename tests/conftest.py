@@ -35,7 +35,7 @@ from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
 from src.app.utils.cdktf_utils import create_cdktf_dir
-from tests.api.v1.config import BASE_ROUTE, base_user_register_payload
+from tests.api.v1.config import BASE_ROUTE, base_user_register_payload, valid_range_payload
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -486,6 +486,7 @@ def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.fixture
 async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch the synthesize method on the base class."""
+    template_schema = TemplateRangeSchema.model_validate(valid_range_payload, from_attributes=True)
     monkeypatch.setattr(
         RangeFactory,
         "create_range",
@@ -498,5 +499,5 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "get_cred_env_vars": lambda self: {},
                 "synthesize": lambda self: False,
             },
-        )(None, None, None, None, None),
+        )(uuid.uuid4(), template_schema, OpenLabsRegion.US_EAST_1, uuid.uuid4(), SecretSchema()),
     )
