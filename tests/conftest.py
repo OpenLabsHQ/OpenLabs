@@ -6,7 +6,7 @@ import shutil
 import socket
 import uuid
 from datetime import datetime, timezone
-from typing import AsyncGenerator, Callable, Generator
+from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
@@ -29,13 +29,19 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
+from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
+from src.app.schemas.range_schema import RangeID, RangeSchema
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
 from src.app.utils.cdktf_utils import create_cdktf_dir
-from tests.api.v1.config import BASE_ROUTE, base_user_register_payload, valid_range_payload
+from tests.api.v1.config import (
+    BASE_ROUTE,
+    base_user_register_payload,
+    valid_range_payload,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -485,8 +491,10 @@ def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> N
 
 @pytest.fixture
 async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch the synthesize method on the base class."""
-    template_schema = TemplateRangeSchema.model_validate(valid_range_payload, from_attributes=True)
+    """Bypass the synthesize function call to return false to trigger specific error."""
+    template_schema = TemplateRangeSchema.model_validate(
+        valid_range_payload, from_attributes=True
+    )
     monkeypatch.setattr(
         RangeFactory,
         "create_range",
@@ -499,5 +507,94 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "get_cred_env_vars": lambda self: {},
                 "synthesize": lambda self: False,
             },
-        )(uuid.uuid4(), template_schema, OpenLabsRegion.US_EAST_1, uuid.uuid4(), SecretSchema()),
+        )(
+            uuid.uuid4(),
+            template_schema,
+            OpenLabsRegion.US_EAST_1,
+            uuid.uuid4(),
+            SecretSchema(),
+        ),
     )
+
+
+@pytest.fixture
+async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the deploy function call to return false to trigger specific error."""
+    template_schema = TemplateRangeSchema.model_validate(
+        valid_range_payload, from_attributes=True
+    )
+    monkeypatch.setattr(
+        RangeFactory,
+        "create_range",
+        lambda *args, **kwargs: type(
+            "MockRange",
+            (AbstractBaseRange,),
+            {
+                "get_provider_stack_class": lambda self: None,
+                "has_secrets": lambda self: True,
+                "get_cred_env_vars": lambda self: {},
+                "synthesize": lambda self: True,
+                "deploy": lambda self: False,
+            },
+        )(
+            uuid.uuid4(),
+            template_schema,
+            OpenLabsRegion.US_EAST_1,
+            uuid.uuid4(),
+            SecretSchema(),
+        ),
+    )
+
+
+@pytest.fixture
+async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the deploy function call to return true."""
+    template_schema = TemplateRangeSchema.model_validate(
+        valid_range_payload, from_attributes=True
+    )
+    monkeypatch.setattr(
+        RangeFactory,
+        "create_range",
+        lambda *args, **kwargs: type(
+            "MockRange",
+            (AbstractBaseRange,),
+            {
+                "get_provider_stack_class": lambda self: None,
+                "has_secrets": lambda self: True,
+                "get_cred_env_vars": lambda self: {},
+                "synthesize": lambda self: True,
+                "deploy": lambda self: True,
+            },
+        )(
+            uuid.uuid4(),
+            template_schema,
+            OpenLabsRegion.US_EAST_1,
+            uuid.uuid4(),
+            SecretSchema(),
+            {},
+        ),
+    )
+
+
+@pytest.fixture
+def mock_is_range_owner_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the is_range_owner function to return false."""
+
+    async def mock_is_range_owner(
+        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
+    ) -> bool:
+        return False
+
+    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
+
+
+@pytest.fixture
+def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the is_range_owner function to return false."""
+
+    async def mock_is_range_owner(
+        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
+    ) -> bool:
+        return True
+
+    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
