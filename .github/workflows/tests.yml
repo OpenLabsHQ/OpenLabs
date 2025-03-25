@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Install docker
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+    
       # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
