@@ -50,12 +50,11 @@ async def test_get_auth_token(client: AsyncClient) -> None:
 
 
 async def test_template_range_get_all_empty_list(
-    integration_client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     """Test that we get a 404 response when there are no range templates."""
-    # For backward compatibility, continue using the Authorization header
-    integration_client.headers.update({"Authorization": f"Bearer {auth_token}"})
-    response = await integration_client.get(f"{BASE_ROUTE}/templates/ranges")
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+    response = await client.get(f"{BASE_ROUTE}/templates/ranges")
     print(response.json())
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
