@@ -293,8 +293,8 @@ async def client(
     """Get async client fixture connected to the FastAPI app and test database container."""
     transport = ASGITransport(app=client_app)
 
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
     # Clean up overrides after the test finishes
     client_app.dependency_overrides.clear()
@@ -314,8 +314,8 @@ async def auth_client(
     # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
     transport = ASGITransport(app=auth_client_app)
 
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
     # Clean up overrides after the test finishes
     auth_client_app.dependency_overrides.clear()
@@ -327,6 +327,23 @@ def get_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return int(s.getsockname()[1])
+
+
+def get_api_base_route(version: int) -> str:
+    """Return correct API base route URL based on version."""
+    if version < 1:
+        msg = f"API version cannot be less than 1. Recieved: {version}"
+        raise ValueError(msg)
+
+    api_base_url = "/api"
+
+    if version == 1:
+        api_base_url += "/v1"
+    else:
+        msg = f"Invalid version provided. Recieved: {version}"
+        raise ValueError(msg)
+
+    return api_base_url
 
 
 async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
@@ -360,7 +377,7 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
     port_var_name = "API_PORT"
 
     # Export test config
-    os.environ[ip_var_name] = "localhost"
+    os.environ[ip_var_name] = "127.127.127.127"
     os.environ[port_var_name] = str(get_free_port)
 
     with DockerCompose(
@@ -383,13 +400,16 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
 
 @pytest_asyncio.fixture(scope="session")
 async def integration_client(
-    docker_services: DockerCompose, get_free_port: int
+    docker_services: DockerCompose,
+    get_free_port: int,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create async client that connects to live FastAPI docker compose container."""
-    base_url = f"http://localhost:{get_free_port}"
+    base_url = f"http://127.127.127.127:{get_free_port}"
 
     # Wait for docker compose and container to start
-    await wait_for_fastapi_service(base_url, timeout=60)
+    await wait_for_fastapi_service(
+        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
+    )
 
     async with AsyncClient(base_url=base_url) as client:
         yield client
@@ -397,13 +417,16 @@ async def integration_client(
 
 @pytest_asyncio.fixture(scope="session")
 async def auth_integration_client(
-    docker_services: DockerCompose, get_free_port: int
+    docker_services: DockerCompose,
+    get_free_port: int,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create authenticated async client to live FastAPI docker compose container."""
-    base_url = f"http://localhost:{get_free_port}"
+    base_url = f"http://127.127.127.127:{get_free_port}"
 
     # Wait for docker compose and container to start
-    await wait_for_fastapi_service(base_url, timeout=60)
+    await wait_for_fastapi_service(
+        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
+    )
 
     # Register test user
     registration_payload = copy.deepcopy(base_user_register_payload)
@@ -419,12 +442,8 @@ async def auth_integration_client(
     # Make name unique for debugging
     registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
 
-    # TODO: Fix transport creation; Currently invalid
-    reg_transport = ASGITransport(base_url=base_url)
     user_id = ""
-    async with AsyncClient(
-        transport=reg_transport, base_url="http://register"
-    ) as client:
+    async with AsyncClient(base_url=base_url) as client:
         # Register user
         response = await client.post(
             f"{BASE_ROUTE}/auth/register", json=registration_payload
@@ -438,6 +457,10 @@ async def auth_integration_client(
         login_payload.pop("name")
         response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
         assert response.status_code == status.HTTP_200_OK
+
+        # Make cookies non-secure (Works with HTTP)
+        for cookie in client.cookies.jar:
+            cookie.secure = False
 
         yield client
 
