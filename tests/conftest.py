@@ -6,7 +6,7 @@ import shutil
 import socket
 import uuid
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Callable, Generator
+from typing import AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
@@ -29,10 +29,10 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
-from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion
+from src.app.models.range_model import RangeModel
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schema import RangeID, RangeSchema
+from src.app.schemas.range_schema import RangeID
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
@@ -419,6 +419,7 @@ async def auth_integration_client(
     # Make name unique for debugging
     registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
 
+    # TODO: Fix transport creation; Currently invalid
     reg_transport = ASGITransport(base_url=base_url)
     user_id = ""
     async with AsyncClient(
@@ -434,7 +435,7 @@ async def auth_integration_client(
 
         # Login user
         login_payload = copy.deepcopy(registration_payload)
-        login_payload.pop()
+        login_payload.pop("name")
         response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
         assert response.status_code == status.HTTP_200_OK
 
