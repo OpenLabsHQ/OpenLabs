@@ -8,7 +8,7 @@ from src.app.core.cdktf.ranges.aws_range import AWSRange
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.template_range_schema import TemplateRangeSchema
-from tests.core.cdktf.config import modify_cidr, one_all_template
+from tests.unit.core.cdktf.config import modify_cidr, one_all_template
 
 
 @pytest.fixture(scope="module")

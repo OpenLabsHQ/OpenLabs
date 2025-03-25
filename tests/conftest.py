@@ -37,7 +37,7 @@ from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
 from src.app.utils.cdktf_utils import create_cdktf_dir
-from tests.api.v1.config import (
+from tests.unit.api.v1.config import (
     BASE_ROUTE,
     base_user_register_payload,
     valid_range_payload,
