@@ -31,6 +31,10 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.range_model import RangeModel
+from src.app.models.template_range_model import TemplateRangeModel
+from src.app.models.template_host_model import TemplateHostModel
+from src.app.models.template_subnet_model import TemplateSubnetModel
+from src.app.models.template_vpc_model import TemplateVPCModel
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schema import RangeID
 from src.app.schemas.secret_schema import SecretSchema
