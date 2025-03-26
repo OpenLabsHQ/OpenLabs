@@ -221,6 +221,12 @@ async def delete_range_endpoint(
         state_file=range_schema.state_file,
     )
 
+    if not range_obj.has_secrets():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No credentials found for provider: {range_obj.template.provider}",
+        )
+
     # Destroy range
     successful_synthesize = range_obj.synthesize()
     if not successful_synthesize:

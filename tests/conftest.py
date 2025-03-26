@@ -31,12 +31,12 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.range_model import RangeModel
-from src.app.models.template_range_model import TemplateRangeModel
 from src.app.models.template_host_model import TemplateHostModel
+from src.app.models.template_range_model import TemplateRangeModel
 from src.app.models.template_subnet_model import TemplateSubnetModel
 from src.app.models.template_vpc_model import TemplateVPCModel
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schema import RangeID
+from src.app.schemas.range_schema import RangeID, RangeSchema
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
@@ -626,3 +626,25 @@ def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
         return True
 
     monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
+
+
+@pytest.fixture
+def mock_create_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the create_range function to return nothing to force the error when adding to the ranges table."""
+
+    async def mock_create_range(
+        db: AsyncSession, range_schema: RangeSchema, owner_id: uuid.UUID
+    ) -> None:
+        return None
+
+    monkeypatch.setattr("src.app.api.v1.ranges.create_range", mock_create_range)
+
+
+@pytest.fixture
+def mock_delete_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
+
+    async def mock_delete_range(db: AsyncSession, range_model: RangeModel) -> None:
+        return None
+
+    monkeypatch.setattr("src.app.api.v1.ranges.delete_range", mock_delete_range)
