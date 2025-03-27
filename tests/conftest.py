@@ -396,7 +396,6 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
 
         yield compose
 
-    compose.stop(down=True)
     del os.environ[ip_var_name]
     del os.environ[port_var_name]
     logger.info("Docker Compose environment stopped.")
