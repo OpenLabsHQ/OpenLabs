@@ -11,7 +11,9 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      
     steps:
       # Install docker
       - name: Set up Docker
