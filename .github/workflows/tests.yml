@@ -16,10 +16,15 @@ jobs:
       # Install docker
       - name: Set up Docker
         uses: docker/setup-docker-action@v4
-    
+
       # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Create .env file with defaults
+      - name: Set default ENV values
+        run: |
+          cp .env.example .env
 
       # Set up Python
       - name: Set up Python
