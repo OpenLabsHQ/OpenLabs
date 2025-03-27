@@ -1,4 +1,4 @@
-name: Tests
+name: Integration Tests
 
 on:
   push:
@@ -42,4 +42,4 @@ jobs:
       # Run Tests
       - name: Run Tests
         run: |
-          pytest
+          pytest --no-cov tests/integration/
