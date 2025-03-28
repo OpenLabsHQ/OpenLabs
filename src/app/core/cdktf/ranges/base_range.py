@@ -20,9 +20,6 @@ from ..stacks.base_stack import AbstractBaseStack
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# # Define a TypeVar bound to AbstractBaseStack
-# TStack = TypeVar("TStack", bound=AbstractBaseStack)
-
 
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
