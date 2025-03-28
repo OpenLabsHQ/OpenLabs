@@ -251,7 +251,7 @@ async def register_user(
 
     # Create unique password
     if not password:
-        password = unique_str
+        password = f"password-{unique_str}"
 
     # Build payload with values
     registration_payload["email"] = email
@@ -314,6 +314,18 @@ async def login_user(client: AsyncClient, email: str, password: str) -> bool:
     return True
 
 
+async def logout_user(client: AsyncClient) -> bool:
+    """Logout out of current user.
+
+    Returns
+    -------
+        bool: True if successful. False otherwise.
+
+    """
+    response = await client.post(f"{BASE_ROUTE}/auth/logout")
+    return response.status_code == status.HTTP_200_OK
+
+
 async def authenticate_client(
     client: AsyncClient,
     email: str | None = None,
@@ -370,7 +382,18 @@ def auth_client_app(
 async def client(
     client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Get async client fixture connected to the FastAPI app and test database container."""
+    """Get async client fixture connected to the FastAPI app and test database container.
+
+    **Note:** This client is created once per test session and is shared across all tests that
+    use the `client` fixture. This means that if any test authenticates before your test, the
+    client will act as an authenticated client.
+
+    To ensure you have an unauthenticated client logout first:
+        ```python
+        async def my_unauthenticated_test(client: AsyncClient) -> None:
+            assert await logout_user(client)
+        ```
+    """
     transport = ASGITransport(app=client_app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -392,7 +415,7 @@ async def auth_client(
 
     Example:
         ```python
-        async def my test(client: AsyncClient) -> None:
+        async def my_auth_test(client: AsyncClient) -> None:
             assert await authenticate_client(client)
 
             client.post("/some/authenticated/endpoint")
