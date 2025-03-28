@@ -28,7 +28,3 @@ class RangeModel(Base, OwnableObjectMixin):
     # subets: list[CdktfBaseSubnet]
     # vpcs: list[CdktfBaseVPC]
     # Cloud account id for referencing specifc set of secrets - only when we allow users to store multiple set of creds for each cloud provider
-
-
-# deployed_range_obj = DeployedRange(deployed_range_id, range_template, state_file, range_template.provider, account: OpenLabsAccount, cloud_account_id: uuid/int)
-# OpenLabsAccount --> Provider --> Cloud Account ID --> AWS Creds
