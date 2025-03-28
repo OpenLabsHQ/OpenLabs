@@ -682,4 +682,5 @@ async def test_destroy_range_destroy_success(
 
     response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() is True
+    assert response.json()
+    assert str(deployed_range_id) in response.json()["message"]

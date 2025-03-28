@@ -13,6 +13,7 @@ from ...crud.crud_ranges import create_range, delete_range, get_range, is_range_
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.range_states import RangeState
 from ...models.user_model import UserModel
+from ...schemas.message_schema import MessageSchema
 from ...schemas.range_schema import DeployRangeBaseSchema, RangeID, RangeSchema
 from ...schemas.template_range_schema import TemplateRangeID, TemplateRangeSchema
 from ...schemas.user_schema import UserID
@@ -140,7 +141,7 @@ async def delete_range_endpoint(
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
-) -> bool:
+) -> MessageSchema:
     """Destroy a deployed range.
 
     Args:
@@ -152,7 +153,7 @@ async def delete_range_endpoint(
 
     Returns:
     -------
-        bool: True if successfully deleted. False otherwise.
+        MessageSchema: Success message. Error otherwise.
 
     """
     if not is_valid_uuid4(range_id):
@@ -250,4 +251,6 @@ async def delete_range_endpoint(
             detail=f"Failed to delete deployed range entry in database. Range: {range_obj.template.name} ({range_obj.id})",
         )
 
-    return True
+    return MessageSchema(
+        message=f"Successfully destroyed range: {range_obj.template.name} ({range_id})"
+    )
