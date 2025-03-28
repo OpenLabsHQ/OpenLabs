@@ -95,7 +95,12 @@ class AbstractBaseRange(ABC):
         pass
 
     def synthesize(self) -> bool:
-        """Abstract method to synthesize terraform configuration."""
+        """Abstract method to synthesize terraform configuration.
+
+        Returns:
+            bool: True if successful synthesis. False otherwise.
+
+        """
         try:
             logger.info(
                 "Synthesizing selected range: %s (%s)", self.template.name, self.id
@@ -134,12 +139,7 @@ class AbstractBaseRange(ABC):
     def deploy(self) -> bool:
         """Run `terraform deploy --auto-approve` programmatically.
 
-        Args:
-        ----
-            stack_dir (str): Output directory.
-            stack_name (str): Name of stack used to deploy the range (format: <range name>-<range id>).
-
-        Returns:
+        Returns
         -------
             bool: True if successfully deployed range. False otherwise.
 
