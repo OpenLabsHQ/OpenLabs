@@ -3,10 +3,16 @@ import shutil
 from typing import Callable
 
 import pytest
+from cdktf import Testing
+from cdktf_cdktf_provider_aws.instance import Instance
+from cdktf_cdktf_provider_aws.subnet import Subnet
+from cdktf_cdktf_provider_aws.vpc import Vpc
 
 from src.app.core.cdktf.ranges.aws_range import AWSRange
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
+from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
+from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from tests.unit.core.cdktf.config import modify_cidr, one_all_template
 
@@ -19,8 +25,6 @@ def aws_one_all_synthesis(
     ],
 ) -> str:
     """Synthesize AWS stack with one_all_template."""
-    from src.app.core.cdktf.ranges.aws_range import AWSRange
-
     # Call the factory with the desired stack, stack name, and region.
     range_obj = range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
 
@@ -40,17 +44,12 @@ def aws_range(
     ],
 ) -> AbstractBaseRange:
     """Synthesize AWS stack with one_all_template."""
-    from src.app.core.cdktf.ranges.aws_range import AWSRange
-
     # Call the factory with the desired stack, stack name, and region.
     return range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
 
 
 def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
     """Ensure every VPC is valid."""
-    from cdktf import Testing
-    from cdktf_cdktf_provider_aws.vpc import Vpc
-
     assert Testing.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
 
     for vpc in one_all_template.vpcs:
@@ -63,9 +62,6 @@ def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
 
 def test_aws_range_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one public subnet."""
-    from cdktf import Testing
-    from cdktf_cdktf_provider_aws.subnet import Subnet
-
     assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
     for vpc in one_all_template.vpcs:
@@ -85,9 +81,6 @@ def test_aws_range_each_vpc_has_a_jumpbox_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each VPC has a jumpbox EC2 instance."""
-    from cdktf import Testing
-    from cdktf_cdktf_provider_aws.instance import Instance
-
     assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
 
     for vpc in one_all_template.vpcs:
@@ -100,9 +93,6 @@ def test_aws_range_each_vpc_has_a_jumpbox_ec2_instance(
 
 def test_aws_range_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one subnet."""
-    from cdktf import Testing
-    from cdktf_cdktf_provider_aws.subnet import Subnet
-
     assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
     for vpc in one_all_template.vpcs:
@@ -121,12 +111,6 @@ def test_aws_range_each_subnet_has_at_least_one_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each subnet has at least one EC2 instance."""
-    from cdktf import Testing
-    from cdktf_cdktf_provider_aws.instance import Instance
-
-    from src.app.enums.operating_systems import AWS_OS_MAP
-    from src.app.enums.specs import AWS_SPEC_MAP
-
     assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
 
     for vpc in one_all_template.vpcs:
