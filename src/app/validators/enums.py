@@ -11,8 +11,9 @@ def is_valid_enum_value(
 ) -> bool:
     """Check if the provided value is valid for the given Enum class.
 
-    The function does this by attempting to instantiate an enum member.
-    If the value is invalid, a ValueError is raised.
+    The function does this by attempting to instantiate an enum member. If the value
+    is invalid, a ValueError is raised internally and the function returns false.
+
     In strict mode, the value must also match one of the enum member values exactly,
     including the type.
 
