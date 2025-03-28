@@ -1,6 +1,6 @@
+import pytest
 from fastapi import status
 from httpx import AsyncClient
-import pytest
 
 from .config import BASE_ROUTE
 
