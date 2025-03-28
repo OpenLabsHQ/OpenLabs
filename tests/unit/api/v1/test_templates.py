@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from src.app.models.template_range_model import TemplateRangeModel
 from src.app.schemas.template_host_schema import TemplateHostSchema
 from src.app.schemas.template_subnet_schema import TemplateSubnetHeaderSchema
+from tests.conftest import authenticate_client
 
 from .config import (
     BASE_ROUTE,
@@ -33,10 +34,11 @@ user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_template_range_get_all_empty_list(
-    auth_client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     """Test that we get a 404 response when there are no range templates."""
-    response = await auth_client.get(f"{BASE_ROUTE}/templates/ranges")
+    assert await authenticate_client(client)
+    response = await client.get(f"{BASE_ROUTE}/templates/ranges")
     print(response.json())
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -59,15 +61,17 @@ async def test_template_host_get_all_empty_list(auth_client: AsyncClient) -> Non
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-async def test_template_range_get_non_empty_list(auth_client: AsyncClient) -> None:
+async def test_template_range_get_non_empty_list(client: AsyncClient) -> None:
     """Test all templates to see that we get a 200 response and that correct UUIDs exist."""
-    response = await auth_client.post(
+    assert await authenticate_client(client)
+
+    response = await client.post(
         f"{BASE_ROUTE}/templates/ranges", json=valid_range_payload
     )
     range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
 
-    response = await auth_client.get(f"{BASE_ROUTE}/templates/ranges")
+    response = await client.get(f"{BASE_ROUTE}/templates/ranges")
     assert response.status_code == status.HTTP_200_OK
     response_json = response.json()
     assert len(response_json) == 1
@@ -78,18 +82,18 @@ async def test_template_range_get_non_empty_list(auth_client: AsyncClient) -> No
 
 
 async def test_template_all_get_non_standalone_templates(
-    auth_client: AsyncClient,
+    client: AsyncClient,
 ) -> None:
     """Test that, after uploading range template previously, we have all non-standalone templates."""
+    assert await authenticate_client(client)
+
     # Add a range
-    response = await auth_client.post(
+    response = await client.post(
         f"{BASE_ROUTE}/templates/ranges", json=valid_range_payload
     )
     assert response.status_code == status.HTTP_200_OK
 
-    response = await auth_client.get(
-        f"{BASE_ROUTE}/templates/vpcs?standalone_only=false"
-    )
+    response = await client.get(f"{BASE_ROUTE}/templates/vpcs?standalone_only=false")
     assert response.status_code == status.HTTP_200_OK
     response_json = response.json()
     assert len(response_json) == 1
@@ -98,9 +102,7 @@ async def test_template_all_get_non_standalone_templates(
     del non_nested_vpc_dict["subnets"]
     assert response_json[0] == {"id": response_json[0]["id"], **non_nested_vpc_dict}
 
-    response = await auth_client.get(
-        f"{BASE_ROUTE}/templates/subnets?standalone_only=false"
-    )
+    response = await client.get(f"{BASE_ROUTE}/templates/subnets?standalone_only=false")
     assert response.status_code == status.HTTP_200_OK
     response_json = response.json()
     assert len(response_json) == 1
@@ -109,9 +111,7 @@ async def test_template_all_get_non_standalone_templates(
     del non_nested_subnet_dict["hosts"]
     assert response_json[0] == {"id": response_json[0]["id"], **non_nested_subnet_dict}
 
-    response = await auth_client.get(
-        f"{BASE_ROUTE}/templates/hosts?standalone_only=false"
-    )
+    response = await client.get(f"{BASE_ROUTE}/templates/hosts?standalone_only=false")
     assert response.status_code == status.HTTP_200_OK
     response_json = response.json()
     assert len(response_json) == 1

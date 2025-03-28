@@ -43,6 +43,7 @@ from src.app.schemas.user_schema import UserID
 from src.app.utils.cdktf_utils import create_cdktf_dir
 from tests.unit.api.v1.config import (
     BASE_ROUTE,
+    base_user_login_payload,
     base_user_register_payload,
     valid_range_payload,
 )
@@ -208,7 +209,140 @@ async def db_override(
     return override_async_get_db
 
 
-@pytest.fixture(scope="function")
+async def register_user(
+    client: AsyncClient,
+    email: str | None = None,
+    password: str | None = None,
+    name: str | None = None,
+) -> tuple[uuid.UUID, str, str, str]:
+    """Register a user using the provided client.
+
+    Optionally, provide a specific email, password, and name for the registered user.
+
+    Args:
+    ----
+        client (AsyncClient): Client object to interact with the API.
+        email (Optional[str]): Email to use for registration. Random email used if not provided.
+        password (Optional[str]): Password to use for registration. Random password used if not provided.
+        name (Optional[str]): Name to use for registration. Random name used if not provided.
+
+    Returns:
+    -------
+        uuid.UUID: UUID of newly registered user.
+        str: Username of registered user.
+        str: Password of registered user.
+        str: Name of the registered user.
+
+    """
+    registration_payload = copy.deepcopy(base_user_register_payload)
+
+    unique_str = str(uuid.uuid4())
+
+    # Create unique email
+    if not email:
+        email_split = registration_payload["email"].split("@")
+        email_split_len = 2  # username and domain from email
+        assert len(email_split) == email_split_len
+        email = f"{email_split[0]}-{unique_str}@{email_split[1]}"
+
+    # Make name unique for debugging
+    if not name:
+        name = f"{registration_payload["name"]} {unique_str}"
+
+    # Create unique password
+    if not password:
+        password = unique_str
+
+    # Build payload with values
+    registration_payload["email"] = email
+    registration_payload["password"] = password
+    registration_payload["name"] = name
+
+    # Register user
+    response = await client.post(
+        f"{BASE_ROUTE}/auth/register", json=registration_payload
+    )
+    assert response.status_code == status.HTTP_200_OK, "Failed to register user."
+
+    user_id = response.json()["id"]
+    assert user_id, "Failed to retrieve test user ID."
+
+    return uuid.UUID(user_id, version=4), email, password, name
+
+
+async def login_user(client: AsyncClient, email: str, password: str) -> bool:
+    """Login into an existing/registered user.
+
+    Sets authentication cookies secure = False to allow for HTTP transportation.
+    Ensure that this function is only used in a test environment and sent to
+    localhost only.
+
+    Args:
+    ----
+        client (AsyncClient): Client to login with.
+        email (str): Email of user to login as.
+        password (str): Password of user to login as.
+
+    Returns:
+    -------
+        bool: True if successfully logged in. False otherwise.
+
+    """
+    if not email:
+        msg = "Did not provide an email to login with!"
+        raise ValueError(msg)
+
+    if not password:
+        msg = "Dis not provide a password to login with!"
+        raise ValueError(msg)
+
+    # Build login payload
+    login_payload = copy.deepcopy(base_user_login_payload)
+    login_payload["email"] = email
+    login_payload["password"] = password
+
+    # Login
+    response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
+    if response.status_code != status.HTTP_200_OK:
+        logger.error("Failed to login as user: %s", email)
+        return False
+
+    # Make cookies non-secure (Works with HTTP)
+    for cookie in client.cookies.jar:
+        cookie.secure = False
+
+    return True
+
+
+async def authenticate_client(
+    client: AsyncClient,
+    email: str | None = None,
+    password: str | None = None,
+    name: str | None = None,
+) -> bool:
+    """Register and login a user using the provided client.
+
+    This function is here for convinience stringing together register_user
+    and login_user.
+
+    Args:
+    ----
+        client (AsyncClient): Client object to interact with the API.
+        email (Optional[str]): Email to use for registration. Random email used if not provided.
+        password (Optional[str]): Password to use for registration. Random password used if not provided.
+        name (Optional[str]): Name to use for registration. Random name used if not provided.
+
+
+    Returns:
+    -------
+        bool: True if successfully logged in. False otherwise.
+
+    """
+    _, email, password, _ = await register_user(client, email, password, name)
+    return await login_user(client, email, password)
+
+
+@pytest.fixture(scope="session")
 def client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
@@ -220,7 +354,7 @@ def client_app(
     return app
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 def auth_client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
@@ -232,7 +366,7 @@ def auth_client_app(
     return app
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def client(
     client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
@@ -246,46 +380,15 @@ async def client(
     client_app.dependency_overrides.clear()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest_asyncio.fixture(scope="session")
 async def auth_client(
     auth_client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get authenticated async client fixture conntected to the FastAPI app and test database container."""
-    registration_payload = copy.deepcopy(base_user_register_payload)
-
-    unique_str = str(uuid.uuid4())
-
-    # Create unique email
-    email_split = registration_payload["email"].split("@")
-    email_split_len = 2  # username and domain from email
-    assert len(email_split) == email_split_len
-    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
-
-    # Make name unique for debugging
-    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
-
     transport = ASGITransport(app=auth_client_app)
-    async with AsyncClient(transport=transport, base_url="http://test-app") as client:
-        response = await client.post(
-            f"{BASE_ROUTE}/auth/register", json=registration_payload
-        )
-        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
 
-        user_id = response.json()["id"]
-
-        assert user_id, "Failed to retrieve test user ID."
-        logger.info("Authenticaed tests happening as user: %s", user_id)
-
-        # Login user
-        login_payload = copy.deepcopy(registration_payload)
-        login_payload.pop("name")
-        response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
-        assert response.status_code == status.HTTP_200_OK
-
-        # Make cookies non-secure (Works with HTTP)
-        for cookie in client.cookies.jar:
-            cookie.secure = False
-
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
 
     # Clean up overrides after the test finishes
@@ -398,40 +501,8 @@ async def auth_integration_client(
         f"{base_url}/{get_api_base_route(version=1)}", timeout=60
     )
 
-    # Register test user
-    registration_payload = copy.deepcopy(base_user_register_payload)
-
-    unique_str = str(uuid.uuid4())
-
-    # Create unique email
-    email_split = registration_payload["email"].split("@")
-    email_split_len = 2  # username and domain from email
-    assert len(email_split) == email_split_len
-    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
-
-    # Make name unique for debugging
-    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
-
-    user_id = ""
     async with AsyncClient(base_url=base_url) as client:
-        # Register user
-        response = await client.post(
-            f"{BASE_ROUTE}/auth/register", json=registration_payload
-        )
-        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
-        user_id = response.json()["id"]
-        assert user_id, "Failed to retrieve test user ID."
-
-        # Login user
-        login_payload = copy.deepcopy(registration_payload)
-        login_payload.pop("name")
-        response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
-        assert response.status_code == status.HTTP_200_OK
-
-        # Make cookies non-secure (Works with HTTP)
-        for cookie in client.cookies.jar:
-            cookie.secure = False
-
+        assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
 
 
