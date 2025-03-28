@@ -1173,22 +1173,8 @@ async def test_user_cant_access_other_templates(
     assert response.status_code == status.HTTP_200_OK
     template_ids = {t["id"] for t in response.json()}
 
-    new_user_register_payload = copy.deepcopy(user_register_payload)
-    new_user_register_payload["email"] = "test-templates-2@ufsit.club"
-
-    response = await client.post(
-        f"{BASE_ROUTE}/auth/register", json=new_user_register_payload
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    response = await client.post(
-        f"{BASE_ROUTE}/auth/login", json=new_user_register_payload
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    # Ensure that new cookies get sent
-    for cookie in client.cookies.jar:
-        cookie.secure = False
+    # Login as new user
+    assert await authenticate_client(client)
 
     response = await client.post(
         f"{BASE_ROUTE}/templates/ranges", json=valid_range_payload
