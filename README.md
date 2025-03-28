@@ -19,34 +19,9 @@ Welcome to the project! Follow these steps to get the service up and running for
 
 Create a `.env` file in the project root. This file configures both FastAPI and Docker.
 
-<details>
-<summary><strong>Sample <code>.env</code> File</strong></summary>
-
-```env
-# API Configuration
-API_IP_ADDR=127.0.0.1
-API_PORT=8000
-
-# PostgreSQL Configuration
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_SERVER=postgres # localhost if launching without Docker
-POSTGRES_PORT=5432
-POSTGRES_DB=openlabsx
-
-# Docker Compose Configuration
-POSTGRES_DEBUG_PORT=5432  # Expose PostgreSQL on host port for debugging
-
-# Admin User Configuration (optional)
-ADMIN_EMAIL=admin@test.com        # Default admin email 
-ADMIN_PASSWORD=admin123           # Default admin password
-ADMIN_NAME=Administrator          # Default admin name
-# Admin user is automatically created when database is initialized
-
-# Authentication Configuration
-SECRET_KEY=your-secret-key-here   # JWT token signing key (CHANGE THIS!)
+```bash
+cp .env.example .env
 ```
-</details>
 
 ---
 
