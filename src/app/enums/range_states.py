@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class RangeState(Enum):
-    """OpenLabs supported cloud regions."""
+    """OpenLabs range states."""
 
     ON = "on"
     OFF = "off"
