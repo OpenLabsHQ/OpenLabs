@@ -19,8 +19,6 @@ class RangeFactory:
 
     _registry: ClassVar[dict[OpenLabsProvider, Type[AbstractBaseRange]]] = {
         OpenLabsProvider.AWS: AWSRange,
-        # OpenLabsProvider.AZURE: AzureRange,
-        # OpenLabsProvider.GCP: GCPRange
     }
 
     @classmethod
