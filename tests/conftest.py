@@ -23,7 +23,6 @@ from sqlalchemy.ext.asyncio import (
 from testcontainers.compose import DockerCompose
 from testcontainers.postgres import PostgresContainer
 
-from src.app.core.auth.auth import get_current_user
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
@@ -31,6 +30,7 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.range_model import RangeModel
+from src.app.models.secret_model import SecretModel
 from src.app.models.template_host_model import TemplateHostModel
 from src.app.models.template_range_model import TemplateRangeModel
 from src.app.models.template_subnet_model import TemplateSubnetModel
@@ -233,64 +233,6 @@ def auth_client_app(
 
 
 @pytest_asyncio.fixture(scope="function")
-async def test_user_id(
-    auth_client_app: FastAPI,
-) -> uuid.UUID:
-    """Register a user for testing auth_client fixture."""
-    registration_payload = copy.deepcopy(base_user_register_payload)
-
-    unique_str = str(uuid.uuid4())
-
-    # Create unique email
-    email_split = registration_payload["email"].split("@")
-    email_split_len = 2  # username and domain from email
-    assert len(email_split) == email_split_len
-    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
-
-    # Make name unique for debugging
-    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
-
-    reg_transport = ASGITransport(app=auth_client_app)
-    user_id = ""
-    async with AsyncClient(
-        transport=reg_transport, base_url="http://register"
-    ) as client:
-        response = await client.post(
-            f"{BASE_ROUTE}/auth/register", json=registration_payload
-        )
-        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
-
-        user_id = response.json()["id"]
-
-        assert user_id, "Failed to retrieve test user ID."
-
-    return uuid.UUID(user_id, version=4)
-
-
-@pytest.fixture(scope="function")
-def auth_override(
-    test_user_id: uuid.UUID,
-) -> Callable[[], UserModel]:
-    """Override get_current_user() auth function."""
-
-    def override_get_current_user() -> UserModel:
-        return UserModel(
-            id=test_user_id,
-            name="Test User",
-            email="test@example.com",
-            hashed_password="nicetrydummy",  # noqa: S106 (Testing only)
-            created_at=datetime.now(tz=timezone.utc),
-            last_active=datetime.now(tz=timezone.utc),
-            is_admin=False,
-            public_key="fakepublickey==",
-            encrypted_private_key="fakeprivatekey=",
-            key_salt=b"thisisasalt",
-        )
-
-    return override_get_current_user
-
-
-@pytest_asyncio.fixture(scope="function")
 async def client(
     client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
@@ -307,18 +249,43 @@ async def client(
 @pytest_asyncio.fixture(scope="function")
 async def auth_client(
     auth_client_app: FastAPI,
-    auth_override: Callable[[], UserModel],
-    test_user_id: uuid.UUID,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get authenticated async client fixture conntected to the FastAPI app and test database container."""
-    logger.info("Authenticaed tests happening as user: %s", test_user_id)
+    registration_payload = copy.deepcopy(base_user_register_payload)
 
-    auth_client_app.dependency_overrides[get_current_user] = auth_override
+    unique_str = str(uuid.uuid4())
 
-    # Use httpx's ASGITransport to run requests against the FastAPI app in-memory
+    # Create unique email
+    email_split = registration_payload["email"].split("@")
+    email_split_len = 2  # username and domain from email
+    assert len(email_split) == email_split_len
+    registration_payload["email"] = f"{email_split[0]}-{unique_str}@{email_split[1]}"
+
+    # Make name unique for debugging
+    registration_payload["name"] = f"{registration_payload["name"]} {unique_str}"
+
     transport = ASGITransport(app=auth_client_app)
+    async with AsyncClient(transport=transport, base_url="http://test-app") as client:
+        response = await client.post(
+            f"{BASE_ROUTE}/auth/register", json=registration_payload
+        )
+        assert response.status_code == status.HTTP_200_OK, "Failed to register user."
 
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        user_id = response.json()["id"]
+
+        assert user_id, "Failed to retrieve test user ID."
+        logger.info("Authenticaed tests happening as user: %s", user_id)
+
+        # Login user
+        login_payload = copy.deepcopy(registration_payload)
+        login_payload.pop("name")
+        response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
+        assert response.status_code == status.HTTP_200_OK
+
+        # Make cookies non-secure (Works with HTTP)
+        for cookie in client.cookies.jar:
+            cookie.secure = False
+
         yield client
 
     # Clean up overrides after the test finishes
