@@ -384,7 +384,21 @@ async def client(
 async def auth_client(
     auth_client_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Get authenticated async client fixture conntected to the FastAPI app and test database container."""
+    """Get authenticated async client fixture conntected to the FastAPI app and test database container.
+
+    **Note:** This client is created once per test session and is shared accross all tests that use the
+    `auth_client` fixture. If you need a more isolated environment for testing, use the `client` fixture
+    and authenticate manually in the test using `authenticate_client`.
+
+    Example:
+        ```python
+        async def my test(client: AsyncClient) -> None:
+            assert await authenticate_client(client)
+
+            client.post("/some/authenticated/endpoint")
+        ```
+
+    """
     transport = ASGITransport(app=auth_client_app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
