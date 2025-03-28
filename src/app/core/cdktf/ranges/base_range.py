@@ -67,7 +67,7 @@ class AbstractBaseRange(ABC):
 
         Returns
         -------
-        Type[TStack]: Provider stack class.
+        type[AbstractBaseStack]: Provider stack class.
 
         """
         pass
