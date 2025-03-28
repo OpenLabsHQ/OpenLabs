@@ -179,7 +179,6 @@ class AbstractBaseRange(ABC):
             # Delete files made during deployment
             os.chdir(initial_dir)
             self.cleanup_synth()
-            self._is_synthesized = False
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)
@@ -235,7 +234,6 @@ class AbstractBaseRange(ABC):
             # Delete synth files
             self.cleanup_synth()
             self._is_deployed = False
-            self._is_synthesized = False
 
             logger.info(
                 "Successfully destroyed range: %s (%s)", self.template.name, self.id
