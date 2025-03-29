@@ -118,7 +118,14 @@ cp .env.example .env
 ### Run Tests
 
 ```bash
+# All tests
 pytest
+
+# Unit tests
+pytest tests/unit/
+
+# Integration Tests
+pytest tests/integration/
 ```
 
 ### Code Coverage Report
