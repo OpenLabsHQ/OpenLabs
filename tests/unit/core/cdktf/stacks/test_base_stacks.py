@@ -7,7 +7,7 @@ from tests.unit.core.cdktf.config import one_all_template
 
 
 def test_abstract_stack_creation_not_implemented_error() -> None:
-    """Ensure that calling build_resources() from the AbstractBaseStack raises NontImplementedError."""
+    """Ensure that instantiating the AbstractBaseStack raises NontImplementedError."""
     with pytest.raises(NotImplementedError):
         AbstractBaseStack(
             scope=App(),
