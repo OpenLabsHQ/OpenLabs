@@ -9,6 +9,7 @@ class DummyDB:
         """Initialize dummy db."""
         self.delete = AsyncMock()
         self.commit = AsyncMock()
+        self.execute = AsyncMock()
 
 
 class DummyTemplateHost:
@@ -41,3 +42,9 @@ class DummyTemplateRange:
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
+
+
+class DummyRangeModel:
+    """Dummy range model for testing."""
+
+    pass
