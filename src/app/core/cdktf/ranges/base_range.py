@@ -170,6 +170,12 @@ class AbstractBaseRange(ABC):
             if state_file_path.exists():
                 with open(state_file_path, "r", encoding="utf-8") as file:
                     self.state_file = json.loads(file.read())
+            else:
+                logger.error(
+                    "State file was not created during deployment. Expected path: %s",
+                    state_file_path,
+                )
+                return False
 
             self._is_deployed = True
             logger.info(
