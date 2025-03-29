@@ -34,6 +34,11 @@ def is_valid_enum_value(
         logger.info(msg)
         if not strict:
             return True
+
+        # Strict check: ensure the value exactly matches one of the enum member values in both value and type.
+        values = [e.value for e in enum_class]
+        if any(value == v and type(value) is type(v) for v in values):
+            return True
     except ValueError:
         msg = f"'{value}' is NOT a valid value in {enum_class.__name__}."
         logger.info(msg)
@@ -42,11 +47,6 @@ def is_valid_enum_value(
         msg = f"An unexpected error occurred while checking the enum value. Exception: {e}"
         logger.exception(msg)
         return False
-
-    # Strict check: ensure the value exactly matches one of the enum member values in both value and type.
-    values = [e.value for e in enum_class]
-    if any(value == v and type(value) is type(v) for v in values):
-        return True
 
     msg = f"Strict check: '{value}' is not an exact match among {values} in {enum_class.__name__}."
     logger.info(msg)
