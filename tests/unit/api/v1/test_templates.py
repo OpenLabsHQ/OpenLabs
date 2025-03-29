@@ -13,8 +13,6 @@ from tests.conftest import authenticate_client
 
 from .config import (
     BASE_ROUTE,
-    base_user_login_payload,
-    base_user_register_payload,
     valid_host_payload,
     valid_range_payload,
     valid_subnet_payload,
@@ -22,15 +20,6 @@ from .config import (
 )
 
 ###### Test /template/range #######
-
-# global auth token to be used in all tests
-auth_token = None
-
-user_register_payload = copy.deepcopy(base_user_register_payload)
-user_login_payload = copy.deepcopy(base_user_login_payload)
-
-user_register_payload["email"] = "test-templates@ufsit.club"
-user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_template_range_get_all_empty_list(
