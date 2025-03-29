@@ -242,3 +242,44 @@ def test_aws_range_cleanup_synth_exception(
     # Call the cleanup_synth method; it should catch the exception and return False.
     result = aws_range.cleanup_synth()
     assert result is False
+
+
+def test_aws_range_no_secrets(aws_range: AWSRange) -> None:
+    """Test that the aws range has_secrets() returns False when one or more secrets are missing."""
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_access_key = ""
+    assert aws_range.has_secrets() is False
+
+    aws_range.secrets.aws_secret_key = ""
+    aws_range.secrets.aws_access_key = "fakeawssecretkey"
+    assert aws_range.has_secrets() is False
+
+    aws_range.secrets.aws_access_key = ""
+    aws_range.secrets.aws_secret_key = ""
+    assert aws_range.has_secrets() is False
+
+
+def test_aws_range_has_secrets(aws_range: AWSRange) -> None:
+    """Test that the aws range has_secrets() returns True when all secrets are present."""
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_access_key = "fakeawssecretkey"
+    assert aws_range.has_secrets() is True
+
+
+def test_aws_range_get_cred_env_vars(aws_range: AWSRange) -> None:
+    """Test that the aws range returns the correct terraform environment credential variables."""
+    fake_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    fake_access_key = "fakeawsaccesskey"
+
+    aws_range.secrets.aws_secret_key = fake_secret_key
+    aws_range.secrets.aws_access_key = fake_access_key
+
+    cred_vars = aws_range.get_cred_env_vars()
+
+    # Check for correct variable existence
+    assert "AWS_ACCESS_KEY_ID" in cred_vars
+    assert "AWS_SECRET_ACCESS_KEY" in cred_vars
+
+    # Check correct values returned
+    assert cred_vars["AWS_ACCESS_KEY_ID"] == fake_access_key
+    assert cred_vars["AWS_SECRET_ACCESS_KEY"] == fake_secret_key
