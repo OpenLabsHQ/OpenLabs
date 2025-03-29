@@ -1,5 +1,6 @@
 import json
 import shutil
+import uuid
 from typing import Callable
 
 import pytest
@@ -13,7 +14,9 @@ from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
+from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
+from src.app.schemas.user_schema import UserID
 from tests.unit.core.cdktf.config import modify_cidr, one_all_template
 
 
@@ -172,6 +175,22 @@ def test_aws_range_not_deployed_state_when_no_state_file_init(
 ) -> None:
     """Test that the aws range is_deployed state variable is false when no state_file is passed in on init."""
     assert not aws_range.is_deployed()
+
+
+def test_aws_range_init_with_state_file() -> None:
+    """Test that is_deployed() returns True when we initialize with a state_file."""
+    test_state_file = {"test": "Test content"}
+
+    aws_range = AWSRange(
+        id=uuid.uuid4(),
+        template=one_all_template,
+        region=OpenLabsRegion.US_EAST_1,
+        owner_id=UserID(id=uuid.uuid4()),
+        secrets=SecretSchema(),
+        state_file=test_state_file,
+    )
+
+    assert aws_range.is_deployed()
 
 
 def test_aws_range_get_state_file_none_when_no_state_file_init(
