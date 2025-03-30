@@ -3,15 +3,8 @@ from typing import Any, AsyncContextManager, AsyncGenerator, Callable
 
 from fastapi import APIRouter, FastAPI
 
-from ..crud.crud_users import create_user, get_user
-from ..schemas.user_schema import UserCreateBaseSchema
-from ..utils.crypto import (
-    encrypt_private_key,
-    generate_master_key,
-    generate_rsa_key_pair,
-)
-from .config import AppSettings, DatabaseSettings, settings
-from .db.database import Base, async_get_db
+from .config import AppSettings, DatabaseSettings
+from .db.database import Base
 from .db.database import async_engine as engine
 
 
