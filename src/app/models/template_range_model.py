@@ -20,7 +20,10 @@ class TemplateRangeModel(Base, OwnableObjectMixin):
 
     # One-to-many relationship with VPCs
     vpcs = relationship(
-        "TemplateVPCModel", back_populates="range", cascade="all, delete-orphan"
+        "TemplateVPCModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def is_standalone(self) -> bool:

@@ -29,7 +29,10 @@ class TemplateSubnetModel(Base, OwnableObjectMixin):
 
     # One-to-many relationship with Hosts
     hosts = relationship(
-        "TemplateHostModel", back_populates="subnet", cascade="all, delete-orphan"
+        "TemplateHostModel",
+        back_populates="subnet",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def is_standalone(self) -> bool:

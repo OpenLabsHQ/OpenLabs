@@ -30,7 +30,10 @@ class TemplateVPCModel(Base, OwnableObjectMixin):
 
     # One-to-many relationship with Subnets
     subnets = relationship(
-        "TemplateSubnetModel", back_populates="vpc", cascade="all, delete-orphan"
+        "TemplateSubnetModel",
+        back_populates="vpc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def is_standalone(self) -> bool:
