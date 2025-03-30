@@ -22,47 +22,6 @@ async def create_tables() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
 
-# Function to initialize admin user
-async def initialize_admin_user() -> None:
-    """Create admin user if it doesn't exist."""
-    try:
-        async for session in async_get_db():
-            # Create a UserCreateBaseSchema with the admin details
-            admin_schema = UserCreateBaseSchema(
-                email=settings.ADMIN_EMAIL,
-                password=settings.ADMIN_PASSWORD,
-                name=settings.ADMIN_NAME,
-            )
-
-            admin_user = await get_user(session, settings.ADMIN_EMAIL)
-
-            if not admin_user:
-                # This will create the user with RSA keys and proper encryption
-                await create_user(session, admin_schema, is_admin=True)
-            elif admin_user and not admin_user.public_key:
-                # If admin user exists but doesn't have encryption keys (legacy migration),
-                # generate keys and add them
-                private_key_b64, public_key_b64 = generate_rsa_key_pair()
-
-                # Generate master key from password using Argon2
-                master_key, key_salt = generate_master_key(settings.ADMIN_PASSWORD)
-
-                # Encrypt the private key with the master key
-                encrypted_private_key_b64 = encrypt_private_key(
-                    private_key_b64, master_key
-                )
-
-                # Update the user with encryption keys
-                admin_user.public_key = public_key_b64
-                admin_user.encrypted_private_key = encrypted_private_key_b64
-                admin_user.key_salt = key_salt
-
-                await session.commit()
-    except Exception as e:
-        msg = "Failed to create admin user. Check logs for more details."
-        raise ValueError(msg) from e
-
-
 # Lifespan factory to manage app lifecycle events
 def lifespan_factory(
     settings: DatabaseSettings | AppSettings,
@@ -75,7 +34,7 @@ def lifespan_factory(
 
         if isinstance(settings, DatabaseSettings) and create_tables_on_start:
             await create_tables()
-            await initialize_admin_user()
+            # Admin user creation moved to a separate script
 
         yield
 

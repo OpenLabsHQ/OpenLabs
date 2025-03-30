@@ -16,6 +16,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Initialize database and create admin user
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_init
+    env_file:
+      - .env
+    command: ["python", "/code/src/scripts/create_admin.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+
   fastapi:
     build:
       context: .
@@ -26,6 +41,8 @@ services:
     ports:
       - "8000:80"
     depends_on:
+      init:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks:
