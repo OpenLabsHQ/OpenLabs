@@ -14,7 +14,10 @@ class VPCModel(Base, OwnableObjectMixin):
 
     __tablename__ = "vpcs"
 
+    # Cloud provider fields
     provider_id: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Common fields
     name: Mapped[str] = mapped_column(String, nullable=False)
     cidr: Mapped[IPv4Network] = mapped_column(CIDR, nullable=False)
 
@@ -23,4 +26,4 @@ class VPCModel(Base, OwnableObjectMixin):
         ForeignKey("ranges.id", ondelete="CASCADE"),
         nullable=False,
     )
-    range = relationship("RangeModel", back_populates="VPCModel")
+    range = relationship("RangeModel", back_populates="vpcs")

@@ -14,7 +14,10 @@ class SubnetModel(Base, OwnableObjectMixin):
 
     __tablename__ = "subnets"
 
+    # Cloud provider fields
     provider_id: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Common fields
     name: Mapped[str] = mapped_column(String, nullable=False)
     cidr: Mapped[IPv4Network] = mapped_column(CIDR, nullable=False)
 
@@ -23,4 +26,4 @@ class SubnetModel(Base, OwnableObjectMixin):
         ForeignKey("ranges.id", ondelete="CASCADE"),
         nullable=False,
     )
-    range = relationship("RangeModel", back_populates="SubnetModel")
+    range = relationship("RangeModel", back_populates="subnets")

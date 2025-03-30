@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, DateTime, Enum, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
 from ..enums.range_states import RangeState
@@ -24,7 +24,21 @@ class RangeModel(Base, OwnableObjectMixin):
     state: Mapped[RangeState] = mapped_column(Enum(RangeState), nullable=False)
     region: Mapped[OpenLabsRegion] = mapped_column(Enum(OpenLabsRegion), nullable=False)
 
-    # hosts: list[CdktfBaseHost]
-    # subets: list[CdktfBaseSubnet]
-    # vpcs: list[CdktfBaseVPC]
-    # Cloud account id for referencing specifc set of secrets - only when we allow users to store multiple set of creds for each cloud provider
+    vpcs = relationship(
+        "VPCModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    subnets = relationship(
+        "SubnetModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    hosts = relationship(
+        "HostModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
