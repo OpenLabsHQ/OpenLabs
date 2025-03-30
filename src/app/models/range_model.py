@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..core.db.database import Base
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
-from .template_base_model import OwnableObjectMixin
+from .common_models import OwnableObjectMixin
 
 
 class RangeModel(Base, OwnableObjectMixin):
