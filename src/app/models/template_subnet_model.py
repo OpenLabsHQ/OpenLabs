@@ -14,7 +14,7 @@ class TemplateSubnetModel(Base, OwnableObjectMixin):
     __tablename__ = "subnet_templates"
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    cidr: Mapped[uuid.UUID] = mapped_column(CIDR, nullable=False)
+    cidr: Mapped[CIDR] = mapped_column(CIDR, nullable=False)
 
     # ForeignKey to ensure each Subnet belongs to exactly one VPC
     vpc_id: Mapped[uuid.UUID] = mapped_column(
