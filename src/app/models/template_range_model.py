@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
 from ..enums.providers import OpenLabsProvider
-from .template_base_model import OwnableObjectMixin
+from .common_models import OwnableObjectMixin
 
 
 class TemplateRangeModel(Base, OwnableObjectMixin):

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.db.database import Base
 from ..enums.operating_systems import OpenLabsOS
 from ..enums.specs import OpenLabsSpec
-from .template_base_model import OwnableObjectMixin
+from .common_models import OwnableObjectMixin
 
 
 class TemplateHostModel(Base, OwnableObjectMixin):

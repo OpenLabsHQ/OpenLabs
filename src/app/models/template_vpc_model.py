@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import CIDR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .template_base_model import OwnableObjectMixin
+from .common_models import OwnableObjectMixin
 
 
 class TemplateVPCModel(Base, OwnableObjectMixin):
