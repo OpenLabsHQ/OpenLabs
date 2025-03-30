@@ -186,8 +186,8 @@ async def delete_range_endpoint(
         )
         if not is_owner:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You don't have permission to destroy range with ID: {range_id}",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Range with ID: {range_id} not found or you don't have access to it!",
             )
 
     # Set user_id to None for admin to allow accessing any range

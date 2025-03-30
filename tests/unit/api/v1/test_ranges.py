@@ -266,7 +266,7 @@ async def test_destroy_without_valid_range_owner(
     test_range_id = uuid.uuid4()
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_destroy_without_valid_range(
