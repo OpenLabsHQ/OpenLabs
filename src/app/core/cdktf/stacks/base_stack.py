@@ -50,8 +50,8 @@ class AbstractBaseStack(TerraformStack):
         )
 
         # Will raise NotImplementedError when not-overriden by child class
-        parts = cdktf_id.split('-')
-        uuid_str = '-'.join(parts[-5:])
+        parts = cdktf_id.split("-")
+        uuid_str = "-".join(parts[-5:])
         range_name = f"{range_name}-{uuid_str}"
         self.build_resources(template_range=template_range, region=region, cdktf_id=cdktf_id, range_name=range_name)
 
