@@ -134,7 +134,14 @@ def synthesize_factory() -> (
         # Synthesize the stack using the provided stack class
         return str(
             Testing.synth(
-                stack_cls(app, cyber_range, stack_name, settings.CDKTF_DIR, region, "test-range")
+                stack_cls(
+                    app,
+                    cyber_range,
+                    stack_name,
+                    settings.CDKTF_DIR,
+                    region,
+                    "test-range",
+                )
             )
         )
 
