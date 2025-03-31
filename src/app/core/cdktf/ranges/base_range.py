@@ -149,7 +149,7 @@ class AbstractBaseRange(ABC):
 
         """
         if not self.is_synthesized():
-            logger.error("Range to destory is not synthesized!")
+            logger.error("Range to destroy is not synthesized!")
             return False
 
         try:
