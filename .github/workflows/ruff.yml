@@ -33,4 +33,4 @@ jobs:
       # Run Ruff linter and formatter
       - name: Run Ruff
         run: |
-          ruff check --fix .
+          ruff check .
