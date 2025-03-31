@@ -67,7 +67,7 @@ async def test_user_add_aws_credentials(auth_integration_client: AsyncClient) ->
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_user_add_azure_credentials(auth_integration_client: AsyncClient) -> None:
-    """Test the user flow where a user adds their AWS credentials and then checks they have been updated."""
+    """Test the user flow where a user adds their Azure credentials and then checks they have been updated."""
     # Add Azure credentials
     azure_response = await auth_integration_client.post(
         f"{BASE_ROUTE}/users/me/secrets/azure", json=azure_secrets_payload
