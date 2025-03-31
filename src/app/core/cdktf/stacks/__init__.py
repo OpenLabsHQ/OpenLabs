@@ -1,1 +1,1 @@
-"""Stack objects for the CDKTF buisness logic in the OpenLabs API."""
+"""Stack objects for the CDKTF business logic in the OpenLabs API."""
