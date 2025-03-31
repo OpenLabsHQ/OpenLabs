@@ -10,13 +10,14 @@ from src.app.models.template_range_model import TemplateRangeModel
 from src.app.schemas.template_host_schema import TemplateHostSchema
 from src.app.schemas.template_subnet_schema import TemplateSubnetHeaderSchema
 
-from .config import BASE_ROUTE
-from .config import base_user_register_payload, base_user_login_payload
 from .config import (
-    valid_range_payload,
-    valid_vpc_payload,
-    valid_subnet_payload,
+    BASE_ROUTE,
+    base_user_login_payload,
+    base_user_register_payload,
     valid_host_payload,
+    valid_range_payload,
+    valid_subnet_payload,
+    valid_vpc_payload,
 )
 
 ###### Test /template/range #######
@@ -32,7 +33,7 @@ user_login_payload["email"] = user_register_payload["email"]
 
 
 async def test_get_auth_token(client: AsyncClient) -> None:
-    """Get the authentication token for the test user. This must run first to provide the global auth token for the other tests"""
+    """Get the authentication token for the test user. This must run first to provide the global auth token for the other tests."""
     response = await client.post(
         f"{BASE_ROUTE}/auth/register", json=user_register_payload
     )
@@ -48,9 +49,10 @@ async def test_get_auth_token(client: AsyncClient) -> None:
     auth_token = login_response.cookies.get("token")
 
 
-async def test_template_range_get_all_empty_list(client: AsyncClient) -> None:
+async def test_template_range_get_all_empty_list(
+    client: AsyncClient,
+) -> None:
     """Test that we get a 404 response when there are no range templates."""
-    # For backward compatibility, continue using the Authorization header
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     response = await client.get(f"{BASE_ROUTE}/templates/ranges")
     print(response.json())

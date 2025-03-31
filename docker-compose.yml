@@ -5,7 +5,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${POSTGRES_DEBUG_PORT}:5432"
+      - "${POSTGRES_DEBUG_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -24,7 +24,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:80"
+      - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
     depends_on:
       postgres:
         condition: service_healthy

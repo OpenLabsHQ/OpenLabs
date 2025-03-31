@@ -1,3 +1,29 @@
+# v0.8.0 (Mon Mar 31 2025)
+
+#### 🚀 Enhancement
+
+- Cdktf abstraction [#74](https://github.com/OpenLabsHQ/API/pull/74) ([@alexchristy](https://github.com/alexchristy) [@Nareshp1](https://github.com/Nareshp1) [@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 3
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+- Naresh Panchal ([@Nareshp1](https://github.com/Nareshp1))
+
+---
+
+# v0.7.1 (Sun Mar 09 2025)
+
+#### 🐛 Bug Fix
+
+- increase number of worker threads so we can get response while deploy… [#70](https://github.com/OpenLabsHQ/API/pull/70) ([@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 1
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+
+---
+
 # v0.7.0 (Sat Mar 08 2025)
 
 #### 🚀 Enhancement
