@@ -40,4 +40,4 @@ COPY .git /code/.git
 
 EXPOSE 80
 
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80"]

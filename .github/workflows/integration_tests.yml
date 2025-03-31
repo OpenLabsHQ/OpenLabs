@@ -1,4 +1,4 @@
-name: Tests
+name: Integration Tests
 
 on:
   push:
@@ -11,11 +11,22 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      
     steps:
+      # Install docker
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+
       # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Create .env file with defaults
+      - name: Set default ENV values
+        run: |
+          cp .env.example .env
 
       # Set up Python
       - name: Set up Python
@@ -33,4 +44,4 @@ jobs:
       # Run Tests
       - name: Run Tests
         run: |
-          pytest
+          pytest --no-cov tests/integration/
