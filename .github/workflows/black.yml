@@ -33,4 +33,4 @@ jobs:
       # Run Black formatter
       - name: Run Black
         run: |
-          black .
+          black --check --diff .
