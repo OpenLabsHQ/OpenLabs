@@ -1,3 +1,17 @@
+# v0.8.0 (Mon Mar 31 2025)
+
+#### 🚀 Enhancement
+
+- Cdktf abstraction [#74](https://github.com/OpenLabsHQ/API/pull/74) ([@alexchristy](https://github.com/alexchristy) [@Nareshp1](https://github.com/Nareshp1) [@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 3
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+- Naresh Panchal ([@Nareshp1](https://github.com/Nareshp1))
+
+---
+
 # v0.7.1 (Sun Mar 09 2025)
 
 #### 🐛 Bug Fix
