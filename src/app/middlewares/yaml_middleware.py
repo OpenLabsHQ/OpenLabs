@@ -1,28 +1,30 @@
 """Middleware for handling YAML content type."""
 
 import json
+from typing import Any
 
 import yaml
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.base import RequestResponseEndpoint
 
-def _propagate_tags(data, inherited_tags=None):
+
+def _propagate_tags(data: dict[str, Any], inherited_tags: list[str] | None = None) -> None:
         if inherited_tags is None:
             inherited_tags = []
-        
+
         # Combine current tags with inherited ones
         current_tags = inherited_tags + data.get("tags", [])
-        
+
         # If this is a host, retain only the final tags
         if "hosts" not in data and "vpcs" not in data and "subnets" not in data:
             data["tags"] = current_tags
             return
-        
+
         # Otherwise, remove tags from this level
         data.pop("tags", None)
-        
+
         # Recursively apply to vpcs
         for vpc in data.get("vpcs", []):
             _propagate_tags(vpc, current_tags)
@@ -30,7 +32,7 @@ def _propagate_tags(data, inherited_tags=None):
         # Recursively apply to subnets
         for subnet in data.get("subnets", []):
             _propagate_tags(subnet, current_tags)
-        
+
         # Recursively apply to hosts
         for host in data.get("hosts", []):
             _propagate_tags(host, current_tags)
