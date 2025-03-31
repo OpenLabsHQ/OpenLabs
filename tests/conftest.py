@@ -301,7 +301,7 @@ async def login_user(client: AsyncClient, email: str, password: str) -> bool:
         raise ValueError(msg)
 
     if not password:
-        msg = "Dis not provide a password to login with!"
+        msg = "Did not provide a password to login with!"
         raise ValueError(msg)
 
     # Build login payload
