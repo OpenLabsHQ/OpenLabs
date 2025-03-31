@@ -27,7 +27,7 @@ class RangeBaseSchema(BaseModel):
     state: RangeState = Field(
         ...,
         description="State of deployed range",
-        examples=[RangeState.ON, RangeState.OFF, RangeState.START],
+        examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
     region: OpenLabsRegion = Field(
         ..., description="Cloud region to deploy template range"
