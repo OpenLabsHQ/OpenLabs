@@ -1,7 +1,5 @@
 from ipaddress import IPv4Network
 
-import pytest
-
 from src.app.enums.operating_systems import OpenLabsOS
 from src.app.validators.network import (
     is_valid_disk_size,

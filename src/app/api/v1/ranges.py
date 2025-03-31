@@ -87,6 +87,7 @@ async def deploy_range_from_template_endpoint(
     # Create deployable range object
     range_to_deploy = RangeFactory.create_range(
         id=uuid.uuid4(),
+        name=deploy_range.name,
         template=template,
         region=deploy_range.region,
         owner_id=UserID(id=current_user.id),
@@ -215,6 +216,7 @@ async def delete_range_endpoint(
     range_template = TemplateRangeSchema.model_validate(range_schema.template)
     range_obj = RangeFactory.create_range(
         id=range_schema.id,
+        name=range_model.name,
         template=range_template,
         region=range_schema.region,
         owner_id=UserID(id=current_user.id),
