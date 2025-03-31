@@ -30,11 +30,11 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.range_model import RangeModel
-from src.app.models.secret_model import SecretModel
-from src.app.models.template_host_model import TemplateHostModel
-from src.app.models.template_range_model import TemplateRangeModel
-from src.app.models.template_subnet_model import TemplateSubnetModel
-from src.app.models.template_vpc_model import TemplateVPCModel
+from src.app.models.secret_model import SecretModel  # noqa: F401
+from src.app.models.template_host_model import TemplateHostModel  # noqa: F401
+from src.app.models.template_range_model import TemplateRangeModel  # noqa: F401
+from src.app.models.template_subnet_model import TemplateSubnetModel  # noqa: F401
+from src.app.models.template_vpc_model import TemplateVPCModel  # noqa: F401
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schema import RangeID, RangeSchema
 from src.app.schemas.secret_schema import SecretSchema
@@ -135,7 +135,14 @@ def synthesize_factory() -> (
         # Synthesize the stack using the provided stack class
         return str(
             Testing.synth(
-                stack_cls(app, cyber_range, stack_name, settings.CDKTF_DIR, region, "test-range")
+                stack_cls(
+                    app,
+                    cyber_range,
+                    stack_name,
+                    settings.CDKTF_DIR,
+                    region,
+                    "test-range",
+                )
             )
         )
 
