@@ -6,5 +6,5 @@ class RangeState(Enum):
 
     ON = "on"
     OFF = "off"
-    START = "start"
-    STOP = "stop"
+    STARTING = "starting"
+    STOPPING = "stopping"
