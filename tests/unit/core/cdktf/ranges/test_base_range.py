@@ -92,6 +92,7 @@ def test_base_range_init_with_state_file() -> None:
 
     aws_range = AWSRange(
         id=uuid.uuid4(),
+        name="test-range",
         template=one_all_template,
         region=OpenLabsRegion.US_EAST_1,
         owner_id=UserID(id=uuid.uuid4()),

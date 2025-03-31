@@ -23,6 +23,7 @@ def test_range_factory_non_existent_range_type() -> None:
     with pytest.raises(ValueError):
         _ = RangeFactory.create_range(
             id=uuid.uuid4(),
+            name="test-range",
             template=bad_provider_template,
             region=OpenLabsRegion.US_EAST_1,
             owner_id=UserID(id=uuid.uuid4()),
@@ -39,6 +40,7 @@ def test_range_factory_build_aws_range() -> None:
 
     created_range = RangeFactory.create_range(
         id=uuid.uuid4(),
+        name="test-range",
         template=aws_template,
         region=OpenLabsRegion.US_EAST_1,
         owner_id=UserID(id=uuid.uuid4()),
