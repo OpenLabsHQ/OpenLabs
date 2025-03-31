@@ -170,3 +170,58 @@ async def test_yaml_middleware_scoped_properly(client: AsyncClient) -> None:
         headers={"Content-Type": "application/yaml"},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+async def test_tag_propagation(client: AsyncClient) -> None:
+    """Test that tags are processed but the test verifies request conversion not database storage."""
+    client.headers.update({"Authorization": f"Bearer {auth_token}"})
+    
+    # Create a payload with minimal required attributes but with tags at all levels
+    range_with_tags = {
+        "name": "tags-test-range",
+        "provider": "aws",
+        "vnc": False,
+        "vpn": False,
+        "tags": ["range-tag"],
+        "vpcs": [
+            {
+                "name": "tags-test-vpc",
+                "cidr": "10.0.0.0/16",
+                "tags": ["vpc-tag"],
+                "subnets": [
+                    {
+                        "name": "tags-test-subnet",
+                        "cidr": "10.0.1.0/24",
+                        "tags": ["subnet-tag"],
+                        "hosts": [
+                            {
+                                "hostname": "tags-test-host",
+                                "os": "debian_11",
+                                "spec": "tiny",
+                                "size": 8,
+                                "tags": ["host-tag"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    
+    yaml_payload = yaml.dump(range_with_tags)
+
+    # Post with YAML content type
+    response = await client.post(
+        f"{BASE_ROUTE}/templates/ranges",
+        content=yaml_payload,
+        headers={"Content-Type": "application/yaml"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    range_id = response.json()["id"]
+
+    # Verify the template was correctly stored
+    response = await client.get(f"{BASE_ROUTE}/templates/ranges/{range_id}")
+    assert response.status_code == status.HTTP_200_OK
+
+    # Expected tags
+    assert set(response.json()["vpcs"][0]["subnets"][0]["hosts"][0]["tags"]) == set(["host-tag", "subnet-tag", "vpc-tag", "range-tag"])
