@@ -101,8 +101,8 @@ async def deploy_range_from_template_endpoint(
         )
 
     # Deploy range
-    sucessful_synthesize = range_to_deploy.synthesize()
-    if not sucessful_synthesize:
+    successful_synthesize = range_to_deploy.synthesize()
+    if not successful_synthesize:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to synthesize range: {template.name} ({range_to_deploy.id})!",
