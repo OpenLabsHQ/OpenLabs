@@ -3,39 +3,42 @@
 import json
 from typing import Any
 
-import yaml
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.base import RequestResponseEndpoint
+from yaml import safe_load
+from yaml.scanner import ScannerError
 
 
-def _propagate_tags(data: dict[str, Any], inherited_tags: list[str] | None = None) -> None:
-        if inherited_tags is None:
-            inherited_tags = []
+def _propagate_tags(
+    data: dict[str, Any], inherited_tags: list[str] | None = None
+) -> None:
+    if inherited_tags is None:
+        inherited_tags = []
 
-        # Combine current tags with inherited ones
-        current_tags = inherited_tags + data.get("tags", [])
+    # Combine current tags with inherited ones
+    current_tags = inherited_tags + data.get("tags", [])
 
-        # If this is a host, retain only the final tags
-        if "hosts" not in data and "vpcs" not in data and "subnets" not in data:
-            data["tags"] = current_tags
-            return
+    # If this is a host, retain only the final tags
+    if "hosts" not in data and "vpcs" not in data and "subnets" not in data:
+        data["tags"] = current_tags
+        return
 
-        # Otherwise, remove tags from this level
-        data.pop("tags", None)
+    # Otherwise, remove tags from this level
+    data.pop("tags", None)
 
-        # Recursively apply to vpcs
-        for vpc in data.get("vpcs", []):
-            _propagate_tags(vpc, current_tags)
+    # Recursively apply to vpcs
+    for vpc in data.get("vpcs", []):
+        _propagate_tags(vpc, current_tags)
 
-        # Recursively apply to subnets
-        for subnet in data.get("subnets", []):
-            _propagate_tags(subnet, current_tags)
+    # Recursively apply to subnets
+    for subnet in data.get("subnets", []):
+        _propagate_tags(subnet, current_tags)
 
-        # Recursively apply to hosts
-        for host in data.get("hosts", []):
-            _propagate_tags(host, current_tags)
+    # Recursively apply to hosts
+    for host in data.get("hosts", []):
+        _propagate_tags(host, current_tags)
 
 
 def add_yaml_middleware_to_router(
@@ -76,13 +79,15 @@ def add_yaml_middleware_to_router(
         ):
             body = await request.body()
             try:
-                yaml_data = yaml.safe_load(body.decode("utf-8"))
+                yaml_data = safe_load(body.decode("utf-8"))
                 _propagate_tags(yaml_data)
                 json_body = json.dumps(yaml_data).encode()
-            except Exception:
+            except ScannerError as e:
                 return JSONResponse(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    content={"detail": "Unable to parse provided YAML configuration."},
+                    content={
+                        "detail": f"Unable to parse provided YAML configuration: {e!s}."
+                    },
                 )
 
             request._body = json_body
