@@ -8,54 +8,32 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+def _propagate_tags(data, inherited_tags=None):
+        if inherited_tags is None:
+            inherited_tags = []
+        
+        # Combine current tags with inherited ones
+        current_tags = inherited_tags + data.get("tags", [])
+        
+        # If this is a host, retain only the final tags
+        if "hosts" not in data and "vpcs" not in data and "subnets" not in data:
+            data["tags"] = current_tags
+            return
+        
+        # Otherwise, remove tags from this level
+        data.pop("tags", None)
+        
+        # Recursively apply to vpcs
+        for vpc in data.get("vpcs", []):
+            _propagate_tags(vpc, current_tags)
 
-class YAMLMiddleware(BaseHTTPMiddleware):
-    """Middleware that converts YAML requests to JSON format."""
-
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        """Process the request, converting YAML to JSON if needed.
-
-        Args:
-        ----
-            request: The incoming request
-            call_next: The next middleware or endpoint to call
-
-        Returns:
-        -------
-            Response: The response from the next middleware or endpoint
-
-        """
-        if request.headers.get("content-type") == "application/yaml":
-            body = await request.body()
-            try:
-                json_body = json.dumps(yaml.safe_load(body.decode("utf-8"))).encode()
-            except Exception:
-                return JSONResponse(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    content={"detail": "Unable to parse provided YAML configuration."},
-                )
-
-            request._body = json_body
-            updated_headers = MutableHeaders(request._headers)
-            updated_headers["content-length"] = str(len(json_body))
-            updated_headers["content-type"] = "application/json"
-            request._headers = updated_headers
-            request.scope.update(headers=request.headers.raw)
-
-        return await call_next(request)
-
-
-def add_yaml_middleware(app: FastAPI) -> None:
-    """Add YAML middleware to the FastAPI application.
-
-    Args:
-    ----
-        app: The FastAPI application instance
-
-    """
-    app.add_middleware(YAMLMiddleware)
+        # Recursively apply to subnets
+        for subnet in data.get("subnets", []):
+            _propagate_tags(subnet, current_tags)
+        
+        # Recursively apply to hosts
+        for host in data.get("hosts", []):
+            _propagate_tags(host, current_tags)
 
 
 def add_yaml_middleware_to_router(
@@ -96,7 +74,9 @@ def add_yaml_middleware_to_router(
         ):
             body = await request.body()
             try:
-                json_body = json.dumps(yaml.safe_load(body.decode("utf-8"))).encode()
+                yaml_data = yaml.safe_load(body.decode("utf-8"))
+                _propagate_tags(yaml_data)
+                json_body = json.dumps(yaml_data).encode()
             except Exception:
                 return JSONResponse(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
