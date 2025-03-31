@@ -14,7 +14,7 @@ class AbstractBaseStack(TerraformStack):
     "psuedo-abstract" functions.
     """
 
-    def __init__(
+    def __init__( # noqa: PLR0913
         self,
         scope: Construct,
         template_range: TemplateRangeSchema,
