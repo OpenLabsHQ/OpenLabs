@@ -14,7 +14,7 @@ class AbstractBaseStack(TerraformStack):
     "psuedo-abstract" functions.
     """
 
-    def __init__( # noqa: PLR0913
+    def __init__(  # noqa: PLR0913
         self,
         scope: Construct,
         template_range: TemplateRangeSchema,
@@ -53,7 +53,12 @@ class AbstractBaseStack(TerraformStack):
         parts = cdktf_id.split("-")
         uuid_str = "-".join(parts[-5:])
         range_name = f"{range_name}-{uuid_str}"
-        self.build_resources(template_range=template_range, region=region, cdktf_id=cdktf_id, range_name=range_name)
+        self.build_resources(
+            template_range=template_range,
+            region=region,
+            cdktf_id=cdktf_id,
+            range_name=range_name,
+        )
 
     def build_resources(
         self,

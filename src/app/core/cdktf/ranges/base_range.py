@@ -120,7 +120,7 @@ class AbstractBaseRange(ABC):
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
-                range_name=self.name
+                range_name=self.name,
             )
 
             # Synthesize Terraform files
