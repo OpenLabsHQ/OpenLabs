@@ -25,6 +25,7 @@ class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
     id: uuid.UUID
+    name: str
     template: TemplateRangeSchema
     state_file: dict[str, Any] | None  # Terraform state
     region: OpenLabsRegion
@@ -39,6 +40,7 @@ class AbstractBaseRange(ABC):
     def __init__(  # noqa: PLR0913
         self,
         id: uuid.UUID,  # noqa: A002
+        name: str,
         template: TemplateRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
@@ -47,6 +49,7 @@ class AbstractBaseRange(ABC):
     ) -> None:
         """Initialize CDKTF base range object."""
         self.id = id
+        self.name = name
         self.template = template
         self.region = region
         self.owner_id = owner_id
@@ -117,6 +120,7 @@ class AbstractBaseRange(ABC):
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
+                range_name=self.name
             )
 
             # Synthesize Terraform files

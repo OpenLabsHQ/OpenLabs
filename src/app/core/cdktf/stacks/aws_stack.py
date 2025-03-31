@@ -26,6 +26,8 @@ class AWSStack(AbstractBaseStack):
         self,
         template_range: TemplateRangeSchema,
         region: OpenLabsRegion,
+        cdktf_id: str,
+        range_name: str,
     ) -> None:
         """Initialize AWS terraform stack.
 
@@ -33,7 +35,8 @@ class AWSStack(AbstractBaseStack):
         ----
             template_range (TemplateRangeSchema): Template range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
-            secrets (SecretSchema): Cloud secrets.
+            cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
+            range_name (str): Name of range to deploy.
 
         Returns:
         -------
@@ -49,8 +52,8 @@ class AWSStack(AbstractBaseStack):
         # Step 5: Create the key access to all instances provisioned on AWS
         key_pair = KeyPair(
             self,
-            "JumpBoxKeyPair",
-            key_name="cdktf-key",
+            f"{range_name}-JumpBoxKeyPair",
+            key_name=f"{range_name}-cdktf-key",
             public_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH8URIMqVKb6EAK4O+E+9g8df1uvcOfpvPFl7sQrX7KM email@example.com",  # NOTE: Hardcoded key, will need a way to dynamically add a key to user instances
             tags={"Name": "cdktf-public-key"},
         )

@@ -25,6 +25,7 @@ class RangeFactory:
     def create_range(  # noqa: PLR0913
         cls,
         id: uuid.UUID,  # noqa: A002
+        name: str,
         template: TemplateRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
@@ -37,12 +38,12 @@ class RangeFactory:
         ----
             cls (RangeFactory class): The RangeFactory class.
             id (uuid.UUID): The UUID for the deployed range object.
+            name (str): Name of the range to deploy
             template (TemplateRangeSchema): The range template object.
             region (OpenLabsRegion): Supported cloud region.
             owner_id (UserID): The ID of the user deploying range.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
             state_file (dict[str, Any]): The statefile of the deployed resources
-            is_deployed (bool): Whether the range is deployed or not (true for when destroying or updating a range, false for when deploying a range template)
 
         Returns:
         -------
@@ -58,6 +59,7 @@ class RangeFactory:
 
         return range_class(
             id=id,
+            name=name,
             template=template,
             region=region,
             owner_id=owner_id,
