@@ -255,7 +255,7 @@ async def register_user(
 
     # Make name unique for debugging
     if not name:
-        name = f"{registration_payload["name"]} {unique_str}"
+        name = f"{registration_payload['name']} {unique_str}"
 
     # Create unique password
     if not password:
