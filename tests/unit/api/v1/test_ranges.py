@@ -419,6 +419,7 @@ async def test_destroy_without_valid_secrets(
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -485,6 +486,7 @@ async def test_destroy_range_synthesize_failure(
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -552,6 +554,7 @@ async def test_destroy_range_destroy_failure(
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -620,6 +623,7 @@ async def test_destroy_range_database_failure(  # noqa: PLR0913
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -687,6 +691,7 @@ async def test_destroy_range_destroy_success(
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),

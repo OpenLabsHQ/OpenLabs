@@ -25,7 +25,7 @@ class CdktfBaseHost(ABC):
 
     @abstractmethod
     def stop(self) -> bool:
-        """Abstract method to stop the deploye host.
+        """Abstract method to stop the deployed host.
 
         Returns
         -------

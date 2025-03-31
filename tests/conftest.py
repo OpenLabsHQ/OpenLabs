@@ -135,7 +135,7 @@ def synthesize_factory() -> (
         # Synthesize the stack using the provided stack class
         return str(
             Testing.synth(
-                stack_cls(app, cyber_range, stack_name, settings.CDKTF_DIR, region)
+                stack_cls(app, cyber_range, stack_name, settings.CDKTF_DIR, region, "test-range")
             )
         )
 
@@ -162,6 +162,7 @@ def range_factory() -> Callable[
 
         return RangeFactory.create_range(
             id=range_id,
+            name="test-range",
             template=template,
             region=region,
             owner_id=UserID(id=owner_id),
@@ -611,6 +612,7 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -640,6 +642,7 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
@@ -669,6 +672,7 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         )(
             uuid.uuid4(),
+            "test-range",
             template_schema,
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
