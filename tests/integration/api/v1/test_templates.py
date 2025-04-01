@@ -2,6 +2,9 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
+from src.app.core.config import settings
+from tests.conftest import login_user, register_user
+
 from .config import (
     BASE_ROUTE,
     valid_host_payload,
@@ -177,3 +180,41 @@ async def test_user_add_remove_host_template_flow(
         f"{BASE_ROUTE}/templates/hosts/{host_id}"
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_admin_can_view_all_templates(
+    auth_integration_client: AsyncClient,
+    integration_client: AsyncClient,
+) -> None:
+    """Test that an admin is able to see templates for all users."""
+    response = await auth_integration_client.post(
+        f"{BASE_ROUTE}/templates/ranges", json=valid_range_payload
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    response = await auth_integration_client.get(f"{BASE_ROUTE}/templates/ranges")
+    assert response.status_code == status.HTTP_200_OK
+    user1_template_ids = {t["id"] for t in response.json()}
+
+    # Login as new user
+    _, email, password, _ = await register_user(integration_client)
+    assert await login_user(integration_client, email, password)
+
+    response = await integration_client.post(
+        f"{BASE_ROUTE}/templates/ranges", json=valid_range_payload
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    response = await integration_client.get(f"{BASE_ROUTE}/templates/ranges")
+    user2_template_ids = {t["id"] for t in response.json()}
+
+    # Login as admin
+    assert await login_user(
+        integration_client, settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD
+    )
+    response = await integration_client.get(f"{BASE_ROUTE}/templates/ranges")
+    assert response.status_code == status.HTTP_200_OK
+    admin_template_ids = {t["id"] for t in response.json()}
+
+    assert admin_template_ids == user1_template_ids.union(user2_template_ids)
