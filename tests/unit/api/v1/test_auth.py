@@ -1,11 +1,10 @@
-from .config import BASE_ROUTE
-import uuid
 import copy
-
-from httpx import AsyncClient
+import uuid
 
 from fastapi import status
-from .config import base_user_register_payload, base_user_login_payload
+from httpx import AsyncClient
+
+from .config import BASE_ROUTE, base_user_login_payload, base_user_register_payload
 
 user_register_payload = copy.deepcopy(base_user_register_payload)
 user_login_payload = copy.deepcopy(base_user_login_payload)
@@ -48,9 +47,8 @@ async def test_duplicate_user_register(client: AsyncClient) -> None:
 
 async def test_duplicate_user_diff_name_pass_register(client: AsyncClient) -> None:
     """Test that we get a 400 response when registering a user with the same email but a different password and name."""
-
     new_user_register_payload = copy.deepcopy(user_register_payload)
-    new_user_register_payload["password"] = "newpassword123"
+    new_user_register_payload["password"] = "newpassword123"  # noqa: S105 (Testing)
     new_user_register_payload["name"] = "New Name"
 
     response = await client.post(
@@ -89,7 +87,7 @@ async def test_user_login_correct_pass(client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_200_OK
 
     # Check that the response contains a success message
-    assert response.json()["success"] == True
+    assert response.json()["success"] is True
 
     # Check that the cookie is set
     assert "token" in response.cookies
@@ -98,7 +96,7 @@ async def test_user_login_correct_pass(client: AsyncClient) -> None:
 async def test_user_login_incorrect_pass(client: AsyncClient) -> None:
     """Test that we get a 401 response when logging in a user with an incorrect password."""
     invalid_payload = copy.deepcopy(user_login_payload)
-    invalid_payload["password"] = "incorrectpassword"
+    invalid_payload["password"] = "incorrectpassword"  # noqa: S105 (Testing)
 
     response = await client.post(f"{BASE_ROUTE}/auth/login", json=invalid_payload)
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -127,30 +125,8 @@ async def test_user_logout(client: AsyncClient) -> None:
     assert logout_response.status_code == status.HTTP_200_OK
 
     # Verify the response content
-    assert logout_response.json()["success"] == True
+    assert logout_response.json()["success"] is True
 
     # Note: We cannot verify cookie deletion in tests because HttpX doesn't support
     # direct inspection of Set-Cookie headers that clear cookies. In a real browser,
     # this would clear the cookie.
-
-
-async def test_auth_flow_with_cookies(client: AsyncClient) -> None:
-    """Test the entire authentication flow using cookies."""
-    # First, login to get the auth cookie
-    login_response = await client.post(
-        f"{BASE_ROUTE}/auth/login", json=user_login_payload
-    )
-    assert login_response.status_code == status.HTTP_200_OK
-    assert "token" in login_response.cookies
-
-    # Create a new client with the cookies from the login response
-    auth_client = AsyncClient(cookies=login_response.cookies, base_url=client.base_url)
-
-    # Try to access a protected endpoint using the cookie
-    # We'll use a health endpoint as a placeholder since we don't have a protected endpoint in these tests
-    health_response = await client.get(f"{BASE_ROUTE}/health/ping")
-    assert health_response.status_code == status.HTTP_200_OK
-
-    # Now logout
-    logout_response = await client.post(f"{BASE_ROUTE}/auth/logout")
-    assert logout_response.status_code == status.HTTP_200_OK
