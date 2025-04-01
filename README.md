@@ -244,17 +244,37 @@ All changes made to code in your local directory will be applied to the containe
 
 ## Workflows
 
-### `tests.yml`
+### Code Quality and Testing
 
-This workflow runs an identical set of checks that the `.pre-commit-config.yaml` runs. This means that if you were able to commit you should pass this workflow.
+#### `black.yml`
 
-### `check_pr_labels.yml`
+Runs the Black code formatter in check mode to verify code formatting. The workflow will fail if formatting is needed.
 
-This workflow checks if you correctly labeled your PR for the `release.yml` workflow to create a proper release. *This workflow will recheck when new labels are added to the PR.*
+#### `ruff.yml`
+
+Runs the Ruff linter to check for code quality issues.
+
+#### `mypy.yml`
+
+Performs static type checking with MyPy.
+
+#### `unit_tests.yml`
+
+Runs all unit tests located in `tests/unit/`.
+
+#### `integration_tests.yml`
+
+Runs integration tests located in `tests/integration/`.
+
+### Release Management
+
+#### `check_pr_labels.yml`
+
+This workflow checks if you correctly labeled your PR for the `auto_release.yml` workflow to create a proper release. *This workflow will recheck when new labels are added to the PR.*
 
 **Setup:** To setup this workflow, you just need a `CONTRIBUTING.md` file in the root of your project. At minimum it should have a section called `No semver label!` ([Link to example](https://github.com/alexchristy/PyOPN/blob/main/CONTRIBUTING.md#no-semver-label)). The workflow will automatically link this section when it fails so user's can fix their PRs. Feel free to copy the example.
 
-### `release.yml`
+#### `auto_release.yml`
 
 This workflow automatically creates GitHub tagged releases based on the tag of the PR. 
 
