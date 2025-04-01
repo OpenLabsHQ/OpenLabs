@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
+from src.app.core.config import settings
 from tests.conftest import login_user, logout_user, register_user
 
 from .config import (
@@ -111,7 +112,9 @@ async def test_user_login_check_user_admin(
 ) -> None:
     """Test that the admin user is able to log in and shows as admin."""
     # Log in as the admin user
-    assert await login_user(integration_client, "admin@test.com", "admin123")
+    assert await login_user(
+        integration_client, settings.ADMIN_EMAIL, settings.ADMIN_PASSWORD
+    )
 
     # Get user info
     response = await integration_client.get(f"{BASE_ROUTE}/users/me")
