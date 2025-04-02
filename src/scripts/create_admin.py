@@ -33,7 +33,7 @@ async def wait_for_api_ready() -> bool:
         try:
             async with (
                 aiohttp.ClientSession() as session,
-                session.get(HEALTH_CHECK_URL, timeout=5) as response,
+                session.get(HEALTH_CHECK_URL, timeout=aiohttp.ClientTimeout(total=5)) as response,
             ):
                 if response.status == HTTPStatus.OK:
                     logger.info("FastAPI is ready!")
