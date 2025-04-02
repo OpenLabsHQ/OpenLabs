@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Initialize database and create admin user
+  # Create admin user after app has started
   init:
     build:
       context: .
@@ -24,8 +24,12 @@ services:
     container_name: fastapi_init
     env_file:
       - .env
+    environment:
+      - HEALTH_CHECK_URL=http://fastapi:80/api/v1/health/ping
     command: ["python", "/code/src/scripts/create_admin.py"]
     depends_on:
+      fastapi:
+        condition: service_started
       postgres:
         condition: service_healthy
     networks:
@@ -41,8 +45,6 @@ services:
     ports:
       - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
     depends_on:
-      init:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks:

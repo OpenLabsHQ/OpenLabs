@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Initialize database and create admin user
+  # Create admin user after app has started
   init_dev:
     build:
       context: .
@@ -26,8 +26,12 @@ services:
       - .env
     volumes:
       - .:/code
+    environment:
+      - HEALTH_CHECK_URL=http://fastapi_dev:80/api/v1/health/ping
     command: ["python", "/code/src/scripts/create_admin.py"]
     depends_on:
+      fastapi_dev:
+        condition: service_started
       postgres:
         condition: service_healthy
     networks:
@@ -46,8 +50,6 @@ services:
       - "8000:80"
       - "5678:5678"
     depends_on:
-      init_dev:
-        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     networks:
