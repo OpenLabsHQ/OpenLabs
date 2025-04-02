@@ -12,6 +12,7 @@ from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
+from tests.conftest import authenticate_client
 
 from .config import (
     BASE_ROUTE,
@@ -22,9 +23,16 @@ from .config import (
 ###### Test /ranges/deploy #######
 
 
-async def test_deploy_without_enc_key(auth_client: AsyncClient) -> None:
+async def test_deploy_without_enc_key(client: AsyncClient) -> None:
     """Test that attempting to deploy a range without being logged in will fail since the encryption key was not given from successful login."""
-    response = await auth_client.post(
+    assert await authenticate_client(client), "Failed to authenticate to API"
+
+    for cookie in client.cookies.jar:
+        if cookie.name == "enc_key":
+            cookie.value = ""
+            break
+
+    response = await client.post(
         f"{BASE_ROUTE}/ranges/deploy", json=valid_range_deploy_payload
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -242,10 +250,17 @@ async def test_destroy_with_invalid_uuid(auth_client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-async def test_destroy_without_enc_key(auth_client: AsyncClient) -> None:
+async def test_destroy_without_enc_key(client: AsyncClient) -> None:
     """Test that attempting to destroy a range without being logged in will fail since the encryption key was not given from successful login."""
+    assert await authenticate_client(client), "Failed to authenticate to API"
+
+    for cookie in client.cookies.jar:
+        if cookie.name == "enc_key":
+            cookie.value = ""
+            break
+
     test_range_id = uuid.uuid4()
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
+    response = await client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
