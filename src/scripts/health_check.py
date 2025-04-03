@@ -4,6 +4,8 @@ import logging
 from fastapi import status
 from httpx import AsyncClient, ConnectError
 
+from ..app.utils.api_utils import get_api_base_route
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,21 +19,15 @@ async def wait_for_api_ready(
     """Wait for the API to be ready by checking the health endpoint."""
     logger.info("Waiting for FastAPI to be ready...")
 
-    # Build base API URL
-    if api_version == 1:
-        base_url = api_url + "/api/v1"
-    else:
-        msg = f"Invalid API version provided: {api_version}"
-        raise ValueError(msg)
-
-    if not client:
-        client = AsyncClient(base_url=base_url)
-
     # URLs to check
+    base_route = get_api_base_route(version=api_version)
     urls = ["/health/ping"]
 
+    if not client:
+        client = AsyncClient(base_url=api_url)
+
     for endpoint in urls:
-        current_url = base_url + endpoint
+        current_url = base_route + endpoint
 
         for attempt in range(max_retries):
             try:
