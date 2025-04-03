@@ -16,6 +16,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # Create admin user after app has started
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_init
+    env_file:
+      - .env
+    command: ["python", "-m", "src.scripts.create_admin"]
+    depends_on:
+      fastapi:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+
   fastapi:
     build:
       context: .

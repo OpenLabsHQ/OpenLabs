@@ -16,6 +16,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # Create admin user after app has started
+  init_dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: fastapi_init_dev
+    env_file:
+      - .env
+    volumes:
+      - .:/code
+    environment:
+      - HEALTH_CHECK_URL=http://fastapi_dev:80/api/v1/health/ping
+    command: ["python", "/code/src/scripts/create_admin.py"]
+    depends_on:
+      fastapi_dev:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+
   fastapi_dev:
     build:
       context: .
