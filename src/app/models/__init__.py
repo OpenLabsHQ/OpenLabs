@@ -8,6 +8,9 @@ from .template_range_model import TemplateRangeModel
 from .template_subnet_model import TemplateSubnetModel
 from .template_vpc_model import TemplateVPCModel
 from .user_model import UserModel
+from .vpc_model import VPCModel
+from .host_model import HostModel
+from .subnet_model import SubnetModel
 
 __all__ = [
     "OpenLabsUserMixin",
@@ -19,4 +22,7 @@ __all__ = [
     "TemplateSubnetModel",
     "TemplateVPCModel",
     "UserModel",
+    "VPCModel",
+    "HostModel",
+    "SubnetModel"
 ]
