@@ -499,7 +499,7 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
         compose_file_name="docker-compose.yml",
         pull=True,
         build=True,
-        wait=True,
+        wait=False,
         keep_volumes=False,
     ) as compose:
         logger.info("Docker Compose environment started.")
