@@ -1,3 +1,16 @@
+# v0.8.2 (Thu Apr 03 2025)
+
+#### 🐛 Bug Fix
+
+- add script to make admin user before app starts [#78](https://github.com/OpenLabsHQ/API/pull/78) ([@Adamkadaban](https://github.com/Adamkadaban) [@alexchristy](https://github.com/alexchristy))
+
+#### Authors: 2
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
 # v0.8.1 (Tue Apr 01 2025)
 
 #### 🐛 Bug Fix
