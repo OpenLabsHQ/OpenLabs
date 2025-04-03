@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
 import logging
-import os
 import sys
 
-# Add the parent directory to sys.path to allow relative imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from app.core.config import settings
-from app.core.db.database import async_get_db
-from app.crud.crud_users import create_user, get_user
-from app.schemas.user_schema import UserCreateBaseSchema
-
+from ..app.core.config import settings
+from ..app.core.db.database import async_get_db
+from ..app.crud.crud_users import create_user, get_user
+from ..app.schemas.user_schema import UserCreateBaseSchema
 from .health_check import wait_for_api_ready
 
 logger = logging.getLogger(__name__)
