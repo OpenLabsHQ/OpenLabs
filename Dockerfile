@@ -38,6 +38,9 @@ WORKDIR /code
 # For dynamic versioning
 COPY .git /code/.git
 
+HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
+ CMD ["python", "-m", "src.scripts.health_check"]
+
 EXPOSE 80
 
 CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
