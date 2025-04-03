@@ -11,7 +11,8 @@ from app.core.config import settings
 from app.core.db.database import async_get_db
 from app.crud.crud_users import create_user, get_user
 from app.schemas.user_schema import UserCreateBaseSchema
-from scripts.health_check import wait_for_api_ready
+
+from .health_check import wait_for_api_ready
 
 logger = logging.getLogger(__name__)
 
