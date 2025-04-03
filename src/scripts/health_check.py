@@ -16,7 +16,21 @@ async def wait_for_api_ready(
     retry_interval: int = 2,
     client: AsyncClient | None = None,
 ) -> bool:
-    """Wait for the API to be ready by checking the health endpoint."""
+    """Wait for the API to be ready by checking the health endpoint.
+
+    Args:
+    ----
+        api_url (str): URL of the API to check.
+        api_version (str): Version of the OpenLabs API to check.
+        max_retries (int): Number of times to retry the health check request.
+        retry_interval (int): Number of seconds between retries.
+        client (AsyncClient | None): Optional async httpx client to use for the health check.
+
+    Returns:
+    -------
+        bool: True if API is running and ready. False otherwise.
+
+    """
     logger.info("Waiting for FastAPI to be ready...")
 
     # URLs to check
