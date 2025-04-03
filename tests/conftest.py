@@ -35,6 +35,7 @@ from src.app.schemas.range_schema import RangeID, RangeSchema
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
+from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
 from tests.unit.api.v1.config import (
     BASE_ROUTE,
@@ -441,23 +442,6 @@ def get_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return int(s.getsockname()[1])
-
-
-def get_api_base_route(version: int) -> str:
-    """Return correct API base route URL based on version."""
-    if version < 1:
-        msg = f"API version cannot be less than 1. Recieved: {version}"
-        raise ValueError(msg)
-
-    api_base_url = "/api"
-
-    if version == 1:
-        api_base_url += "/v1"
-    else:
-        msg = f"Invalid version provided. Recieved: {version}"
-        raise ValueError(msg)
-
-    return api_base_url
 
 
 async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
