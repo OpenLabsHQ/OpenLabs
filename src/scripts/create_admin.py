@@ -3,9 +3,6 @@ import asyncio
 import logging
 import os
 import sys
-from http import HTTPStatus
-
-import aiohttp
 
 # Add the parent directory to sys.path to allow relative imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,51 +11,15 @@ from app.core.config import settings
 from app.core.db.database import async_get_db
 from app.crud.crud_users import create_user, get_user
 from app.schemas.user_schema import UserCreateBaseSchema
+from scripts.health_check import wait_for_api_ready
 
 logger = logging.getLogger(__name__)
-
-# Health check settings
-HEALTH_CHECK_URL = os.environ.get(
-    "HEALTH_CHECK_URL", "http://localhost:80/api/v1/health/ping"
-)
-MAX_RETRIES = 100
-RETRY_INTERVAL = 2
-
-
-async def wait_for_api_ready() -> bool:
-    """Wait for the API to be ready by checking the health endpoint."""
-    logger.info("Waiting for FastAPI to be ready...")
-
-    for attempt in range(MAX_RETRIES):
-        try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.get(
-                    HEALTH_CHECK_URL, timeout=aiohttp.ClientTimeout(total=5)
-                ) as response,
-            ):
-                if response.status == HTTPStatus.OK:
-                    logger.info("FastAPI is ready!")
-                    return True
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logger.debug(
-                "FastAPI not ready yet (attempt %s/%s): %s",
-                attempt + 1,
-                MAX_RETRIES,
-                str(e),
-            )
-
-        logger.debug("Waiting %s seconds before next attempt...", RETRY_INTERVAL)
-        await asyncio.sleep(RETRY_INTERVAL)
-
-    logger.error("FastAPI not ready after %s attempts", MAX_RETRIES)
-    return False
 
 
 async def initialize_admin_user() -> None:
     """Create admin user if it doesn't exist assuming the DB is already set up."""
     # First wait for the API to be ready
-    api_ready = await wait_for_api_ready()
+    api_ready = await wait_for_api_ready(max_retries=25, retry_interval=2)
     if not api_ready:
         logger.error("Could not connect to the API. Exiting.")
         sys.exit(1)
