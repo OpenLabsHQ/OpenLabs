@@ -53,3 +53,11 @@ async def wait_for_api_ready(
 
     logger.error("FastAPI not ready after %s attempts", max_retries)
     return False
+
+
+if __name__ == "__main__":
+    asyncio.run(
+        wait_for_api_ready(
+            api_url="http://fastapi:80", api_version=1, max_retries=5, retry_interval=2
+        )
+    )
