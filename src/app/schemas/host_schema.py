@@ -23,7 +23,9 @@ class HostBaseSchema(HostCommonSchema):
 class HostID(BaseModel):
     """Identity class for the host object."""
 
-    id: uuid.UUID = Field(..., description="Unique host identifier.")
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, description="Unique host identifier."
+    )
     model_config = ConfigDict(from_attributes=True)
 
 

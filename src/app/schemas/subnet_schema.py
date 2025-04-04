@@ -45,7 +45,9 @@ class SubnetBaseSchema(SubnetCommonSchema):
 class SubnetID(BaseModel):
     """Identity class for the subnet object."""
 
-    id: uuid.UUID = Field(..., description="Unique subnet identifier.")
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, description="Unique subnet identifier."
+    )
     model_config = ConfigDict(from_attributes=True)
 
 

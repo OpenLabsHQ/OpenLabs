@@ -45,7 +45,9 @@ class VPCBaseSchema(VPCCommonSchema):
 class VPCID(BaseModel):
     """Identity class for the VPC object."""
 
-    id: uuid.UUID = Field(..., description="Unique VPC identifier.")
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4, description="Unique VPC identifier."
+    )
     model_config = ConfigDict(from_attributes=True)
 
 
