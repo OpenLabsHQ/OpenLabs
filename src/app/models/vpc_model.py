@@ -1,29 +1,31 @@
 import uuid
-from ipaddress import IPv4Network
 
 from sqlalchemy import UUID, ForeignKey, String
-from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .common_models import OwnableObjectMixin
+from .mixin_models import OwnableObjectMixin, VPCMixin
 
 
-class VPCModel(Base, OwnableObjectMixin):
+class VPCModel(Base, OwnableObjectMixin, VPCMixin):
     """SQLAlchemy ORM model for VPC objects."""
 
     __tablename__ = "vpcs"
 
-    # Cloud provider fields
-    resource_id: Mapped[str] = mapped_column(String, nullable=True)
+    resource_id: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Common fields
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    cidr: Mapped[IPv4Network] = mapped_column(CIDR, nullable=False)
-
+    # Parent relationship
     range_id: Mapped[uuid.UUID] = mapped_column(
         UUID,
         ForeignKey("ranges.id", ondelete="CASCADE"),
         nullable=False,
     )
     range = relationship("RangeModel", back_populates="vpcs")
+
+    # Child relationship
+    subnets = relationship(
+        "SubnetModel",
+        back_populates="vpc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

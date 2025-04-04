@@ -1,21 +1,17 @@
 import uuid
-from ipaddress import IPv4Network
 
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import CIDR, UUID
+from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .common_models import OwnableObjectMixin
+from .mixin_models import OwnableObjectMixin, VPCMixin
 
 
-class TemplateVPCModel(Base, OwnableObjectMixin):
+class TemplateVPCModel(Base, OwnableObjectMixin, VPCMixin):
     """SQLAlchemy ORM model for template vpc objects."""
 
     __tablename__ = "vpc_templates"
-
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    cidr: Mapped[IPv4Network] = mapped_column(CIDR, nullable=False)
 
     # ForeignKey to ensure each VPC belongs to exactly one Range
     range_id: Mapped[uuid.UUID | None] = mapped_column(

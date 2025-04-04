@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, DateTime, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .common_models import OpenLabsUserMixin
+from .mixin_models import OpenLabsUserMixin
 
 
 class UserModel(Base, OpenLabsUserMixin):

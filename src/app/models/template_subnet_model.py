@@ -1,23 +1,20 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String
-from sqlalchemy.dialects.postgresql import CIDR, UUID
+from sqlalchemy import ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .common_models import OwnableObjectMixin
+from .mixin_models import OwnableObjectMixin, SubnetMixin
 
 
-class TemplateSubnetModel(Base, OwnableObjectMixin):
+class TemplateSubnetModel(Base, OwnableObjectMixin, SubnetMixin):
     """SQLAlchemy ORM model for template subnet objects."""
 
     __tablename__ = "subnet_templates"
 
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    cidr: Mapped[CIDR] = mapped_column(CIDR, nullable=False)
-
     # ForeignKey to ensure each Subnet belongs to exactly one VPC
-    vpc_id: Mapped[uuid.UUID] = mapped_column(
+    vpc_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("vpc_templates.id", ondelete="CASCADE"),
         nullable=True,

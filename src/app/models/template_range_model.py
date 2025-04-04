@@ -1,7 +1,7 @@
 from sqlalchemy.orm import relationship
 
 from ..core.db.database import Base
-from .common_models import OwnableObjectMixin, RangeMixin
+from .mixin_models import OwnableObjectMixin, RangeMixin
 
 
 class TemplateRangeModel(Base, OwnableObjectMixin, RangeMixin):
