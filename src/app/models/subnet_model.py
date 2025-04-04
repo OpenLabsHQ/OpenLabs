@@ -15,7 +15,7 @@ class SubnetModel(Base, OwnableObjectMixin):
     __tablename__ = "subnets"
 
     # Cloud provider fields
-    provider_id: Mapped[str] = mapped_column(String, nullable=False)
+    resource_id: Mapped[str] = mapped_column(String, nullable=True)
 
     # Common fields
     name: Mapped[str] = mapped_column(String, nullable=False)

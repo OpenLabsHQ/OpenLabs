@@ -17,8 +17,8 @@ class HostModel(Base, OwnableObjectMixin):
     __tablename__ = "hosts"
 
     # Cloud provider fields
-    provider_id: Mapped[str] = mapped_column(String, nullable=False)
-    ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
+    resource_id: Mapped[str] = mapped_column(String, nullable=True)
+    ip: Mapped[IPv4Address] = mapped_column(INET, nullable=True)
 
     # Common fields
     hostname: Mapped[str] = mapped_column(String, nullable=False)
