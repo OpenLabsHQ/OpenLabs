@@ -3,23 +3,14 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..enums.providers import OpenLabsProvider
+from .range_common_schema import RangeCommonSchema
 from .template_vpc_schema import TemplateVPCBaseSchema
 
 
-class TemplateRangeBaseSchema(BaseModel):
+class TemplateRangeBaseSchema(RangeCommonSchema):
     """Base template range object for OpenLabs."""
 
     vpcs: list[TemplateVPCBaseSchema] = Field(..., description="Contained VPCs")
-    provider: OpenLabsProvider = Field(
-        ...,
-        description="Cloud provider",
-        examples=[OpenLabsProvider.AWS, OpenLabsProvider.AZURE],
-    )
-    name: str = Field(
-        ..., description="Template name", min_length=1, examples=["template-range-1"]
-    )
-    vnc: bool = Field(default=False, description="Enable automatic VNC configuration")
-    vpn: bool = Field(default=False, description="Enable automatic VPN configuration")
 
     @field_validator("vpcs")
     @classmethod
@@ -30,12 +21,12 @@ class TemplateRangeBaseSchema(BaseModel):
 
         Args:
         ----
-            cls: OpenLabsRange object.
-            vpcs (list[OpenLabsVPC]): VPC objects.
+            cls: TemplateRangeBaseSchema object.
+            vpcs (list[TemplateVPCBaseSchema]): VPC objects.
 
         Returns:
         -------
-            list[OpenLabsVPC]: VPC objects.
+            list[TemplateVPCBaseSchema]: VPC objects.
 
         """
         vpc_names = [vpc.name for vpc in vpcs]

@@ -16,7 +16,7 @@ class HostModel(Base, OwnableObjectMixin, HostMixin):
 
     # Cloud provider fields
     resource_id: Mapped[str] = mapped_column(String, nullable=False)
-    ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
+    ip_address: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
 
     # Parent relationship
     subnet_id: Mapped[uuid.UUID] = mapped_column(

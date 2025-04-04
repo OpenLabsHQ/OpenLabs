@@ -4,17 +4,12 @@ from ipaddress import IPv4Network
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from .template_subnet_schema import TemplateSubnetBaseSchema
+from .vpc_common_schema import VPCCommonSchema
 
 
-class TemplateVPCBaseSchema(BaseModel):
+class TemplateVPCBaseSchema(VPCCommonSchema):
     """Template VPC object for OpenLabs."""
 
-    cidr: IPv4Network = Field(
-        ..., description="CIDR range", examples=["192.168.0.0/16"]
-    )
-    name: str = Field(
-        ..., description="VPC name", min_length=1, examples=["example-vpc-1"]
-    )
     subnets: list[TemplateSubnetBaseSchema] = Field(
         ..., description="Contained subnets"
     )
@@ -28,12 +23,12 @@ class TemplateVPCBaseSchema(BaseModel):
 
         Args:
         ----
-            cls: OpenLabsVPC object.
-            subnets (list[OpenLabsSubnet]): Subnet objects.
+            cls: TemplateVPCBaseSchema object.
+            subnets (list[TemplateSubnetBaseSchema]): Subnet objects.
 
         Returns:
         -------
-            list[OpenLabsSubnet]: Subnet objects.
+            list[TemplateSubnetBaseSchema]: Subnet objects.
 
         """
         subnet_names = [subnet.name for subnet in subnets]

@@ -4,18 +4,13 @@ from ipaddress import IPv4Network
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from ..validators.network import max_num_hosts_in_subnet
+from .subnet_common_schema import SubnetCommonSchema
 from .template_host_schema import TemplateHostBaseSchema
 
 
-class TemplateSubnetBaseSchema(BaseModel):
+class TemplateSubnetBaseSchema(SubnetCommonSchema):
     """Template subnet object for OpenLabs."""
 
-    cidr: IPv4Network = Field(
-        ..., description="CIDR range", examples=["192.168.1.0/24"]
-    )
-    name: str = Field(
-        ..., description="Subnet name", min_length=1, examples=["example-subnet-1"]
-    )
     hosts: list[TemplateHostBaseSchema] = Field(..., description="All hosts in subnet")
 
     @field_validator("hosts")
@@ -27,12 +22,12 @@ class TemplateSubnetBaseSchema(BaseModel):
 
         Args:
         ----
-            cls: OpenLabsSubnet object.
-            hosts (list[OpenLabsHost]): Host objects.
+            cls: TemplateSubnetBaseSchema object.
+            hosts (list[TemplateHostBaseSchema]): Host objects.
 
         Returns:
         -------
-            list[OpenLabsHost]: Host objects.
+            list[TemplateHostBaseSchema]: Host objects.
 
         """
         hostnames = [host.hostname for host in hosts]
