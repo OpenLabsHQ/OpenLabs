@@ -1,8 +1,10 @@
 import uuid
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import Boolean, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
+
+from ..enums.providers import OpenLabsProvider
 
 
 class OwnableObjectMixin(MappedAsDataclass):
@@ -28,3 +30,14 @@ class OpenLabsUserMixin(MappedAsDataclass):
         UUID(as_uuid=True),
         primary_key=True,
     )
+
+
+class RangeMixin:
+    """Common range attributes."""
+
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[OpenLabsProvider] = mapped_column(
+        Enum(OpenLabsProvider), nullable=False
+    )
+    vnc: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    vpn: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
