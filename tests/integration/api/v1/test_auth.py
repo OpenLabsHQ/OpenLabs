@@ -15,8 +15,10 @@ user_login_payload["email"] = user_register_payload["email"]
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_new_user_register_login_flow(integration_client: AsyncClient) -> None:
-    """Test the user flow where a new user registers and then logs in."""
+async def test_new_user_register_login_logout_flow(
+    integration_client: AsyncClient,
+) -> None:
+    """Test the user flow where a new user registers and then logs in followed by logout."""
     # Register new user
     response = await integration_client.post(
         f"{BASE_ROUTE}/auth/register", json=user_register_payload
@@ -39,3 +41,7 @@ async def test_new_user_register_login_flow(integration_client: AsyncClient) -> 
     # Check that the cookie is set
     assert "token" in response.cookies
     assert "enc_key" in response.cookies
+
+    # Logout
+    response = await integration_client.post(f"{BASE_ROUTE}/auth/logout")
+    assert response.status_code == status.HTTP_200_OK

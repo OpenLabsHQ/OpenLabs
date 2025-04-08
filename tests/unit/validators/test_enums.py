@@ -80,11 +80,6 @@ def test_priority_strict_boolean_invalid() -> None:
     assert is_valid_enum_value(Priority, True, strict=True) is False
 
 
-# ============================
-# Additional Tests for Robustness
-# ============================
-
-
 def test_invalid_value_type_error() -> None:
     """Test that a completely unrelated type (e.g., list) is not considered a valid enum value, regardless of strictness."""
     assert is_valid_enum_value(Color, [1, 2, 3], strict=True) is False
@@ -95,3 +90,10 @@ def test_none_value() -> None:
     """Test that None is not considered a valid value for any enum, regardless of strictness."""
     assert is_valid_enum_value(Color, None, strict=True) is False
     assert is_valid_enum_value(Priority, None, strict=False) is False
+
+
+def test_non_value_error_exception() -> None:
+    """Test that the function returns False when something other than a ValueError is thrown."""
+    # Ignoring type checking to force non ValueError exceptions
+    assert is_valid_enum_value(int, 1) is False  # type: ignore
+    assert is_valid_enum_value(str, "hi") is False  # type: ignore
