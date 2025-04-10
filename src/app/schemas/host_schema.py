@@ -32,4 +32,14 @@ class HostID(BaseModel):
 class HostSchema(HostBaseSchema, HostID):
     """Deployed host schema."""
 
+    resource_id: str = Field(
+        ...,
+        min_length=1,
+        description="Host cloud resource ID.",
+        examples=["i-05c770240dd042b88"],
+    )
+    ip_address: IPv4Address = Field(
+        ..., description="IP address of deployed host.", examples=["192.168.1.59/24"]
+    )
+
     model_config = ConfigDict(from_attributes=True)

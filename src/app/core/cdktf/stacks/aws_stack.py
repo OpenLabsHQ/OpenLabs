@@ -1,3 +1,6 @@
+from ipaddress import IPv4Network
+
+from cdktf import TerraformOutput
 from cdktf_cdktf_provider_aws.eip import Eip
 from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.internet_gateway import InternetGateway
@@ -58,206 +61,232 @@ class AWSStack(AbstractBaseStack):
             tags={"Name": "cdktf-public-key"},
         )
 
+        jumpbox_vpc = Vpc(
+            self,
+            f"{range_name}-JumpBoxVPC",
+            cidr_block="10.255.0.0/16",  # TODO: Dynamically create a cidr block that does not exist with any of the vpc cidr blocks in the template
+            enable_dns_support=True,
+            enable_dns_hostnames=True,
+            tags={"Name": "JumpBoxVPC"},
+        )
+
+        # Function to derive a subnet CIDR from the VPC CIDR
+        def modify_cidr(vpc_cidr: str, new_third_octet: int) -> str:
+            ip_part, prefix = vpc_cidr.split("/")
+            octets = ip_part.split(".")
+            octets[2] = str(new_third_octet)  # Change the third octet
+            octets[3] = "0"  # Explicitly set the fourth octet to 0
+            return f"{'.'.join(octets)}/24"  # Convert back to CIDR
+
+        # Generate the new subnet CIDR with third octet = 99
+        public_subnet_cidr = modify_cidr(str(jumpbox_vpc.cidr_block), 99)
+
+        public_subnet = Subnet(
+            self,
+            f"{range_name}-JumpBoxPublicSubnet",
+            vpc_id=jumpbox_vpc.id,
+            cidr_block=public_subnet_cidr,
+            availability_zone="us-east-1a",
+            map_public_ip_on_launch=True,
+            tags={"Name": "JumpBoxPublicSubnet"},
+        )
+
+        # Step 3: Create an Internet Gateway for Public Subnet
+        igw = InternetGateway(
+            self,
+            f"{range_name}-RangeInternetGateway",
+            vpc_id=jumpbox_vpc.id,
+            tags={"Name": "RangeInternetGateway"},
+        )
+
+        # Step 4: Create a NAT Gateway for internal network with EIP
+        # Elastic IP for NAT Gateway
+        eip = Eip(self, f"{range_name}-RangeNatEIP", tags={"Name": "RangeNatEIP"})
+
+        nat_gateway = NatGateway(
+            self,
+            f"{range_name}-RangeNatGateway",
+            subnet_id=public_subnet.id,  # NAT must be in a public subnet
+            allocation_id=eip.id,
+            tags={"Name": "RangeNatGateway"},
+        )
+
+        jumpbox_route_table = RouteTable(
+            self,
+            f"{range_name}-JumpBoxRouteTable",
+            vpc_id=jumpbox_vpc.id,
+            tags={"Name": "RangePublicRouteTable"},
+        )
+
+        Route(
+            self,
+            f"{range_name}-RangePublicInternetRoute",
+            route_table_id=jumpbox_route_table.id,
+            destination_cidr_block="0.0.0.0/0",  # Allow internet access
+            gateway_id=igw.id,
+        )
+
+        RouteTableAssociation(
+            self,
+            f"{range_name}-RangePublicRouteAssociation",
+            subnet_id=public_subnet.id,
+            route_table_id=jumpbox_route_table.id,
+        )
+
+        # Step 8: Create Security Group and Rules for Jump Box (only allow SSH directly into jump box, for now)
+        jumpbox_sg = SecurityGroup(
+            self,
+            f"{range_name}-RangeJumpBoxSecurityGroup",
+            vpc_id=jumpbox_vpc.id,
+            tags={"Name": "RangeJumpBoxSecurityGroup"},
+        )
+        SecurityGroupRule(
+            self,
+            f"{range_name}-RangeAllowJumpBoxSSHFromInternet",
+            type="ingress",
+            from_port=22,
+            to_port=22,
+            protocol="tcp",
+            cidr_blocks=["0.0.0.0/0"],  # Allow SSH from anywhere
+            security_group_id=jumpbox_sg.id,
+        )
+        SecurityGroupRule(
+            self,
+            f"{range_name}-RangeJumpBoxAllowOutbound",
+            type="egress",
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            cidr_blocks=["0.0.0.0/0"],
+            security_group_id=jumpbox_sg.id,
+        )
+
+        # Step 11: Create Jump Box
+        jumpbox = Instance(
+            self,
+            f"{range_name}-JumpBoxInstance",
+            ami="ami-014f7ab33242ea43c",  # Amazon Ubuntu 20.04 AMI
+            instance_type="t2.micro",
+            subnet_id=public_subnet.id,
+            vpc_security_group_ids=[jumpbox_sg.id],
+            associate_public_ip_address=True,  # Ensures public IP is assigned
+            key_name=key_pair.key_name,  # Use the generated key pair
+            tags={"Name": f"{range_name}-JumpBox"},
+        )
+
+        all_internal_cidrs: list[IPv4Network] = []
+        host_ips: list[str] = []
+        vpc_ids: list[str] = []
+        subnet_ids: list[str] = []
+        host_ids: list[str] = []
+
+        # Step 7: Create a Route Table for intenral network (Using NAT)
+        private_route_table = RouteTable(
+            self,
+            f"{range_name}-RangePrivateRouteTable",
+            vpc_id=jumpbox_vpc.id,
+            tags={"Name": "RangePrivateRouteTable"},
+        )
+        Route(
+            self,
+            f"{range_name}-RangePrivateNatRoute",
+            route_table_id=private_route_table.id,
+            destination_cidr_block="0.0.0.0/0",  # Allow internet access
+            nat_gateway_id=nat_gateway.id,  # Route through NAT Gateway
+        )
+
+        # Shared security group for all internal resources
+        shared_private_sg = SecurityGroup(
+            self,
+            f"{range_name}-SharedPrivateSG",
+            vpc_id=jumpbox_vpc.id,
+            tags={"Name": "RangePrivateInternalSecurityGroup"},
+        )
+
+        SecurityGroupRule(
+            self,
+            f"{range_name}-RangeAllowAllTrafficFromJumpBox-Rule",
+            type="ingress",
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            security_group_id=shared_private_sg.id,
+            source_security_group_id=jumpbox_sg.id,  # Allow all traffic from Jump Box
+        )
+
+        SecurityGroupRule(
+            self,
+            f"{range_name}-RangeAllowInternalTraffic-Rule",  # Allow all internal subnets to communicate with each other
+            type="ingress",
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            cidr_blocks=["0.0.0.0/0"],
+            security_group_id=shared_private_sg.id,
+        )
+
+        SecurityGroupRule(
+            self,
+            f"{range_name}-RangeAllowPrivateOutbound-Rule",
+            type="egress",
+            from_port=0,
+            to_port=0,
+            protocol="-1",
+            cidr_blocks=["0.0.0.0/0"],
+            security_group_id=shared_private_sg.id,
+        )
+
         for vpc in template_range.vpcs:
 
             # Step 1: Create a VPC
             new_vpc = Vpc(
                 self,
-                vpc.name,
+                f"{range_name}-{vpc.name}",
                 cidr_block=str(vpc.cidr),
                 enable_dns_support=True,
                 enable_dns_hostnames=True,
                 tags={"Name": vpc.name},
             )
-
-            # Function to derive a subnet CIDR from the VPC CIDR
-            def modify_cidr(vpc_cidr: str, new_third_octet: int) -> str:
-                ip_part, prefix = vpc_cidr.split("/")
-                octets = ip_part.split(".")
-                octets[2] = str(new_third_octet)  # Change the third octet
-                octets[3] = "0"  # Explicitly set the fourth octet to 0
-                return f"{'.'.join(octets)}/24"  # Convert back to CIDR
-
-            # Generate the new subnet CIDR with third octet = 99
-            public_subnet_cidr = modify_cidr(str(vpc.cidr), 99)
-
-            # Step 2: Create a Public Subnet for the Jump Box
-            public_subnet = Subnet(
-                self,
-                f"RangePublicSubnet-{vpc.name}",
-                vpc_id=new_vpc.id,
-                cidr_block=public_subnet_cidr,
-                map_public_ip_on_launch=True,  # Enable public IP auto-assignment
-                availability_zone="us-east-1a",
-                tags={"Name": f"RangePublicSubnet-{vpc.name}"},
-            )
-
-            # Step 3: Create an Internet Gateway for Public Subnet
-            igw = InternetGateway(
-                self,
-                f"RangeInternetGateway-{vpc.name}",
-                vpc_id=new_vpc.id,
-                tags={"Name": "RangeInternetGateway"},
-            )
-
-            # Step 4: Create a NAT Gateway for Private Subnet with EIP
-            eip = Eip(
-                self, f"RangeNatEIP-{vpc.name}", tags={"Name": "RangeNatEIP"}
-            )  # Elastic IP for NAT Gateway
-            nat_gateway = NatGateway(
-                self,
-                f"RangeNatGateway-{vpc.name}",
-                subnet_id=public_subnet.id,  # NAT must be in a public subnet
-                allocation_id=eip.id,
-                tags={"Name": "RangeNatGateway"},
-            )
-
-            # Step 6: Create a Route Table for Public Subnet with association
-            public_route_table = RouteTable(
-                self,
-                f"RangePublicRouteTable-{vpc.name}",
-                vpc_id=new_vpc.id,
-                tags={"Name": "RangePublicRouteTable"},
-            )
-            Route(
-                self,
-                f"RangePublicInternetRoute-{vpc.name}",
-                route_table_id=public_route_table.id,
-                destination_cidr_block="0.0.0.0/0",  # Allow internet access
-                gateway_id=igw.id,
-            )
-            RouteTableAssociation(
-                self,
-                f"RangePublicRouteAssociation-{vpc.name}",
-                subnet_id=public_subnet.id,
-                route_table_id=public_route_table.id,
-            )
-
-            # Step 7: Create a Route Table for Private Subnet (Using NAT)
-            private_route_table = RouteTable(
-                self,
-                f"RangePrivateRouteTable-{vpc.name}",
-                vpc_id=new_vpc.id,
-                tags={"Name": "RangePrivateRouteTable"},
-            )
-            Route(
-                self,
-                f"RangePrivateNatRoute-{vpc.name}",
-                route_table_id=private_route_table.id,
-                destination_cidr_block="0.0.0.0/0",  # Allow internet access
-                nat_gateway_id=nat_gateway.id,  # Route through NAT Gateway
-            )
-
-            # Step 8: Create Security Group and Rules for Jump Box (only allow SSH directly into jump box, for now)
-            jumpbox_sg = SecurityGroup(
-                self,
-                f"RangeJumpBoxSecurityGroup-{vpc.name}",
-                vpc_id=new_vpc.id,
-                tags={"Name": "RangeJumpBoxSecurityGroup"},
-            )
-            SecurityGroupRule(
-                self,
-                f"RangeAllowJumpBoxSSHFromInternet-{vpc.name}",
-                type="ingress",
-                from_port=22,
-                to_port=22,
-                protocol="tcp",
-                cidr_blocks=["0.0.0.0/0"],  # Allow SSH from anywhere
-                security_group_id=jumpbox_sg.id,
-            )
-            SecurityGroupRule(
-                self,
-                f"RangeJumpBoxAllowOutbound-{vpc.name}",
-                type="egress",
-                from_port=0,
-                to_port=0,
-                protocol="-1",
-                cidr_blocks=["0.0.0.0/0"],
-                security_group_id=jumpbox_sg.id,
-            )
-
-            # Step 9. Dynamically Create Internal Private Subnets from provided list (NOTE: Will eventually create from passed in CyberRange object). First grab all passed in subnet CIDRs to use for making the relevan security group rules
-            private_cidrs = [str(subnet.cidr) for subnet in vpc.subnets]
-
-            # Step 10: Create Security Group for Private EC2 Instances
-            private_sg = SecurityGroup(
-                self,
-                f"RangePrivateInternalSecurityGroup-{vpc.name}",
-                vpc_id=new_vpc.id,
-                tags={"Name": "RangePrivateInternalSecurityGroup"},
-            )
-            SecurityGroupRule(
-                self,
-                f"RangeAllowAllTrafficFromJumpBox-{vpc.name}",
-                type="ingress",
-                from_port=0,
-                to_port=0,
-                protocol="-1",
-                security_group_id=private_sg.id,
-                source_security_group_id=jumpbox_sg.id,  # Allow all traffic from Jump Box
-            )
-            SecurityGroupRule(
-                self,
-                f"RangeAllowInternalTraffic-{vpc.name}",  # Allow all internal subnets to communicate ONLY with each other
-                type="ingress",
-                from_port=0,
-                to_port=0,
-                protocol="-1",
-                cidr_blocks=private_cidrs,  # Use dynamically created CIDR blocks
-                security_group_id=private_sg.id,
-            )
-            SecurityGroupRule(
-                self,
-                f"RangeAllowPrivateOutbound-{vpc.name}",
-                type="egress",
-                from_port=0,
-                to_port=0,
-                protocol="-1",
-                cidr_blocks=["0.0.0.0/0"],
-                security_group_id=private_sg.id,
-            )
-
-            # Step 11: Create Jump Box
-            Instance(
-                self,
-                f"JumpBoxInstance-{vpc.name}",
-                ami="ami-014f7ab33242ea43c",  # Amazon Ubuntu 20.04 AMI
-                instance_type="t2.micro",
-                subnet_id=public_subnet.id,
-                vpc_security_group_ids=[jumpbox_sg.id],
-                associate_public_ip_address=True,  # Ensures public IP is assigned
-                key_name=key_pair.key_name,  # Use the generated key pair
-                tags={"Name": f"JumpBox-{vpc.name}"},
-            )
+            vpc_ids.append(new_vpc.id)
 
             # Step 12: Create private subnets with their respecitve EC2 instances
             for subnet in vpc.subnets:
                 new_subnet = Subnet(
                     self,
-                    f"{subnet.name}-{vpc.name}",
+                    f"{range_name}-{vpc.name}-{subnet.name}",
                     vpc_id=new_vpc.id,
                     cidr_block=str(subnet.cidr),
                     availability_zone="us-east-1a",
-                    tags={"Name": f"{subnet.name}-{vpc.name}"},
+                    tags={"Name": subnet.name},
                 )
+
+                subnet_ids.append(new_subnet.id)
+                all_internal_cidrs.append(subnet.cidr)
+
                 RouteTableAssociation(
                     self,
-                    f"{subnet.name}-RouteAssociation-{vpc.name}",
+                    f"{range_name}-{vpc.name}-{subnet.name}-RouteAssociation",
                     subnet_id=new_subnet.id,
                     route_table_id=private_route_table.id,
                 )
-                for (
-                    host
-                ) in subnet.hosts:  # Create specified instances in the given subnet
-                    Instance(
+                # Create specified instances in the given subnet
+                for host in subnet.hosts:
+                    ec2_instance = Instance(
                         self,
-                        f"{host.hostname}-{vpc.name}",
-                        ami=AWS_OS_MAP[
-                            host.os
-                        ],  # WIll need to grab from update OpenLabsRange object
+                        f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}",
+                        # WIll need to grab from update OpenLabsRange object
+                        ami=AWS_OS_MAP[host.os],
                         instance_type=AWS_SPEC_MAP[host.spec],
                         subnet_id=new_subnet.id,
-                        vpc_security_group_ids=[private_sg.id],
+                        vpc_security_group_ids=[shared_private_sg.id],
                         key_name=key_pair.key_name,  # Use the generated key pair
-                        tags={"Name": f"{host.hostname}-{vpc.name}"},
+                        tags={"Name": host.hostname},
                     )
+                    host_ids.append(ec2_instance.id)
+                    host_ips.append(ec2_instance.private_ip)
+
+        TerraformOutput(self, "jumpbox_public_ip", value=jumpbox.public_ip)
+        TerraformOutput(self, "host_private_ips", value=host_ips)
+        TerraformOutput(self, "vpc_ids", value=vpc_ids)
+        TerraformOutput(self, "subnet_ids", value=subnet_ids)
+        TerraformOutput(self, "host_ids", value=host_ids)

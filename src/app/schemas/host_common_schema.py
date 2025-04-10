@@ -42,21 +42,19 @@ class HostCommonSchema(BaseModel):
 
     @field_validator("tags")
     @classmethod
+    def uniqe_tags(cls, tags: list[str]) -> list[str]:
+        """Validate all tags are unique."""
+        if len(tags) != len(set(tags)):
+            msg = "Host tags should unique"
+            raise ValueError(msg)
+        return tags
+
+    @field_validator("tags")
+    @classmethod
     def validate_tags(cls, tags: list[str]) -> list[str]:
-        """Validate no empty tags.
-
-        Args:
-        ----
-            cls: Host object.
-            tags (list[str]): List of tags.
-
-        Returns:
-        -------
-            list[str]: List of non-empty tags.
-
-        """
+        """Validate no empty tags."""
         if any(tag.strip() == "" for tag in tags):
-            msg = "Tags must not be empty"
+            msg = "Host tags must not be empty"
             raise ValueError(msg)
         return tags
 

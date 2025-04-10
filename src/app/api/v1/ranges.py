@@ -116,22 +116,31 @@ async def deploy_range_from_template_endpoint(
         )
 
     # Build range schema
-    range_schema = RangeSchema(
-        **deploy_range.model_dump(),
-        id=range_to_deploy.id,
-        date=datetime.now(tz=timezone.utc),
-        template=template.model_dump(mode="json"),
-        state_file=range_to_deploy.get_state_file(),
-        state=RangeState.ON,  # User manually starts after deployment
-    )
-
-    # Save deployed range info to database
-    created_range_model = await create_range(db, range_schema, owner_id=current_user.id)
-    if not created_range_model:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save deployed range to database. Range: {range_to_deploy.template.name} ({range_to_deploy.id})",
+    try:
+        range_schema = RangeSchema(
+            **deploy_range.model_dump(),
+            id=range_to_deploy.id,
+            date=datetime.now(tz=timezone.utc),
+            template=template.model_dump(mode="json"),
+            state_file=range_to_deploy.get_state_file(),
+            state=RangeState.ON,  # User manually starts after deployment
         )
+
+        # Save deployed range info to database
+        created_range_model = await create_range(
+            db, range_schema, owner_id=current_user.id
+        )
+        if not created_range_model:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to save deployed range to database. Range: {range_to_deploy.template.name} ({range_to_deploy.id})",
+            )
+    except Exception:
+        # Auto clean up resources
+        # range_to_deploy.synthesize() TODO: Uncomment once statefile output variables are confirmed
+        # range_to_deploy.destroy()
+
+        raise
 
     return RangeID(id=range_schema.id)
 

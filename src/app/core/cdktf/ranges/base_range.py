@@ -188,7 +188,7 @@ class AbstractBaseRange(ABC):
 
             # Delete files made during deployment
             os.chdir(initial_dir)
-            self.cleanup_synth()
+            # self.cleanup_synth() TODO: Uncomment once terraform state file output variables are confirmed
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)

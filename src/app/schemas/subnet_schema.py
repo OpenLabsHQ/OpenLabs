@@ -2,7 +2,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from .host_schema import HostBaseSchema
+from .host_schema import HostBaseSchema, HostSchema
 from .subnet_common_schema import SubnetCommonSchema
 
 
@@ -16,31 +16,6 @@ class SubnetBaseSchema(SubnetCommonSchema):
         examples=["subnet-05c770240dd042b88"],
     )
 
-    hosts: list[HostBaseSchema] = Field(..., description="Contained hosts")
-
-    @field_validator("hosts")
-    @classmethod
-    def validate_unique_hostnames(
-        cls, hosts: list[HostBaseSchema]
-    ) -> list[HostBaseSchema]:
-        """Check hostnames are unique.
-
-        Args:
-        ----
-            cls: SubnetBaseSchema object.
-            hosts (list[HostBaseSchema]): Host objects.
-
-        Returns:
-        -------
-            list[HostBaseSchema]: Host objects.
-
-        """
-        hostnames = [host.hostname for host in hosts]
-        if len(hostnames) != len(set(hostnames)):
-            msg = "All hostnames must be unique."
-            raise ValueError(msg)
-        return hosts
-
 
 class SubnetID(BaseModel):
     """Identity class for the subnet object."""
@@ -51,7 +26,39 @@ class SubnetID(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SubnetCreateSchema(SubnetBaseSchema):
+    """Schema to create a new subnet."""
+
+    hosts: list[HostBaseSchema] = Field(..., description="Contained hosts")
+
+    @field_validator("hosts")
+    @classmethod
+    def validate_unique_hostnames(
+        cls, hosts: list[HostBaseSchema]
+    ) -> list[HostBaseSchema]:
+        """Check hostnames are unique."""
+        hostnames = [host.hostname for host in hosts]
+        if len(hostnames) != len(set(hostnames)):
+            msg = "All hostnames must be unique."
+            raise ValueError(msg)
+        return hosts
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SubnetSchema(SubnetBaseSchema, SubnetID):
     """Deployed subnet schema."""
+
+    hosts: list[HostSchema] = Field(..., description="Contained hosts")
+
+    @field_validator("hosts")
+    @classmethod
+    def validate_unique_hostnames(cls, hosts: list[HostSchema]) -> list[HostSchema]:
+        """Check hostnames are unique."""
+        hostnames = [host.hostname for host in hosts]
+        if len(hostnames) != len(set(hostnames)):
+            msg = "All hostnames must be unique."
+            raise ValueError(msg)
+        return hosts
 
     model_config = ConfigDict(from_attributes=True)
