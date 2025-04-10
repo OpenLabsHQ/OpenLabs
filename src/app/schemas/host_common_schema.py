@@ -42,7 +42,7 @@ class HostCommonSchema(BaseModel):
 
     @field_validator("tags")
     @classmethod
-    def uniqe_tags(cls, tags: list[str]) -> list[str]:
+    def unique_tags(cls, tags: list[str]) -> list[str]:
         """Validate all tags are unique."""
         if len(tags) != len(set(tags)):
             msg = "Host tags should unique"
