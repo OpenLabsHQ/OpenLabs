@@ -37,6 +37,13 @@ class RangeCommonSchema(BaseModel):
 class BlueprintRangeBaseSchema(RangeCommonSchema):
     """Base pydantic class for blueprint range objects."""
 
+    description: str | None = Field(
+        default=None,
+        max_length=300,  # Bluesky post limit
+        description="Description of blueprint range.",
+        examples=["This is my test range."],
+    )
+
     pass
 
 
