@@ -76,3 +76,39 @@ def is_valid_disk_size(os: OpenLabsOS, size: int) -> bool:
 
     """
     return size >= OS_SIZE_THRESHOLD[os]
+
+
+def mutually_exclusive_networks_v4(networks: list[IPv4Network]) -> bool:
+    """Check if a list of IPv4 networks are mutually exclusive.
+
+    Args:
+    ----
+        networks (list[IPv4Networks]): List of IPv4 networks.
+
+    Returns:
+    -------
+        bool: True if the list of networks are mutually exclusive. False otherwise.
+
+    """
+    for i, net1 in enumerate(networks):
+        for j, net2 in enumerate(networks):
+            if i != j and net1.overlaps(net2):
+                return False
+
+    return True
+
+
+def all_subnets_contained(
+    parent_network: IPv4Network, child_networks: list[IPv4Network]
+) -> bool:
+    """Check if all child IPv4 networks are fully contained within the parent IPv4 network.
+
+    Args:
+        parent_network: The IPv4Network that is expected to contain all child networks.
+        child_networks: A list of IPv4Network objects to check for containment.
+
+    Returns:
+        True if all child networks are subnets of the parent network; False otherwise.
+
+    """
+    return all(child.subnet_of(parent_network) for child in child_networks)
