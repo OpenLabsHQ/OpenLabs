@@ -1,0 +1,83 @@
+from datetime import datetime
+from ipaddress import IPv4Address
+from typing import Any
+
+from sqlalchemy import Boolean, DateTime, Enum, String
+from sqlalchemy.dialects.postgresql import INET, JSON
+from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
+
+from ..core.db.database import Base
+from ..enums.providers import OpenLabsProvider
+from ..enums.range_states import RangeState
+from ..enums.regions import OpenLabsRegion
+from .mixin_models import OwnableObjectMixin
+
+
+class RangeMixin(MappedAsDataclass):
+    """Common range attributes."""
+
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[OpenLabsProvider] = mapped_column(
+        Enum(OpenLabsProvider), nullable=False
+    )
+    vnc: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    vpn: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+# ==================== Blueprints =====================
+
+
+class BlueprintRangeModel(Base, OwnableObjectMixin, RangeMixin):
+    """SQLAlchemy ORM model for blueprint range objects."""
+
+    __tablename__ = "blueprint_ranges"
+
+    # Child relationship
+    vpcs = relationship(
+        "BlueprintVPCModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    def is_standalone(self) -> bool:
+        """Return whether blueprint range model is standalone.
+
+        Standalone means that the blueprint is not part of a larger blueprint.
+
+        Returns
+        -------
+            bool: True if standalone. False otherwise.
+
+        """
+        # Ranges are currently the highest level blueprint object
+        return True
+
+
+# ==================== Deployed (Instances) =====================
+
+
+class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
+    """Deployed range model class."""
+
+    __tablename__ = "deployed_ranges"
+
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    readme: Mapped[str | None] = mapped_column(String, nullable=True)
+    state_file: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    state: Mapped[RangeState] = mapped_column(Enum(RangeState), nullable=False)
+    region: Mapped[OpenLabsRegion] = mapped_column(Enum(OpenLabsRegion), nullable=False)
+
+    # Jumpbox
+    public_ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
+    private_key: Mapped[str] = mapped_column(String, nullable=False)
+
+    vpcs = relationship(
+        "DeployedVPCModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
