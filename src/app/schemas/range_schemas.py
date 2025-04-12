@@ -207,3 +207,19 @@ class DeployedRangeHeaderSchema(RangeCommonSchema):
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeployRangeSchema(BaseModel):
+    """Payload schema for deploying ranges."""
+
+    name: str = Field(
+        ..., min_length=1, max_length=63, description="Name of deployed range."
+    )
+    description: str | None = Field(
+        default=None,
+        max_length=300,  # Bluesky post limit
+        description="Description of deployed range.",
+        examples=["This is my test range."],
+    )
+    blueprint_id: uuid.UUID = Field(..., description="ID of blueprint range to deploy.")
+    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
