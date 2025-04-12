@@ -179,9 +179,31 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-class DeployedRangeHeaderSchema(DeployedRangeBaseSchema):
-    """Header schema for depoyed range objects."""
+class DeployedRangeHeaderSchema(RangeCommonSchema):
+    """Header schema for depoyed range objects.
+
+    Inherits from the common range schema to avoid sending
+    the terraform state file and other expensive fields in
+    the deployed range schema.
+
+    """
 
     id: uuid.UUID = Field(..., description="Deployed range unique identifier.")
+    description: str | None = Field(
+        default=None,
+        max_length=300,  # Bluesky post limit
+        description="Description of range.",
+        examples=["This is my test range."],
+    )
+    date: datetime = Field(
+        description="Time range was created.",
+        examples=[datetime(2025, 2, 5, tzinfo=timezone.utc)],
+    )
+    state: RangeState = Field(
+        ...,
+        description="State of deployed range.",
+        examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
+    )
+    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
 
     model_config = ConfigDict(from_attributes=True)
