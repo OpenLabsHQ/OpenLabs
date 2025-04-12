@@ -1,30 +1,31 @@
-import uuid
-
-from sqlalchemy import ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, ForeignKey
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
 
 
 class OwnableObjectMixin(MappedAsDataclass):
     """Mixin to provide ownership and ID for each ownable object."""
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
+        init=False,  # Allow DB to generate ID
+        comment="Primary key (BIGSERIAL)",
     )
 
     # User who owns this template
-    owner_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    owner_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
 
 
 class OpenLabsUserMixin(MappedAsDataclass):
-    """Mixin to provide a UUID for each user-based model."""
+    """Mixin to provide an ID for each user-based model."""
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
+        init=False,  # Allow DB to generate ID
+        comment="Primary key (BIGSERIAL)",
     )

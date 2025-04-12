@@ -1,7 +1,6 @@
-import uuid
 from ipaddress import IPv4Network
 
-from sqlalchemy import UUID, ForeignKey, String
+from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
@@ -25,8 +24,8 @@ class BlueprintSubnetModel(Base, OwnableObjectMixin, SubnetMixin):
     __tablename__ = "blueprint_subnets"
 
     # Parent relationship
-    vpc_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    vpc_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("blueprint_vpcs.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
@@ -65,8 +64,8 @@ class DeployedSubnetModel(Base, OwnableObjectMixin, SubnetMixin):
     resource_id: Mapped[str] = mapped_column(String, nullable=False)
 
     # Parent relationship
-    vpc_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    vpc_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("deployed_vpcs.id", ondelete="CASCADE"),
         nullable=False,
     )

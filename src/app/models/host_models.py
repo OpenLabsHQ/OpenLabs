@@ -1,7 +1,6 @@
-import uuid
 from ipaddress import IPv4Address
 
-from sqlalchemy import ARRAY, UUID, Enum, ForeignKey, Integer, String
+from sqlalchemy import ARRAY, BigInteger, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
@@ -30,8 +29,8 @@ class BlueprintHostModel(Base, OwnableObjectMixin, HostMixin):
     __tablename__ = "blueprint_hosts"
 
     # Parent relationship
-    subnet_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
+    subnet_id: Mapped[int | None] = mapped_column(
+        BigInteger,
         ForeignKey("blueprint_subnets.id", ondelete="CASCADE"),
         nullable=True,
         default=None,
@@ -64,8 +63,8 @@ class DeployedHostModel(Base, OwnableObjectMixin, HostMixin):
     ip_address: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
 
     # Parent relationship
-    subnet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    subnet_id: Mapped[int] = mapped_column(
+        BigInteger,
         ForeignKey("deployed_subnets.id", ondelete="CASCADE"),
         nullable=False,
     )
