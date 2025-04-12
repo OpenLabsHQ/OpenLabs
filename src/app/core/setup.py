@@ -6,6 +6,7 @@ from fastapi import APIRouter, FastAPI
 from .config import AppSettings, DatabaseSettings
 from .db.database import Base
 from .db.database import async_engine as engine
+from .logger import LOG_DIR  # noqa: F401 (Enable logging)
 
 
 # Function to create database tables
