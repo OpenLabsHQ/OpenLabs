@@ -1,4 +1,3 @@
-import uuid
 from ipaddress import IPv4Network
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
@@ -81,7 +80,7 @@ class BlueprintSubnetCreateSchema(BlueprintSubnetBaseSchema):
 class BlueprintSubnetSchema(BlueprintSubnetBaseSchema):
     """Blueprint subnet object."""
 
-    id: uuid.UUID = Field(..., description="Blueprint subnet unique identifier.")
+    id: int = Field(..., description="Blueprint subnet unique identifier.")
     hosts: list[BlueprintHostSchema] = Field(
         ..., description="All blueprint hosts in the subnet."
     )
@@ -92,7 +91,7 @@ class BlueprintSubnetSchema(BlueprintSubnetBaseSchema):
 class BlueprintSubnetHeaderSchema(BlueprintSubnetBaseSchema):
     """Header schema for blueprint subnet objects."""
 
-    id: uuid.UUID = Field(..., description="Blueprint subnet unique identifier.")
+    id: int = Field(..., description="Blueprint subnet unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -157,7 +156,7 @@ class DeployedSubnetCreateSchema(DeployedSubnetBaseSchema):
 class DeployedSubnetSchema(DeployedSubnetBaseSchema):
     """Deployed subnet object."""
 
-    id: uuid.UUID = Field(..., description="Deployed subnet unique identifier.")
+    id: int = Field(..., description="Deployed subnet unique identifier.")
     hosts: list[DeployedHostSchema] = Field(
         ..., description="Deployed hosts within subnet."
     )
@@ -168,6 +167,6 @@ class DeployedSubnetSchema(DeployedSubnetBaseSchema):
 class DeployedSubnetHeaderSchema(DeployedSubnetBaseSchema):
     """Header schema for deployed subnet objects."""
 
-    id: uuid.UUID = Field(..., description="Deployed subnet unique identifier.")
+    id: int = Field(..., description="Deployed subnet unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)

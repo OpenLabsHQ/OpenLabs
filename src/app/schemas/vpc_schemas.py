@@ -1,4 +1,3 @@
-import uuid
 from ipaddress import IPv4Network
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
@@ -110,7 +109,7 @@ class BlueprintVPCCreateSchema(BlueprintVPCBaseSchema):
 class BlueprintVPCSchema(BlueprintVPCBaseSchema):
     """Blueprint VPC object."""
 
-    id: uuid.UUID = Field(..., description="Blueprint VPC unique identifier.")
+    id: int = Field(..., description="Blueprint VPC unique identifier.")
     subnets: list[BlueprintSubnetSchema] = Field(
         ..., description="All blueprint subnets in the VPC."
     )
@@ -121,7 +120,7 @@ class BlueprintVPCSchema(BlueprintVPCBaseSchema):
 class BlueprintVPCHeaderSchema(BlueprintVPCBaseSchema):
     """Header schema for blueprint VPC objects."""
 
-    id: uuid.UUID = Field(..., description="Blueprint VPC unique identifier.")
+    id: int = Field(..., description="Blueprint VPC unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -214,7 +213,7 @@ class DeployedVPCCreateSchema(DeployedVPCBaseSchema):
 class DeployedVPCSchema(DeployedVPCBaseSchema):
     """Deployed VPC object."""
 
-    id: uuid.UUID = Field(..., description="Deployed VPC unique identifier.")
+    id: int = Field(..., description="Deployed VPC unique identifier.")
     subnets: list[DeployedSubnetSchema] = Field(
         ..., description="All deployed subnets in the VPC."
     )
@@ -225,6 +224,6 @@ class DeployedVPCSchema(DeployedVPCBaseSchema):
 class DeployedVPCHeaderSchema(DeployedVPCBaseSchema):
     """Header schema for deployed VPC objects."""
 
-    id: uuid.UUID = Field(..., description="Deployed VPC unique identifier.")
+    id: int = Field(..., description="Deployed VPC unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)

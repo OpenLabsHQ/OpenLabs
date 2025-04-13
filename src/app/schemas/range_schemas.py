@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -87,7 +86,7 @@ class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
 class BlueprintRangeSchema(BlueprintRangeBaseSchema):
     """Blueprint range object."""
 
-    id: uuid.UUID = Field(..., description="Blueprint range unique identifier.")
+    id: int = Field(..., description="Blueprint range unique identifier.")
     vpcs: list[BlueprintVPCSchema] = Field(
         ..., description="All blueprint VPCs in range."
     )
@@ -98,7 +97,7 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
 class BlueprintRangeHeaderSchema(BlueprintRangeBaseSchema):
     """Header schema for blueprint range objects."""
 
-    id: uuid.UUID = Field(..., description="Blueprint range unique identifier.")
+    id: int = Field(..., description="Blueprint range unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -171,7 +170,7 @@ class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
 class DeployedRangeSchema(DeployedRangeBaseSchema):
     """Deployed range object."""
 
-    id: uuid.UUID = Field(..., description="Deployed range unique identifier.")
+    id: int = Field(..., description="Deployed range unique identifier.")
     vpcs: list[DeployedVPCSchema] = Field(
         ..., description="All deployed VPCs in the range."
     )
@@ -188,7 +187,7 @@ class DeployedRangeHeaderSchema(RangeCommonSchema):
 
     """
 
-    id: uuid.UUID = Field(..., description="Deployed range unique identifier.")
+    id: int = Field(..., description="Deployed range unique identifier.")
     description: str | None = Field(
         default=None,
         max_length=300,  # Bluesky post limit
@@ -221,5 +220,5 @@ class DeployRangeSchema(BaseModel):
         description="Description of deployed range.",
         examples=["This is my test range."],
     )
-    blueprint_id: uuid.UUID = Field(..., description="ID of blueprint range to deploy.")
+    blueprint_id: int = Field(..., description="ID of blueprint range to deploy.")
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")

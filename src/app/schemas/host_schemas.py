@@ -1,4 +1,3 @@
-import uuid
 from ipaddress import IPv4Address
 
 from pydantic import (
@@ -117,7 +116,7 @@ class BlueprintHostCreateSchema(BlueprintHostBaseSchema):
 class BlueprintHostSchema(BlueprintHostBaseSchema):
     """Blueprint host object."""
 
-    id: uuid.UUID = Field(..., description="Blueprint host unique identifier.")
+    id: int = Field(..., description="Blueprint host unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -125,7 +124,7 @@ class BlueprintHostSchema(BlueprintHostBaseSchema):
 class BlueprintHostHeaderSchema(BlueprintHostBaseSchema):
     """Header schema for blueprint host objects."""
 
-    id: uuid.UUID = Field(..., description="Blueprint host unique identifier.")
+    id: int = Field(..., description="Blueprint host unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,7 +155,7 @@ class DeployedHostCreateSchema(DeployedHostBaseSchema):
 class DeployedHostSchema(DeployedHostBaseSchema):
     """Deployed host object."""
 
-    id: uuid.UUID = Field(..., description="Deployed host unique identifier.")
+    id: int = Field(..., description="Deployed host unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -164,6 +163,6 @@ class DeployedHostSchema(DeployedHostBaseSchema):
 class DeployedHostHeaderSchema(DeployedHostBaseSchema):
     """Header schema for deployed host objects."""
 
-    id: uuid.UUID = Field(..., description="Deployed host unique identifier.")
+    id: int = Field(..., description="Deployed host unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
