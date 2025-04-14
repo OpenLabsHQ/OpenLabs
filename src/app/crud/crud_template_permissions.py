@@ -33,11 +33,11 @@ async def create_template_permission(
     permission_dict["id"] = uuid.uuid4()
 
     permission_obj = TemplatePermissionModel(**permission_dict)
-    
+
     # Set datetime fields after instantiation
     permission_obj.created_at = datetime.now(UTC)
     permission_obj.updated_at = datetime.now(UTC)
-    
+
     db.add(permission_obj)
     await db.commit()
     await db.refresh(permission_obj)
