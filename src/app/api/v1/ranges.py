@@ -25,8 +25,8 @@ router = APIRouter(prefix="/ranges", tags=["ranges"])
 @router.post("/deploy")
 async def deploy_range_from_template_endpoint(
     deploy_range: DeployRangeBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
 ) -> RangeID:
     """Deploy range templates.
@@ -139,8 +139,8 @@ async def deploy_range_from_template_endpoint(
 @router.delete("/{range_id}")
 async def delete_range_endpoint(
     range_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
 ) -> MessageSchema:
     """Destroy a deployed range.
