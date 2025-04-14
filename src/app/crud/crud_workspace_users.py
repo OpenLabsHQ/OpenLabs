@@ -5,7 +5,6 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from ..enums.workspace_roles import WorkspaceRole
 from ..models.user_model import UserModel
 from ..models.workspace_user_model import WorkspaceUserModel
 from ..schemas.workspace_user_schema import WorkspaceUserCreateSchema
@@ -134,95 +133,6 @@ async def get_workspace_users(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
-
-
-async def get_users_not_in_workspace(
-    db: AsyncSession, workspace_id: UUID
-) -> list[UserModel]:
-    """Get all users not in a specific workspace.
-
-    Args:
-    ----
-        db (AsyncSession): Database connection.
-        workspace_id (UUID): Workspace ID to exclude users from.
-
-    Returns:
-    -------
-        list[UserModel]: List of users not in the workspace.
-
-    """
-    # First, get all user IDs that are already in the workspace
-    subquery = (
-        select(WorkspaceUserModel.user_id)
-        .where(WorkspaceUserModel.workspace_id == workspace_id)
-        .scalar_subquery()
-    )
-
-    # Then query all users where their ID is not in the list of workspace users
-    stmt = select(UserModel).where(UserModel.id.not_in(subquery))
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def get_workspace_admins(
-    db: AsyncSession, workspace_id: UUID
-) -> list[WorkspaceUserModel]:
-    """Get all admin users in a workspace.
-
-    Args:
-    ----
-        db (AsyncSession): Database connection.
-        workspace_id (UUID): Workspace ID.
-
-    Returns:
-    -------
-        list[WorkspaceUserModel]: List of workspace admin user associations.
-
-    """
-    stmt = (
-        select(WorkspaceUserModel)
-        .where(WorkspaceUserModel.workspace_id == workspace_id)
-        .where(WorkspaceUserModel.role == WorkspaceRole.ADMIN)
-    )
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
-
-
-async def update_workspace_user(
-    db: AsyncSession,
-    workspace_id: UUID,
-    user_id: UUID,
-    role: WorkspaceRole | None = None,
-    time_limit: int | None = None,
-) -> WorkspaceUserModel | None:
-    """Update a user's role or time limit in a workspace.
-
-    Args:
-    ----
-        db (AsyncSession): Database connection.
-        workspace_id (UUID): Workspace ID.
-        user_id (UUID): User ID.
-        role (WorkspaceRole | None): New role, or None to keep current role.
-        time_limit (int | None): New time limit, or None to keep current limit.
-
-    Returns:
-    -------
-        WorkspaceUserModel | None: The updated workspace user if found, None otherwise.
-
-    """
-    workspace_user = await get_workspace_user(db, workspace_id, user_id)
-    if not workspace_user:
-        return None
-
-    if role is not None:
-        workspace_user.role = role
-    if time_limit is not None:
-        workspace_user.time_limit = time_limit
-
-    workspace_user.updated_at = datetime.now(UTC)
-    await db.commit()
-    await db.refresh(workspace_user)
-    return workspace_user
 
 
 async def remove_user_from_workspace(
