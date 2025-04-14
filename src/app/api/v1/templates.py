@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
@@ -21,17 +23,29 @@ from ...crud.crud_subnet_templates import (
     get_subnet_template,
     get_subnet_template_headers,
 )
+from ...crud.crud_template_permissions import (
+    create_template_permission,
+    delete_template_permission,
+    get_template_permission,
+    get_template_permissions_by_template,
+)
 from ...crud.crud_vpc_templates import (
     create_vpc_template,
     delete_vpc_template,
     get_vpc_template,
     get_vpc_template_headers,
 )
+from ...models.template_permission_model import TemplatePermissionModel
 from ...models.user_model import UserModel
+from ...schemas.message_schema import MessageSchema
 from ...schemas.template_host_schema import (
     TemplateHostBaseSchema,
     TemplateHostID,
     TemplateHostSchema,
+)
+from ...schemas.template_permission_schema import (
+    TemplatePermissionCreateSchema,
+    TemplatePermissionSchema,
 )
 from ...schemas.template_range_schema import (
     TemplateRangeBaseSchema,
@@ -58,8 +72,8 @@ router = APIRouter(prefix="/templates", tags=["templates"])
 
 @router.get("/ranges")
 async def get_range_template_headers_endpoint(
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> list[TemplateRangeHeaderSchema]:
     """Get a list of range template headers.
 
@@ -98,8 +112,8 @@ async def get_range_template_headers_endpoint(
 @router.get("/ranges/{range_id}")
 async def get_range_template_endpoint(
     range_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateRangeSchema:
     """Get a range template.
 
@@ -140,8 +154,8 @@ async def get_range_template_endpoint(
 @router.post("/ranges")
 async def upload_range_template_endpoint(
     range_template: TemplateRangeBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateRangeID:
     """Upload a range template.
 
@@ -163,8 +177,8 @@ async def upload_range_template_endpoint(
 @router.delete("/ranges/{range_id}")
 async def delete_range_template_endpoint(
     range_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> bool:
     """Delete a range template.
 
@@ -213,8 +227,8 @@ async def delete_range_template_endpoint(
 @router.get("/vpcs")
 async def get_vpc_template_headers_endpoint(
     standalone_only: bool = True,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> list[TemplateVPCHeaderSchema]:
     """Get a list of vpc template headers.
 
@@ -257,8 +271,8 @@ async def get_vpc_template_headers_endpoint(
 @router.get("/vpcs/{vpc_id}")
 async def get_vpc_template_endpoint(
     vpc_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateVPCSchema:
     """Get a VPC template.
 
@@ -297,8 +311,8 @@ async def get_vpc_template_endpoint(
 @router.post("/vpcs")
 async def upload_vpc_template_endpoint(
     vpc_template: TemplateVPCBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateVPCID:
     """Upload a VPC template.
 
@@ -321,8 +335,8 @@ async def upload_vpc_template_endpoint(
 @router.delete("/vpcs/{vpc_id}")
 async def delete_vpc_template_endpoint(
     vpc_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> bool:
     """Delete a VPC template.
 
@@ -369,8 +383,8 @@ async def delete_vpc_template_endpoint(
 @router.get("/subnets")
 async def get_subnet_template_headers_endpoint(
     standalone_only: bool = True,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> list[TemplateSubnetHeaderSchema]:
     """Get a list of subnet template headers.
 
@@ -414,8 +428,8 @@ async def get_subnet_template_headers_endpoint(
 @router.get("/subnets/{subnet_id}")
 async def get_subnet_template_endpoint(
     subnet_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateSubnetSchema:
     """Get a subnet template.
 
@@ -455,8 +469,8 @@ async def get_subnet_template_endpoint(
 @router.post("/subnets")
 async def upload_subnet_template_endpoint(
     subnet_template: TemplateSubnetBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateSubnetID:
     """Upload a subnet template.
 
@@ -482,8 +496,8 @@ async def upload_subnet_template_endpoint(
 @router.delete("/subnets/{subnet_id}")
 async def delete_subnet_template_endpoint(
     subnet_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> bool:
     """Delete a subnet template.
 
@@ -532,8 +546,8 @@ async def delete_subnet_template_endpoint(
 @router.get("/hosts")
 async def get_host_template_headers_endpoint(
     standalone_only: bool = True,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> list[TemplateHostSchema]:
     """Get a list of host template headers.
 
@@ -577,8 +591,8 @@ async def get_host_template_headers_endpoint(
 @router.get("/hosts/{host_id}")
 async def get_host_template_endpoint(
     host_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateHostSchema:
     """Get a host template.
 
@@ -618,8 +632,8 @@ async def get_host_template_endpoint(
 @router.post("/hosts")
 async def upload_host_template_endpoint(
     host_template: TemplateHostBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> TemplateHostID:
     """Upload a host template.
 
@@ -645,8 +659,8 @@ async def upload_host_template_endpoint(
 @router.delete("/hosts/{host_id}")
 async def delete_host_template_endpoint(
     host_id: str,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
 ) -> bool:
     """Delete a host template.
 
@@ -690,3 +704,160 @@ async def delete_host_template_endpoint(
         )
 
     return await delete_host_template(db, host_template)
+
+
+@router.post(
+    "/{template_type}/{template_id}/permissions",
+    response_model=TemplatePermissionSchema,
+    tags=["templates"],
+)
+async def add_permission_to_template(
+    permission: TemplatePermissionCreateSchema,
+    template_type: str = Path(
+        ..., description="The type of template (range_templates, vpc_templates, etc.)"
+    ),
+    template_id: UUID = Path(..., description="The ID of the template"),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+) -> TemplatePermissionModel:
+    """Add a permission to a template.
+
+    Args:
+    ----
+        permission (TemplatePermissionCreateSchema): The permission data.
+        template_type (str): The type of template.
+        template_id (UUID): The ID of the template.
+        current_user (UserModel): The authenticated user.
+        db (AsyncSession): Database connection.
+
+    Returns:
+    -------
+        TemplatePermissionModel: The created permission.
+
+    """
+    # Only admin or template owners can add permissions
+    # This would need to check ownership based on the template type
+    # For now, we're simplifying by only allowing admins
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can manage permissions",
+        )
+
+    # Verify that the template_type and template_id in the path match the permission data
+    if (
+        permission.template_type != template_type
+        or permission.template_id != template_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Template type and ID in path must match permission data",
+        )
+
+    return await create_template_permission(db, permission)
+
+
+@router.get(
+    "/{template_type}/{template_id}/permissions",
+    response_model=list[TemplatePermissionSchema],
+    tags=["templates"],
+)
+async def get_permissions_for_template(
+    template_type: str = Path(
+        ..., description="The type of template (range_templates, vpc_templates, etc.)"
+    ),
+    template_id: UUID = Path(..., description="The ID of the template"),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+) -> list[TemplatePermissionModel]:
+    """Get all permissions for a template.
+
+    Args:
+    ----
+        template_type (str): The type of template.
+        template_id (UUID): The ID of the template.
+        current_user (UserModel): The authenticated user.
+        db (AsyncSession): Database connection.
+
+    Returns:
+    -------
+        list[TemplatePermissionModel]: The permissions for the template.
+
+    """
+    # Only admin or template owners can view permissions
+    # This would need to check ownership based on the template type
+    # For now, we're simplifying by only allowing admins
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can view permissions",
+        )
+
+    return await get_template_permissions_by_template(db, template_type, template_id)
+
+
+@router.delete(
+    "/{template_type}/{template_id}/permissions/{permission_id}",
+    response_model=MessageSchema,
+    tags=["templates"],
+)
+async def delete_permission_from_template(
+    template_type: str = Path(
+        ..., description="The type of template (range_templates, vpc_templates, etc.)"
+    ),
+    template_id: UUID = Path(..., description="The ID of the template"),
+    permission_id: UUID = Path(..., description="The ID of the permission to delete"),
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+) -> MessageSchema:
+    """Delete a permission from a template.
+
+    Args:
+    ----
+        template_type (str): The type of template.
+        template_id (UUID): The ID of the template.
+        permission_id (UUID): The ID of the permission to delete.
+        current_user (UserModel): The authenticated user.
+        db (AsyncSession): Database connection.
+
+    Returns:
+    -------
+        MessageSchema: Success message.
+
+    """
+    # Only admin or template owners can delete permissions
+    # This would need to check ownership based on the template type
+    # For now, we're simplifying by only allowing admins
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can manage permissions",
+        )
+
+    # Get the permission to check if it belongs to the specified template
+    permission = await get_template_permission(db, permission_id)
+    if not permission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Permission not found",
+        )
+
+    # Verify that the permission is for the specified template
+    if (
+        permission.template_type != template_type
+        or permission.template_id != template_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Permission does not belong to the specified template",
+        )
+
+    # Delete the permission
+    success = await delete_template_permission(db, permission_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete permission",
+        )
+
+    return MessageSchema(message="Permission deleted successfully")
