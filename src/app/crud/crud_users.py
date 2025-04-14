@@ -109,6 +109,60 @@ async def get_user_by_id(db: AsyncSession, user_id: UserID) -> UserModel | None:
     return result.scalars().first()
 
 
+async def get_all_users(db: AsyncSession) -> list[UserModel]:
+    """Get all users.
+
+    Args:
+    ----
+        db (AsyncSession): Database connection.
+
+    Returns:
+    -------
+        list[UserModel]: List of all users.
+
+    """
+    mapped_user_model = inspect(UserModel)
+    main_columns = [
+        getattr(UserModel, attr.key) for attr in mapped_user_model.column_attrs
+    ]
+
+    stmt = select(UserModel).options(load_only(*main_columns))
+    result = await db.execute(stmt)
+
+    return list(result.scalars().all())
+
+
+async def get_users_not_in_workspace(
+    db: AsyncSession, workspace_id: UUID
+) -> list[UserModel]:
+    """Get all users that are not members of a specific workspace.
+
+    Args:
+    ----
+        db (AsyncSession): Database connection.
+        workspace_id (UUID): The ID of the workspace to exclude users from.
+
+    Returns:
+    -------
+        list[UserModel]: List of users not in the specified workspace.
+
+    """
+    from ..models.workspace_user_model import WorkspaceUserModel
+
+    # Get all users in the workspace
+    workspace_users_subquery = (
+        select(WorkspaceUserModel.user_id)
+        .where(WorkspaceUserModel.workspace_id == workspace_id)
+        .scalar_subquery()
+    )
+
+    # Get all users not in the workspace
+    stmt = select(UserModel).where(UserModel.id.not_in(workspace_users_subquery))
+    result = await db.execute(stmt)
+
+    return list(result.scalars().all())
+
+
 async def create_user(
     db: AsyncSession, openlabs_user: UserCreateBaseSchema, is_admin: bool = False
 ) -> UserModel:
