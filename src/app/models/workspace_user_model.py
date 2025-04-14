@@ -24,7 +24,7 @@ class WorkspaceUserModel(Base, MappedAsDataclass):
         ForeignKey("users.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    # Need to come up with a good convention for unlimited time limit. 
+    # Need to come up with a good convention for unlimited time limit.
     # Could just be max int or something like that
     time_limit: Mapped[int] = mapped_column(Integer, default=3600, nullable=False)
     role: Mapped[WorkspaceRole] = mapped_column(
