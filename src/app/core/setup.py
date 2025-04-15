@@ -3,6 +3,7 @@ from typing import Any, AsyncContextManager, AsyncGenerator, Callable
 
 from fastapi import APIRouter, FastAPI
 
+from ..middlewares.yaml_middleware import add_yaml_middleware_to_router
 from .config import AppSettings, DatabaseSettings
 from .db.database import Base
 from .db.database import async_engine as engine
