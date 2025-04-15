@@ -128,7 +128,7 @@ async def test_yaml_middleware_scoped_properly(client: AsyncClient) -> None:
     user_payload = {
         "email": "test-yaml-scope@example.com",
         "password": "testPassword123!",
-        "name": "Test User"
+        "name": "Test User",
     }
     yaml_payload = yaml.dump(user_payload)
     response = await client.post(
@@ -164,13 +164,13 @@ async def test_tag_propagation(auth_client: AsyncClient) -> None:
                                 "os": "debian_11",
                                 "spec": "tiny",
                                 "size": 8,
-                                "tags": ["host-tag"]
+                                "tags": ["host-tag"],
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
-        ]
+        ],
     }
 
     yaml_payload = yaml.dump(range_with_tags)
@@ -189,4 +189,9 @@ async def test_tag_propagation(auth_client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_200_OK
 
     # Expected tags
-    assert set(response.json()["vpcs"][0]["subnets"][0]["hosts"][0]["tags"]) == {"host-tag", "subnet-tag", "vpc-tag", "range-tag"}
+    assert set(response.json()["vpcs"][0]["subnets"][0]["hosts"][0]["tags"]) == {
+        "host-tag",
+        "subnet-tag",
+        "vpc-tag",
+        "range-tag",
+    }
