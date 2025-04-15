@@ -69,7 +69,7 @@ async def get_blueprint_host(
     Args:
     ----
         db (Sessions): Database connection.
-        host_id (int): ID of the host.
+        host_id (int): ID of the host blueprint.
         user_id (int): ID of user requesting data.
         is_admin (bool): Admins can see other user's blueprints.
 
@@ -87,11 +87,11 @@ async def get_blueprint_host(
         return None
 
     if is_admin or host_model.owner_id == user_id:
-        logger.debug("Fetched blueprint host: %s for user: %s.", host_id, user_id)
+        logger.debug("Fetched host blueprint: %s for user: %s.", host_id, user_id)
         return BlueprintHostSchema.model_validate(host_model)
 
     logger.warning(
-        "User: %s is not authorized to fetch blueprint host: %s.",
+        "User: %s is not authorized to fetch host blueprint: %s.",
         host_id,
         user_id,
     )
@@ -101,7 +101,10 @@ async def get_blueprint_host(
 def build_blueprint_host_models(
     hosts: list[BlueprintHostCreateSchema], user_id: int
 ) -> list[BlueprintHostModel]:
-    """Build a list of blueprint host ORM models from creation schemas.
+    """Build a list of host blueprint ORM models from creation schemas.
+
+    **Note:** These models will only contain the data available in the
+    schemas (i.e. no database ID).
 
     Args:
     ----
@@ -110,7 +113,7 @@ def build_blueprint_host_models(
 
     Returns:
     -------
-        list[BlueprintHostModel]: Corresponding blueprint host models.
+        list[BlueprintHostModel]: Corresponding host blueprint models.
 
     """
     host_models: list[BlueprintHostModel] = []
@@ -119,7 +122,7 @@ def build_blueprint_host_models(
         host_models.append(host_model)
 
     logger.debug(
-        "Built %s blueprint host models for user: %s", len(host_models), user_id
+        "Built %s host blueprint models for user: %s.", len(host_models), user_id
     )
     return host_models
 
@@ -130,29 +133,29 @@ async def create_blueprint_host(
     user_id: int,
     subnet_id: int | None = None,
 ) -> BlueprintHostSchema:
-    """Create and add a new blueprint host to the database session.
+    """Create and add a new host blueprint to the database session.
 
-    This function only adds hosts to the database session. It is the responsibility
+    **Note:** This function only adds hosts to the database session. It is the responsibility
     of the caller to commit the changes to the database or rollback in the event of
     a failure.
 
     Args:
     ----
         db (Session): Database connection.
-        blueprint (BlueprintHostCreateSchema): Pydantic model of blueprint host data without IDs.
-        user_id (int): User who owns the deployed host.
+        blueprint (BlueprintHostCreateSchema): Pydantic model of host blueprint data without IDs.
+        user_id (int): User who owns the host blueprint.
         subnet_id (Optional[int]): Optional subnet ID to link host back to.
 
     Returns:
     -------
-        BlueprintHostSchema: The newly created blueprint host data schema.
+        BlueprintHostSchema: The newly created host blueprint data schema with it's ID.
 
     """
     built_models = build_blueprint_host_models([blueprint], user_id)
 
     # Sanity check that we only have a single host model
     if len(built_models) != 1:
-        msg = f"Built {len(built_models) } blueprint host models from a single schema!"
+        msg = f"Built {len(built_models) } host blueprint models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 
@@ -163,7 +166,7 @@ async def create_blueprint_host(
 
     db.add(host_model)
     logger.debug(
-        "Added blueprint host model for hostname %s to database session.",
+        "Added host blueprint model with hostname: %s to database session.",
         host_model.hostname,
     )
 
@@ -171,13 +174,13 @@ async def create_blueprint_host(
         await db.flush()
         await db.refresh(host_model)
         logger.debug(
-            "Successfully flushed blueprint host: %s owned by user: %s",
+            "Successfully flushed host blueprint: %s owned by user: %s",
             host_model.id,
             user_id,
         )
     except Exception as e:
         logger.exception(
-            "Failed to flush blueprint host to database session for user: %s. Exception: %s.",
+            "Failed to flush host blueprint to database session for user: %s. Exception: %s.",
             user_id,
             e,
         )
@@ -189,27 +192,28 @@ async def create_blueprint_host(
 async def delete_blueprint_host(
     db: AsyncSession, host_id: int, user_id: int, is_admin: bool = False
 ) -> BlueprintHostSchema | None:
-    """Delete a standalone blueprint host.
+    """Delete a standalone host blueprint.
 
     Only allows deletion if the host blueprint is standalone (i.e. subnet_id is None). This
-    function only adds delete queries to the database session. It is the respo
+    function only adds delete queries to the database session. It is the responsibility of
+    the caller to commit the changes to the database or rollback in the event of a failure.
 
     Args:
     ----
         db (Sessions): Database connection.
-        host_id (int): ID of the blueprint host.
+        host_id (int): ID of the host blueprint.
         user_id (int): ID of user initiating the delete.
         is_admin (bool): Admins can delete other user's blueprints.
 
     Returns:
     -------
-        Optional[BlueprintHostSchema]: Host schema data if it exists in database and was successfully delete.
+        Optional[BlueprintHostSchema]: Host schema data if it exists in database and was successfully deleted.
 
     """
     host = await get_blueprint_host(db, host_id, user_id, is_admin)
     if not host:
         logger.warning(
-            "Blueprint host: %s not found for deletion as user: %s. Does user have permissions?",
+            "Host blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             host_id,
             user_id,
         )
@@ -217,9 +221,16 @@ async def delete_blueprint_host(
 
     host_model = BlueprintHostModel(**host.model_dump())
 
+    if not host_model.is_standalone():
+        logger.info(
+            "Failed to delete host blueprint: %s. Not a standalone blueprint!",
+            host_model.id,
+        )
+        return None
+
     if not is_admin and host_model.owner_id != user_id:
         logger.warning(
-            "User: %s is not authorized to delete blueprint host: %s.",
+            "User: %s is not authorized to delete host blueprint: %s.",
             user_id,
             host_model.id,
         )
@@ -228,10 +239,12 @@ async def delete_blueprint_host(
     try:
         await db.delete(host_model)
         await db.flush()
-        logger.debug("Successfully marked host: %s for deleteion.", host_model.id)
+        logger.debug(
+            "Successfully marked host blueprint: %s for deletion.", host_model.id
+        )
     except Exception as e:
         logger.exception(
-            "Failed to mark host: %s for deletion in database session for user: %s, Exception: %s.",
+            "Failed to mark host blueprint: %s for deletion in database session for user: %s, Exception: %s.",
             host_model.id,
             user_id,
             e,
@@ -265,7 +278,7 @@ def build_deployed_host_models(
         host_models.append(host_model)
 
     logger.debug(
-        "Built %s deployed host models for user: %s", len(host_models), user_id
+        "Built %s deployed host models for user: %s.", len(host_models), user_id
     )
     return host_models
 
