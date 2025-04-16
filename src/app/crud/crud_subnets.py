@@ -198,7 +198,7 @@ async def delete_blueprint_subnet(
 ) -> BlueprintSubnetSchema | None:
     """Delete a standalone subnet blueprint.
 
-    Only allows deletion if the subnet blueprint is standalone (i.e. subnet_id is None). This
+    Only allows deletion if the subnet blueprint is standalone (i.e. vpc_id is None). This
     function only adds delete queries to the database session. It is the responsibility of
     the caller to commit the changes to the database or rollback in the event of a failure.
 
