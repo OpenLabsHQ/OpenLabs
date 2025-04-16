@@ -43,6 +43,15 @@ class BlueprintSubnetCreateSchema(BlueprintSubnetBaseSchema):
         ..., description="All blueprint hosts in the subnet."
     )
 
+    @field_validator("cidr")
+    @classmethod
+    def validate_subnet_private_cidr_range(cls, cidr: IPv4Network) -> IPv4Network:
+        """Check subnet CIDR ranges are private."""
+        if not cidr.is_private:
+            msg = "Subnets should only use private CIDR ranges."
+            raise ValueError(msg)
+        return cidr
+
     @field_validator("hosts")
     @classmethod
     def validate_unique_hostnames(
@@ -116,6 +125,15 @@ class DeployedSubnetCreateSchema(DeployedSubnetBaseSchema):
     hosts: list[DeployedHostCreateSchema] = Field(
         ..., description="Deployed hosts within subnet."
     )
+
+    @field_validator("cidr")
+    @classmethod
+    def validate_subnet_private_cidr_range(cls, cidr: IPv4Network) -> IPv4Network:
+        """Check subnet CIDR ranges are private."""
+        if not cidr.is_private:
+            msg = "Subnets should only use private CIDR ranges."
+            raise ValueError(msg)
+        return cidr
 
     @field_validator("hosts")
     @classmethod

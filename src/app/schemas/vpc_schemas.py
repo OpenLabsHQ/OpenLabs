@@ -42,6 +42,15 @@ class BlueprintVPCCreateSchema(BlueprintVPCBaseSchema):
         ..., description="All blueprint subnets in VPC."
     )
 
+    @field_validator("cidr")
+    @classmethod
+    def validate_vpc_private_cidr_range(cls, cidr: IPv4Network) -> IPv4Network:
+        """Check VPC CIDR ranges are private."""
+        if not cidr.is_private:
+            msg = "VPCs should only use private CIDR ranges."
+            raise ValueError(msg)
+        return cidr
+
     @field_validator("subnets")
     @classmethod
     def validate_unique_subnet_names(
@@ -145,6 +154,15 @@ class DeployedVPCCreateSchema(DeployedVPCBaseSchema):
     subnets: list[DeployedSubnetCreateSchema] = Field(
         ..., description="Deployed subnets within VPC."
     )
+
+    @field_validator("cidr")
+    @classmethod
+    def validate_vpc_private_cidr_range(cls, cidr: IPv4Network) -> IPv4Network:
+        """Check VPC CIDR ranges are private."""
+        if not cidr.is_private:
+            msg = "VPCs should only use private CIDR ranges."
+            raise ValueError(msg)
+        return cidr
 
     @field_validator("subnets")
     @classmethod
