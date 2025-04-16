@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # ==================== Blueprints =====================
 
 
-async def get_blueprint_subnet_headers(
+async def get_blueprint_vpc_headers(
     db: AsyncSession,
     user_id: int,
     is_admin: bool = False,
