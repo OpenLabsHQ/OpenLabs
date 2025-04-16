@@ -89,6 +89,13 @@ def add_yaml_middleware_to_router(
                         "detail": f"Unable to parse provided YAML configuration: {e!s}."
                     },
                 )
+            except Exception as e:
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    content={
+                        "detail": f"Unknown error when parsing YAML configuration: {e!s}."
+                    },
+                )
 
             request._body = json_body
             updated_headers = MutableHeaders(request._headers)
