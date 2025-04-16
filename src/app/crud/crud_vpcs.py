@@ -113,7 +113,7 @@ def build_blueprint_vpc_models(
     Args:
     ----
         vpcs (list[BlueprintVPCCreateSchema]): VPC object data.
-        user_id (int): User who created the subnets.
+        user_id (int): User who created the VPCs.
 
     Returns:
     -------
@@ -218,7 +218,7 @@ async def delete_blueprint_vpc(
     vpc = await get_blueprint_vpc(db, vpc_id, user_id, is_admin)
     if not vpc:
         logger.warning(
-            "Subnet blueprint: %s not found for deletion as user: %s. Does user have permissions?",
+            "VPC blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             vpc_id,
             user_id,
         )
