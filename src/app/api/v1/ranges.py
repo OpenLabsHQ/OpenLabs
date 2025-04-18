@@ -179,19 +179,6 @@ async def deploy_range_from_blueprint_endpoint(
         deployed_range = await create_deployed_range(
             db, range_schema, user_id=current_user.id
         )
-        if not deployed_range:
-            logger.error(
-                "Failed to create range: %s in database session on behalf of user: %s (%s)!",
-                range_to_deploy.name,
-                current_user.email,
-                current_user.id,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create deployed range in database! Range: {range_to_deploy.name}.",
-            )
-
-        await db.commit()
     except Exception as e:
         logger.exception(
             "Failed to commit range: %s to database on behalf of user: %s (%s)! Exception: %s",
@@ -200,8 +187,6 @@ async def deploy_range_from_blueprint_endpoint(
             current_user.id,
             e,
         )
-
-        await db.rollback()
 
         # Auto clean up resources
         range_to_deploy.synthesize()
@@ -358,8 +343,6 @@ async def delete_range_endpoint(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to delete deployed range in database! Range: {range_to_destroy.name}.",
             )
-
-        await db.commit()
     except Exception as e:
         logger.exception(
             "Failed to commit range deletion: %s to database on behalf of user: %s (%s)! Exception: %s",
@@ -368,8 +351,6 @@ async def delete_range_endpoint(
             current_user.id,
             e,
         )
-
-        await db.rollback()
         raise
 
     return MessageSchema(
