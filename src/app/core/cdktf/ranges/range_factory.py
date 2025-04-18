@@ -1,11 +1,10 @@
 import logging
-import uuid
 from typing import Any, ClassVar, Type
 
 from ....enums.providers import OpenLabsProvider
 from ....enums.regions import OpenLabsRegion
+from ....schemas.range_schemas import BlueprintRangeSchema
 from ....schemas.secret_schema import SecretSchema
-from ....schemas.template_range_schema import TemplateRangeSchema
 from ....schemas.user_schema import UserID
 from .aws_range import AWSRange
 from .base_range import AbstractBaseRange
@@ -24,9 +23,8 @@ class RangeFactory:
     @classmethod
     def create_range(  # noqa: PLR0913
         cls,
-        id: uuid.UUID,  # noqa: A002
         name: str,
-        template: TemplateRangeSchema,
+        blueprint_range: BlueprintRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
@@ -37,9 +35,8 @@ class RangeFactory:
         Args:
         ----
             cls (RangeFactory class): The RangeFactory class.
-            id (uuid.UUID): The UUID for the deployed range object.
             name (str): Name of the range to deploy
-            template (TemplateRangeSchema): The range template object.
+            blueprint_range (BlueprintRangeSchema): The range blueprint object.
             region (OpenLabsRegion): Supported cloud region.
             owner_id (UserID): The ID of the user deploying range.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
@@ -50,17 +47,16 @@ class RangeFactory:
             AbstractBaseRange: Cdktf range object that can be deployed.
 
         """
-        range_class = cls._registry.get(template.provider)
+        range_class = cls._registry.get(blueprint_range.provider)
 
         if range_class is None:
-            msg = f"Failed to build range object. Non-existent provider given: {template.provider}"
+            msg = f"Failed to build range object. Non-existent provider given: {blueprint_range.provider}"
             logger.error(msg)
             raise ValueError(msg)
 
         return range_class(
-            id=id,
             name=name,
-            template=template,
+            blueprint_range=blueprint_range,
             region=region,
             owner_id=owner_id,
             secrets=secrets,

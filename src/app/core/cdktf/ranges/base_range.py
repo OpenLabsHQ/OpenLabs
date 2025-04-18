@@ -11,8 +11,8 @@ from typing import Any
 from cdktf import App
 
 from ....enums.regions import OpenLabsRegion
+from ....schemas.range_schemas import BlueprintRangeSchema
 from ....schemas.secret_schema import SecretSchema
-from ....schemas.template_range_schema import TemplateRangeSchema
 from ....schemas.user_schema import UserID
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
@@ -24,9 +24,8 @@ logger = logging.getLogger(__name__)
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
-    id: uuid.UUID
     name: str
-    template: TemplateRangeSchema
+    blueprint_range: BlueprintRangeSchema
     state_file: dict[str, Any] | None  # Terraform state
     region: OpenLabsRegion
     stack_name: str
@@ -39,18 +38,16 @@ class AbstractBaseRange(ABC):
 
     def __init__(  # noqa: PLR0913
         self,
-        id: uuid.UUID,  # noqa: A002
         name: str,
-        template: TemplateRangeSchema,
+        blueprint_range: BlueprintRangeSchema,
         region: OpenLabsRegion,
         owner_id: UserID,
         secrets: SecretSchema,
         state_file: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
-        self.id = id
         self.name = name
-        self.template = template
+        self.blueprint_range = blueprint_range
         self.region = region
         self.owner_id = owner_id
         self.secrets = secrets
@@ -61,7 +58,8 @@ class AbstractBaseRange(ABC):
             self._is_deployed = True
 
         # Initial values
-        self.stack_name = f"{self.template.name}-{self.id}"
+        self.unique_str = uuid.uuid4()
+        self.stack_name = f"{self.blueprint_range.name}-{self.unique_str}"
         self._is_synthesized = False
 
     @abstractmethod
@@ -106,7 +104,9 @@ class AbstractBaseRange(ABC):
         """
         try:
             logger.info(
-                "Synthesizing selected range: %s (%s)", self.template.name, self.id
+                "Synthesizing selected range: %s from blueprint: %s",
+                self.name,
+                self.blueprint_range.name,
             )
 
             # Create CDKTF app
@@ -116,7 +116,7 @@ class AbstractBaseRange(ABC):
             stack_class = self.get_provider_stack_class()
             stack_class(
                 scope=app,
-                template_range=self.template,
+                blueprint_range=self.blueprint_range,
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
@@ -126,9 +126,8 @@ class AbstractBaseRange(ABC):
             # Synthesize Terraform files
             app.synth()
             logger.info(
-                "Range: %s (%s) synthesized successfully as: %s",
-                self.template.name,
-                self.id,
+                "Range: %s synthesized successfully as: %s",
+                self.name,
                 self.stack_name,
             )
 
@@ -160,9 +159,7 @@ class AbstractBaseRange(ABC):
             # Terraform apply
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
-            logger.info(
-                "Deploying selected range: %s (%s)", self.template.name, self.id
-            )
+            logger.info("Deploying selected range: %s", self.name)
             subprocess.run(  # noqa: S603
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
@@ -182,9 +179,7 @@ class AbstractBaseRange(ABC):
                 return False
 
             self._is_deployed = True
-            logger.info(
-                "Successfully deployed range: %s (%s)", self.template.name, self.id
-            )
+            logger.info("Successfully deployed range: %s", self.name)
 
             # Delete files made during deployment
             os.chdir(initial_dir)
@@ -223,14 +218,15 @@ class AbstractBaseRange(ABC):
             initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
             if not self.create_state_file():
-                msg = f"Unable to destroy range: {self.template.name} ({self.id}) missing state file!"
+                msg = f"Unable to destroy range: {self.name} missing state file!"
                 raise ValueError(msg)
 
             # Run Terraform commands
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
             logger.info(
-                "Tearing down selected range: %s (%s)", self.template.name, self.id
+                "Tearing down selected range: %s",
+                self.name,
             )
             subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
             subprocess.run(  # noqa: S603
@@ -245,9 +241,7 @@ class AbstractBaseRange(ABC):
             self.cleanup_synth()
             self._is_deployed = False
 
-            logger.info(
-                "Successfully destroyed range: %s (%s)", self.template.name, self.id
-            )
+            logger.info("Successfully destroyed range: %s", self.name)
             return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)
@@ -294,7 +288,7 @@ class AbstractBaseRange(ABC):
 
         """
         if not self.state_file:
-            msg = f"Can't write state file none exists! Attempted on range: {self.id}"
+            msg = f"Can't write state file none exists! Attempted on range: {self.name}"
             logger.warning(msg)
             return False
 

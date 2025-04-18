@@ -4,7 +4,7 @@ from cdktf import LocalBackend, TerraformStack
 from constructs import Construct
 
 from ....enums.regions import OpenLabsRegion
-from ....schemas.template_range_schema import TemplateRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema
 
 
 class AbstractBaseStack(TerraformStack):
@@ -17,7 +17,7 @@ class AbstractBaseStack(TerraformStack):
     def __init__(  # noqa: PLR0913
         self,
         scope: Construct,
-        template_range: TemplateRangeSchema,
+        blueprint_range: BlueprintRangeSchema,
         cdktf_id: str,
         cdktf_dir: str,
         region: OpenLabsRegion,
@@ -28,10 +28,10 @@ class AbstractBaseStack(TerraformStack):
         Args:
         ----
             self (AWSStack): AWSStack class.
-            scope (Construct): CDKTF app
-            template_range: Range object used for create all necessary resources to deploy
-            cdktf_id (str): Unique ID for CDKTF app
-            cdktf_dir (str): Directory location for all terraform files
+            scope (Construct): CDKTF app.
+            blueprint_range: Blueprint range object used for create all necessary resources to deploy.
+            cdktf_id (str): Unique ID for CDKTF app.
+            cdktf_dir (str): Directory location for all terraform files.
             region (OpenLabsRegion): Supported OpenLabs cloud region.
             range_name (str): Name of range to deploy.
 
@@ -54,7 +54,7 @@ class AbstractBaseStack(TerraformStack):
         uuid_str = "-".join(parts[-5:])
         range_name = f"{range_name}-{uuid_str}"
         self.build_resources(
-            template_range=template_range,
+            blueprint_range=blueprint_range,
             region=region,
             cdktf_id=cdktf_id,
             range_name=range_name,
@@ -62,7 +62,7 @@ class AbstractBaseStack(TerraformStack):
 
     def build_resources(
         self,
-        template_range: TemplateRangeSchema,
+        blueprint_range: BlueprintRangeSchema,
         region: OpenLabsRegion,
         cdktf_id: str,
         range_name: str,
@@ -71,7 +71,7 @@ class AbstractBaseStack(TerraformStack):
 
         Args:
         ----
-            template_range (TemplateRangeSchema): Template range object to build terraform for.
+            blueprint_range (BlueprintRangeSchema): Blueprint range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
             range_name (str): Name of range to deploy.
