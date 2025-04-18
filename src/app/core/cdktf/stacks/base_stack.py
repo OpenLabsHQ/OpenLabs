@@ -4,7 +4,7 @@ from cdktf import LocalBackend, TerraformStack
 from constructs import Construct
 
 from ....enums.regions import OpenLabsRegion
-from ....schemas.range_schemas import BlueprintRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 
 
 class AbstractBaseStack(TerraformStack):
@@ -17,19 +17,19 @@ class AbstractBaseStack(TerraformStack):
     def __init__(  # noqa: PLR0913
         self,
         scope: Construct,
-        blueprint_range: BlueprintRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         cdktf_id: str,
         cdktf_dir: str,
         region: OpenLabsRegion,
         range_name: str,
     ) -> None:
-        """Initialize AWS terraform stack.
+        """Initialize an abstract terraform stack.
 
         Args:
         ----
             self (AWSStack): AWSStack class.
             scope (Construct): CDKTF app.
-            blueprint_range: Blueprint range object used for create all necessary resources to deploy.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
             cdktf_id (str): Unique ID for CDKTF app.
             cdktf_dir (str): Directory location for all terraform files.
             region (OpenLabsRegion): Supported OpenLabs cloud region.
@@ -54,7 +54,7 @@ class AbstractBaseStack(TerraformStack):
         uuid_str = "-".join(parts[-5:])
         range_name = f"{range_name}-{uuid_str}"
         self.build_resources(
-            blueprint_range=blueprint_range,
+            range_obj=range_obj,
             region=region,
             cdktf_id=cdktf_id,
             range_name=range_name,
@@ -62,7 +62,7 @@ class AbstractBaseStack(TerraformStack):
 
     def build_resources(
         self,
-        blueprint_range: BlueprintRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         cdktf_id: str,
         range_name: str,
@@ -71,7 +71,7 @@ class AbstractBaseStack(TerraformStack):
 
         Args:
         ----
-            blueprint_range (BlueprintRangeSchema): Blueprint range object to build terraform for.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
             range_name (str): Name of range to deploy.

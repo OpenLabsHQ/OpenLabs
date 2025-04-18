@@ -18,7 +18,7 @@ from cdktf_cdktf_provider_aws.vpc import Vpc
 from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
-from ....schemas.template_range_schema import TemplateRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from .base_stack import AbstractBaseStack
 
 
@@ -27,7 +27,7 @@ class AWSStack(AbstractBaseStack):
 
     def build_resources(
         self,
-        template_range: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         cdktf_id: str,
         range_name: str,
@@ -36,7 +36,7 @@ class AWSStack(AbstractBaseStack):
 
         Args:
         ----
-            template_range (TemplateRangeSchema): Template range object to build terraform for.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object to use with terraform.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
             range_name (str): Name of range to deploy.
@@ -236,7 +236,7 @@ class AWSStack(AbstractBaseStack):
             security_group_id=shared_private_sg.id,
         )
 
-        for vpc in template_range.vpcs:
+        for vpc in range_obj.vpcs:
 
             # Step 1: Create a VPC
             new_vpc = Vpc(

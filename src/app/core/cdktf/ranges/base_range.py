@@ -11,9 +11,8 @@ from typing import Any
 from cdktf import App
 
 from ....enums.regions import OpenLabsRegion
-from ....schemas.range_schemas import BlueprintRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....schemas.secret_schema import SecretSchema
-from ....schemas.user_schema import UserID
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
@@ -25,31 +24,28 @@ class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
     name: str
-    blueprint_range: BlueprintRangeSchema
+    range_obj: BlueprintRangeSchema | DeployedRangeSchema
     state_file: dict[str, Any] | None  # Terraform state
     region: OpenLabsRegion
     stack_name: str
-    owner_id: UserID
     secrets: SecretSchema
 
     # State varibles
     _is_synthesized: bool
     _is_deployed: bool
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         name: str,
-        blueprint_range: BlueprintRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        owner_id: UserID,
         secrets: SecretSchema,
         state_file: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
         self.name = name
-        self.blueprint_range = blueprint_range
+        self.range_obj = range_obj
         self.region = region
-        self.owner_id = owner_id
         self.secrets = secrets
         self.state_file = state_file
         if not self.state_file:
@@ -59,7 +55,7 @@ class AbstractBaseRange(ABC):
 
         # Initial values
         self.unique_str = uuid.uuid4()
-        self.stack_name = f"{self.blueprint_range.name}-{self.unique_str}"
+        self.stack_name = f"{self.range_obj.name}-{self.unique_str}"
         self._is_synthesized = False
 
     @abstractmethod
@@ -106,7 +102,7 @@ class AbstractBaseRange(ABC):
             logger.info(
                 "Synthesizing selected range: %s from blueprint: %s",
                 self.name,
-                self.blueprint_range.name,
+                self.range_obj.name,
             )
 
             # Create CDKTF app
@@ -116,7 +112,7 @@ class AbstractBaseRange(ABC):
             stack_class = self.get_provider_stack_class()
             stack_class(
                 scope=app,
-                blueprint_range=self.blueprint_range,
+                range_obj=self.range_obj,
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,

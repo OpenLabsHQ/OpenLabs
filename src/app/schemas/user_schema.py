@@ -84,16 +84,10 @@ class UserCreateBaseSchema(UserBaseSchema):
             raise ValueError(msg) from e
 
 
-class UserID(BaseModel):
-    """Identity class for UserCreate."""
+class UserCreateSchema(UserCreateBaseSchema):
+    """User creation object for OpenLabs."""
 
     id: int = Field(..., description="Unique user identifier.")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserCreateSchema(UserCreateBaseSchema, UserID):
-    """User creation object for OpenLabs."""
 
     model_config = ConfigDict(from_attributes=True)
 
