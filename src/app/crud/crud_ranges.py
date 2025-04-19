@@ -127,7 +127,9 @@ def build_blueprint_range_models(
     """
     range_models: list[BlueprintRangeModel] = []
     for range_schema in ranges:
-        range_model = BlueprintRangeModel(**range_schema.model_dump(), owner_id=user_id)
+        range_model = BlueprintRangeModel(
+            **range_schema.model_dump(exclude={"vpcs"}), owner_id=user_id
+        )
         range_model.vpcs = build_blueprint_vpc_models(range_schema.vpcs, user_id)
         range_models.append(range_model)
 
@@ -369,7 +371,9 @@ def build_deployed_range_models(
     """
     range_models: list[DeployedRangeModel] = []
     for range_schema in ranges:
-        range_model = DeployedRangeModel(**range_schema.model_dump(), owner_id=user_id)
+        range_model = DeployedRangeModel(
+            **range_schema.model_dump(exclude={"vpcs"}), owner_id=user_id
+        )
         range_model.vpcs = build_deployed_vpc_models(range_schema.vpcs, user_id)
         range_models.append(range_model)
 

@@ -119,7 +119,9 @@ def build_blueprint_subnet_models(
     """
     subnet_models: list[BlueprintSubnetModel] = []
     for subnet in subnets:
-        subnet_model = BlueprintSubnetModel(**subnet.model_dump(), owner_id=user_id)
+        subnet_model = BlueprintSubnetModel(
+            **subnet.model_dump(exclude={"hosts"}), owner_id=user_id
+        )
         subnet_model.hosts = build_blueprint_host_models(subnet.hosts, user_id)
         subnet_models.append(subnet_model)
 
@@ -278,7 +280,9 @@ def build_deployed_subnet_models(
     """
     subnet_models: list[DeployedSubnetModel] = []
     for subnet in subnets:
-        subnet_model = DeployedSubnetModel(**subnet.model_dump(), owner_id=user_id)
+        subnet_model = DeployedSubnetModel(
+            **subnet.model_dump(exclude={"hosts"}), owner_id=user_id
+        )
         subnet_model.hosts = build_deployed_host_models(subnet.hosts, user_id)
         subnet_models.append(subnet_model)
 

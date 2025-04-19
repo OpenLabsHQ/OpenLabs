@@ -122,7 +122,9 @@ def build_blueprint_vpc_models(
     """
     vpc_models: list[BlueprintVPCModel] = []
     for vpc in vpcs:
-        vpc_model = BlueprintVPCModel(**vpc.model_dump(), owner_id=user_id)
+        vpc_model = BlueprintVPCModel(
+            **vpc.model_dump(exclude={"subnets"}), owner_id=user_id
+        )
         vpc_model.subnets = build_blueprint_subnet_models(vpc.subnets, user_id)
         vpc_models.append(vpc_model)
 
@@ -279,7 +281,9 @@ def build_deployed_vpc_models(
     """
     vpc_models: list[DeployedVPCModel] = []
     for vpc in vpcs:
-        vpc_model = DeployedVPCModel(**vpc.model_dump(), owner_id=user_id)
+        vpc_model = DeployedVPCModel(
+            **vpc.model_dump(exclude={"subnets"}), owner_id=user_id
+        )
         vpc_model.subnets = build_deployed_subnet_models(vpc.subnets, user_id)
         vpc_models.append(vpc_model)
 
