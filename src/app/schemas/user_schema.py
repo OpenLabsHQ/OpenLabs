@@ -1,5 +1,3 @@
-import uuid
-
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -89,9 +87,7 @@ class UserCreateBaseSchema(UserBaseSchema):
 class UserID(BaseModel):
     """Identity class for UserCreate."""
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4, description="Unique user identifier."
-    )
+    id: int = Field(..., description="Unique user identifier.")
 
     model_config = ConfigDict(from_attributes=True)
 

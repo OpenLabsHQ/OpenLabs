@@ -12,7 +12,6 @@ from ..models.user_model import UserModel
 from ..schemas.secret_schema import SecretSchema
 from ..schemas.user_schema import (
     UserCreateBaseSchema,
-    UserCreateSchema,
     UserID,
 )
 from ..utils.crypto import (
@@ -125,11 +124,10 @@ async def create_user(
         User: The newly created user.
 
     """
-    openlabs_user = UserCreateSchema(**openlabs_user.model_dump())
-    user_dict = openlabs_user.model_dump(exclude={"secrets"})
+    user_dict = openlabs_user.model_dump()
 
     # Here, we populate fields to match the database model
-    password = user_dict.pop("password")
+    password: str = user_dict.pop("password")
 
     # Generate bcrypt password hash
     hash_salt = gensalt()
@@ -157,6 +155,22 @@ async def create_user(
 
     user_obj = UserModel(**user_dict)
     db.add(user_obj)
+
+    try:
+        await db.flush()
+        await db.refresh(user_obj)
+        logger.debug(
+            "Successfully flushed new user: %s (%s) to database session.",
+            user_obj.email,
+            user_obj.id,
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to flush new user: %s to database session. Exception: %s.",
+            user_obj.email,
+            e,
+        )
+        raise
 
     user_id = UserID(id=user_obj.id)
 
