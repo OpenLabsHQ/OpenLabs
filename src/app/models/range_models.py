@@ -22,6 +22,7 @@ class RangeMixin(MappedAsDataclass):
     )
     vnc: Mapped[bool] = mapped_column(Boolean, nullable=False)
     vpn: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 # ==================== Blueprints =====================
@@ -62,7 +63,6 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
 
     __tablename__ = "deployed_ranges"
 
-    description: Mapped[str | None] = mapped_column(String, nullable=True)
     date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
