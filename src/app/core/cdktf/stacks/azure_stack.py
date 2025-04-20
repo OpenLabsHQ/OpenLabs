@@ -1,5 +1,3 @@
-import logging
-
 from cdktf_cdktf_provider_azurerm.nat_gateway import NatGateway
 from cdktf_cdktf_provider_azurerm.nat_gateway_public_ip_association import (
     NatGatewayPublicIpAssociation,
@@ -12,7 +10,6 @@ from cdktf_cdktf_provider_azurerm.public_ip import PublicIp
 from cdktf_cdktf_provider_azurerm.resource_group import ResourceGroup
 from cdktf_cdktf_provider_azurerm.route import Route
 from cdktf_cdktf_provider_azurerm.route_table import RouteTable
-from cdktf_cdktf_provider_azurerm.ssh_public_key import SshPublicKey
 from cdktf_cdktf_provider_azurerm.subnet import Subnet
 from cdktf_cdktf_provider_azurerm.subnet_nat_gateway_association import (
     SubnetNatGatewayAssociation,
@@ -59,9 +56,6 @@ class AzureStack(AbstractBaseStack):
             None
 
         """
-        logger = logging.getLogger(__name__)
-        logger.info(f"Building Azure resources for range: {range_name}")
-
         AzurermProvider(
             self,
             "AZURE",
@@ -79,16 +73,11 @@ class AzureStack(AbstractBaseStack):
         )
 
         # Step 2: Create SSH Public Key resource
-        # TODO: Replace with key that is generated per-range
-        user_public_key = template_range.ssh_key if hasattr(template_range, 'ssh_key') and template_range.ssh_key else "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH8URIMqVKb6EAK4O+E+9g8df1uvcOfpvPFl7sQrX7KM email@example.com"
-        
-        ssh_key = SshPublicKey(
-            self,
-            f"{sanitized_name}-SSHPublicKey",
-            name=f"{sanitized_name}-ssh-key",
-            resource_group_name=resource_group.name,
-            location=resource_group.location,
-            public_key=user_public_key,
+        # Replace with key that is generated per-range
+        user_public_key = (
+            template_range.ssh_key
+            if hasattr(template_range, "ssh_key") and template_range.ssh_key
+            else "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH8URIMqVKb6EAK4O+E+9g8df1uvcOfpvPFl7sQrX7KM email@example.com"
         )
 
         for vpc in template_range.vpcs:
@@ -149,7 +138,7 @@ class AzureStack(AbstractBaseStack):
                 destination_address_prefix="*",
             )
 
-            # TODO: Figure out why private subnet doesnt get outbound ICMP
+            # Figure out why private subnet doesnt get outbound ICMP
             # Allow ICMP inbound
             NetworkSecurityRule(
                 self,
@@ -249,7 +238,6 @@ class AzureStack(AbstractBaseStack):
             )
 
             # Step 13: Create Jump Box VM with SSH key authentication
-            logger.info(f"Creating Jump Box VM with SSH key authentication for VPC: {vpc.name}")
 
             VirtualMachine(
                 self,
@@ -271,7 +259,7 @@ class AzureStack(AbstractBaseStack):
                             "keyData": user_public_key,
                             "path": "/home/azureuser/.ssh/authorized_keys",
                         }
-                    ]
+                    ],
                 },
                 storage_image_reference={
                     "publisher": "Canonical",
@@ -297,7 +285,6 @@ class AzureStack(AbstractBaseStack):
             )
 
             # Step 15: Create NSG Rules for private subnets
-            logger.info(f"Creating NSG rules for private subnets in VPC: {vpc.name}")
 
             # Allow inbound traffic from Jump Box
             NetworkSecurityRule(
@@ -315,7 +302,6 @@ class AzureStack(AbstractBaseStack):
                 source_address_prefix=public_subnet_cidr,
                 destination_address_prefix="*",
             )
-
 
             # Allow all outbound traffic
             NetworkSecurityRule(
@@ -413,7 +399,6 @@ class AzureStack(AbstractBaseStack):
                 )
 
                 # Associate the subnet with the NAT Gateway for outbound internet access
-                logger.info(f"Associating subnet {subnet.name} with NAT Gateway")
                 SubnetNatGatewayAssociation(
                     self,
                     f"{subnet.name}-NatGatewayAssociation-{vpc.name}",
@@ -451,7 +436,7 @@ class AzureStack(AbstractBaseStack):
                     )
 
                     # Create the VM with SSH key authentication
-                    
+
                     VirtualMachine(
                         self,
                         f"{host.hostname}-{vpc.name}",
@@ -464,7 +449,6 @@ class AzureStack(AbstractBaseStack):
                         os_profile={
                             "computer_name": host.hostname,
                             "admin_username": "azureuser",
-                   
                         },
                         os_profile_linux_config={
                             "disable_password_authentication": True,
@@ -473,7 +457,7 @@ class AzureStack(AbstractBaseStack):
                                     "keyData": user_public_key,
                                     "path": "/home/azureuser/.ssh/authorized_keys",
                                 }
-                            ]
+                            ],
                         },
                         storage_image_reference={
                             "publisher": publisher,
