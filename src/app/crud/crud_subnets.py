@@ -137,7 +137,7 @@ async def create_blueprint_subnet(
     blueprint: BlueprintSubnetCreateSchema,
     user_id: int,
     vpc_id: int | None = None,
-) -> BlueprintSubnetSchema:
+) -> BlueprintSubnetHeaderSchema:
     """Create and add a new subnet blueprint to the database session.
 
     **Note:** This function only adds subnets to the database session. It is the responsibility
@@ -153,7 +153,7 @@ async def create_blueprint_subnet(
 
     Returns:
     -------
-        BlueprintSubnetSchema: The newly created subnet blueprint data schema with it's ID.
+        BlueprintSubnetHeaderSchema: The newly created subnet blueprint header data with it's ID.
 
     """
     built_models = build_blueprint_subnet_models([blueprint], user_id)
@@ -200,12 +200,12 @@ async def create_blueprint_subnet(
         )
         raise
 
-    return BlueprintSubnetSchema.model_validate(subnet_model)
+    return BlueprintSubnetHeaderSchema.model_validate(subnet_model)
 
 
 async def delete_blueprint_subnet(
     db: AsyncSession, subnet_id: int, user_id: int, is_admin: bool = False
-) -> BlueprintSubnetSchema | None:
+) -> BlueprintSubnetHeaderSchema | None:
     """Delete a standalone subnet blueprint.
 
     Only allows deletion if the subnet blueprint is standalone (i.e. vpc_id is None). This
@@ -221,7 +221,7 @@ async def delete_blueprint_subnet(
 
     Returns:
     -------
-        Optional[BlueprintSubnetSchema]: Subnet schema data if it exists in database and was successfully deleted.
+        Optional[BlueprintSubnetHeaderSchema]: Subnet header data if it exists in database and was successfully deleted.
 
     """
     subnet_model = await db.get(BlueprintSubnetModel, subnet_id)
@@ -271,7 +271,7 @@ async def delete_blueprint_subnet(
         )
         raise
 
-    return BlueprintSubnetSchema.model_validate(subnet_model)
+    return BlueprintSubnetHeaderSchema.model_validate(subnet_model)
 
 
 # ==================== Deployed (Instances) =====================

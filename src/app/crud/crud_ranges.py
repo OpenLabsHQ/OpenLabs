@@ -144,7 +144,7 @@ async def create_blueprint_range(
     db: AsyncSession,
     blueprint: BlueprintRangeCreateSchema,
     user_id: int,
-) -> BlueprintRangeSchema:
+) -> BlueprintRangeHeaderSchema:
     """Create and add a new range blueprint to the database session.
 
     **Note:** This function only adds ranges to the database session. It is the responsibility
@@ -159,7 +159,7 @@ async def create_blueprint_range(
 
     Returns:
     -------
-        BlueprintRangeSchema: The newly created range blueprint data schema with it's ID.
+        BlueprintRangeHeaderSchema: The newly created range blueprint header data with it's ID.
 
     """
     built_models = build_blueprint_range_models([blueprint], user_id)
@@ -201,12 +201,12 @@ async def create_blueprint_range(
         )
         raise
 
-    return BlueprintRangeSchema.model_validate(range_model)
+    return BlueprintRangeHeaderSchema.model_validate(range_model)
 
 
 async def delete_blueprint_range(
     db: AsyncSession, range_id: int, user_id: int, is_admin: bool = False
-) -> BlueprintRangeSchema | None:
+) -> BlueprintRangeHeaderSchema | None:
     """Delete a range blueprint.
 
     This function only adds delete queries to the database session. It is the responsibility of
@@ -221,7 +221,7 @@ async def delete_blueprint_range(
 
     Returns:
     -------
-        Optional[BlueprintRangeSchema]: Range schema data if it exists in database and was successfully deleted.
+        Optional[BlueprintRangeHeaderSchema]: Range header data if it exists in database and was successfully deleted.
 
     """
     range_model = await db.get(BlueprintRangeModel, range_id)
@@ -271,7 +271,7 @@ async def delete_blueprint_range(
         )
         raise
 
-    return BlueprintRangeSchema.model_validate(range_model)
+    return BlueprintRangeHeaderSchema.model_validate(range_model)
 
 
 # ==================== Deployed (Instances) =====================
@@ -401,7 +401,7 @@ async def create_deployed_range(
     db: AsyncSession,
     range_schema: DeployedRangeCreateSchema,
     user_id: int,
-) -> DeployedRangeSchema:
+) -> DeployedRangeHeaderSchema:
     """Create and add a new deployed range to the database session.
 
     **Note:** This function only adds ranges to the database session. It is the responsibility
@@ -416,7 +416,7 @@ async def create_deployed_range(
 
     Returns:
     -------
-        DeployedRangeSchema: The newly created deployed range data schema with it's ID.
+        DeployedRangeHeaderSchema: The newly created deployed range header data with it's ID.
 
     """
     built_models = build_deployed_range_models([range_schema], user_id)
@@ -458,12 +458,12 @@ async def create_deployed_range(
         )
         raise
 
-    return DeployedRangeSchema.model_validate(range_model)
+    return DeployedRangeHeaderSchema.model_validate(range_model)
 
 
 async def delete_deployed_range(
     db: AsyncSession, range_id: int, user_id: int, is_admin: bool = False
-) -> DeployedRangeSchema | None:
+) -> DeployedRangeHeaderSchema | None:
     """Delete a deployed range.
 
     This function only adds delete queries to the database session. It is the responsibility of
@@ -478,7 +478,7 @@ async def delete_deployed_range(
 
     Returns:
     -------
-        Optional[DeployedRangeSchema]: Deployed range schema data if it exists in database and was successfully deleted.
+        Optional[DeployedRangeHeaderSchema]: Deployed range header data if it exists in database and was successfully deleted.
 
     """
     range_model = await db.get(DeployedRangeModel, range_id)
@@ -521,4 +521,4 @@ async def delete_deployed_range(
         )
         raise
 
-    return DeployedRangeSchema.model_validate(range_model)
+    return DeployedRangeHeaderSchema.model_validate(range_model)

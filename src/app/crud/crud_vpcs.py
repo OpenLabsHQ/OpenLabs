@@ -140,7 +140,7 @@ async def create_blueprint_vpc(
     blueprint: BlueprintVPCCreateSchema,
     user_id: int,
     range_id: int | None = None,
-) -> BlueprintVPCSchema:
+) -> BlueprintVPCHeaderSchema:
     """Create and add a new VPC blueprint to the database session.
 
     **Note:** This function only adds VPCs to the database session. It is the responsibility
@@ -156,7 +156,7 @@ async def create_blueprint_vpc(
 
     Returns:
     -------
-        BlueprintVPCSchema: The newly created VPC blueprint data schema with it's ID.
+        BlueprintHeaderSchema: The newly created VPC blueprint header data with it's ID.
 
     """
     built_models = build_blueprint_vpc_models([blueprint], user_id)
@@ -201,12 +201,12 @@ async def create_blueprint_vpc(
         )
         raise
 
-    return BlueprintVPCSchema.model_validate(vpc_model)
+    return BlueprintVPCHeaderSchema.model_validate(vpc_model)
 
 
 async def delete_blueprint_vpc(
     db: AsyncSession, vpc_id: int, user_id: int, is_admin: bool = False
-) -> BlueprintVPCSchema | None:
+) -> BlueprintVPCHeaderSchema | None:
     """Delete a standalone VPC blueprint.
 
     Only allows deletion if the VPC blueprint is standalone (i.e. range_id is None). This
@@ -222,7 +222,7 @@ async def delete_blueprint_vpc(
 
     Returns:
     -------
-        Optional[BlueprintVPCSchema]: VPC schema data if it exists in database and was successfully deleted.
+        Optional[BlueprintVPCHeaderSchema]: VPC header data if it exists in database and was successfully deleted.
 
     """
     vpc_model = await db.get(BlueprintVPCModel, vpc_id)
@@ -272,7 +272,7 @@ async def delete_blueprint_vpc(
         )
         raise
 
-    return BlueprintVPCSchema.model_validate(vpc_model)
+    return BlueprintVPCHeaderSchema.model_validate(vpc_model)
 
 
 # ==================== Deployed (Instances) =====================
