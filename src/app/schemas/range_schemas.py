@@ -127,7 +127,7 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         description="State of deployed range.",
         examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
-    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
+    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.") # Add 3 more fields, Jumpbox cloud resource id, Jumpbox public IP address, SSH private key for range
 
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
