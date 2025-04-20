@@ -229,7 +229,7 @@ async def delete_blueprint_range_endpoint(
     )
 
     return MessageSchema(
-        message=f"Range blueprint {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
+        message=f"Range blueprint: {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
     )
 
 
@@ -407,7 +407,7 @@ async def delete_blueprint_vpc_endpoint(
     )
 
     return MessageSchema(
-        message=f"VPC blueprint {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
+        message=f"VPC blueprint: {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
     )
 
 
@@ -578,7 +578,7 @@ async def delete_subnet_template_endpoint(
     )
 
     return MessageSchema(
-        message=f"Subnet blueprint {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
+        message=f"Subnet blueprint: {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
     )
 
 
@@ -604,7 +604,7 @@ async def get_blueprint_host_headers_endpoint(
         list[BlueprintHostHeaderSchema]: List of host blueprint headers owned by the current user.
 
     """
-    host_headers = get_blueprint_host_headers(
+    host_headers = await get_blueprint_host_headers(
         db, current_user.id, current_user.is_admin, standalone_only
     )
     if not host_headers:
@@ -695,7 +695,7 @@ async def upload_blueprint_host_endpoint(
         created_blueprint.id,
     )
 
-    return created_blueprint
+    return BlueprintHostHeaderSchema.model_validate(created_blueprint)
 
 
 @router.delete("/hosts/{blueprint_id}")
@@ -733,13 +733,13 @@ async def delete_blueprint_host_endpoint(
         )
 
     logger.info(
-        "Successfully deleted subnet blueprint: %s (%s) for user: %s (%s).",
-        deleted_blueprint.name,
+        "Successfully deleted host blueprint: %s (%s) for user: %s (%s).",
+        deleted_blueprint.hostname,
         deleted_blueprint.id,
         current_user.email,
         current_user.id,
     )
 
     return MessageSchema(
-        message=f"Host blueprint {deleted_blueprint.name} ({deleted_blueprint.id}) was successfully deleted!"
+        message=f"Host blueprint: {deleted_blueprint.hostname} ({deleted_blueprint.id}) was successfully deleted!"
     )
