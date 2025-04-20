@@ -1,6 +1,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.host_models import BlueprintHostModel, DeployedHostModel
@@ -178,9 +179,16 @@ async def create_blueprint_host(
             host_model.id,
             user_id,
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while flushing host blueprint to database session for user: %s. Exception: %s",
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to flush host blueprint to database session for user: %s. Exception: %s.",
+            "Unexpected error while flushing host blueprint to database session for user: %s. Exception: %s",
             user_id,
             e,
         )
@@ -210,16 +218,14 @@ async def delete_blueprint_host(
         Optional[BlueprintHostSchema]: Host schema data if it exists in database and was successfully deleted.
 
     """
-    host = await get_blueprint_host(db, host_id, user_id, is_admin)
-    if not host:
+    host_model = await db.get(BlueprintHostModel, host_id)
+    if not host_model:
         logger.warning(
             "Host blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             host_id,
             user_id,
         )
         return None
-
-    host_model = BlueprintHostModel(**host.model_dump())
 
     if not host_model.is_standalone():
         logger.info(
@@ -242,10 +248,18 @@ async def delete_blueprint_host(
         logger.debug(
             "Successfully marked host blueprint: %s for deletion.", host_model.id
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while marking host blueprint: %s for deletion for user: %s. Exception: %s.",
+            host_model.id,  # Use host_model.id here
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to mark host blueprint: %s for deletion in database session for user: %s, Exception: %s.",
-            host_model.id,
+            "Unexpected error while marking host blueprint: %s for deletion for user: %s. Exception: %s.",
+            host_model.id,  # Use host_model.id here
             user_id,
             e,
         )

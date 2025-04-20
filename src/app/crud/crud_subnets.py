@@ -1,6 +1,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -184,9 +185,16 @@ async def create_blueprint_subnet(
             subnet_model.id,
             user_id,
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while flushing subnet blueprint to database session for user: %s. Exception: %s.",
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to flush subnet blueprint to database session for user: %s. Exception: %s.",
+            "Unexpected error while flushing subnet blueprint to database session for user: %s. Exception: %s.",
             user_id,
             e,
         )
@@ -216,16 +224,14 @@ async def delete_blueprint_subnet(
         Optional[BlueprintSubnetSchema]: Subnet schema data if it exists in database and was successfully deleted.
 
     """
-    subnet = await get_blueprint_subnet(db, subnet_id, user_id, is_admin)
-    if not subnet:
+    subnet_model = await db.get(BlueprintSubnetModel, subnet_id)
+    if not subnet_model:
         logger.warning(
             "Subnet blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             subnet_id,
             user_id,
         )
         return None
-
-    subnet_model = BlueprintSubnetModel(**subnet.model_dump())
 
     if not subnet_model.is_standalone():
         logger.info(
@@ -248,9 +254,17 @@ async def delete_blueprint_subnet(
         logger.debug(
             "Successfully marked subnet blueprint: %s for deletion.", subnet_model.id
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while marking subnet blueprint: %s for deletion for user: %s. Exception: %s.",
+            subnet_model.id,
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to mark subnet blueprint: %s for deletion in database session for user: %s, Exception: %s.",
+            "Unexpected error while marking subnet blueprint: %s for deletion for user: %s. Exception: %s.",
             subnet_model.id,
             user_id,
             e,

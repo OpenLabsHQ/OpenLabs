@@ -1,6 +1,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -185,9 +186,16 @@ async def create_blueprint_vpc(
             vpc_model.id,
             user_id,
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while flushing VPC blueprint to database session for user: %s. Exception: %s.",
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to flush VPC blueprint to database session for user: %s. Exception: %s.",
+            "Unexpected error while flushing VPC blueprint to database session for user: %s. Exception: %s.",
             user_id,
             e,
         )
@@ -217,16 +225,14 @@ async def delete_blueprint_vpc(
         Optional[BlueprintVPCSchema]: VPC schema data if it exists in database and was successfully deleted.
 
     """
-    vpc = await get_blueprint_vpc(db, vpc_id, user_id, is_admin)
-    if not vpc:
+    vpc_model = await db.get(BlueprintVPCModel, vpc_id)
+    if not vpc_model:
         logger.warning(
             "VPC blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             vpc_id,
             user_id,
         )
         return None
-
-    vpc_model = BlueprintVPCModel(**vpc.model_dump())
 
     if not vpc_model.is_standalone():
         logger.info(
@@ -249,9 +255,17 @@ async def delete_blueprint_vpc(
         logger.debug(
             "Successfully marked VPC blueprint: %s for deletion.", vpc_model.id
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while marking VPC blueprint: %s for deletion for user: %s. Exception: %s.",
+            vpc_model.id,
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to mark VPC blueprint: %s for deletion in database session for user: %s, Exception: %s.",
+            "Unexpected error while marking VPC blueprint: %s for deletion for user: %s. Exception: %s.",
             vpc_model.id,
             user_id,
             e,

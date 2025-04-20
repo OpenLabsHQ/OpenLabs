@@ -1,6 +1,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -185,9 +186,16 @@ async def create_blueprint_range(
             range_model.id,
             user_id,
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while flushing range blueprint to database session for user: %s. Exception: %s.",
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to flush range blueprint to database session for user: %s. Exception: %s.",
+            "Unexpected error while flushing range blueprint to database session for user: %s. Exception: %s.",
             user_id,
             e,
         )
@@ -216,16 +224,14 @@ async def delete_blueprint_range(
         Optional[BlueprintRangeSchema]: Range schema data if it exists in database and was successfully deleted.
 
     """
-    blueprint_range = await get_blueprint_range(db, range_id, user_id, is_admin)
-    if not blueprint_range:
+    range_model = await db.get(BlueprintRangeModel, range_id)
+    if not range_model:
         logger.warning(
             "Range blueprint: %s not found for deletion as user: %s. Does user have permissions?",
             range_id,
             user_id,
         )
         return None
-
-    range_model = BlueprintVPCModel(**blueprint_range.model_dump())
 
     if not range_model.is_standalone():
         logger.info(
@@ -248,9 +254,17 @@ async def delete_blueprint_range(
         logger.debug(
             "Successfully marked range blueprint: %s for deletion.", range_model.id
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while marking range blueprint: %s for deletion for user: %s. Exception: %s.",
+            range_model.id,
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to mark range blueprint: %s for deletion in database session for user: %s, Exception: %s.",
+            "Unexpected error while marking range blueprint: %s for deletion for user: %s. Exception: %s.",
             range_model.id,
             user_id,
             e,
@@ -429,9 +443,16 @@ async def create_deployed_range(
             range_model.id,
             user_id,
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while flushing deployed range to database session for user: %s. Exception: %s.",
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to flush deployed range to database session for user: %s. Exception: %s.",
+            "Unexpected error while flushing deployed range to database session for user: %s. Exception: %s.",
             user_id,
             e,
         )
@@ -460,16 +481,14 @@ async def delete_deployed_range(
         Optional[DeployedRangeSchema]: Deployed range schema data if it exists in database and was successfully deleted.
 
     """
-    deployed_range = await get_deployed_range(db, range_id, user_id, is_admin)
-    if not deployed_range:
+    range_model = await db.get(DeployedRangeModel, range_id)
+    if not range_model:
         logger.warning(
             "Deployed range: %s not found for deletion as user: %s. Does user have permissions?",
             range_id,
             user_id,
         )
         return None
-
-    range_model = DeployedRangeModel(**deployed_range.model_dump())
 
     if not is_admin and range_model.owner_id != user_id:
         logger.warning(
@@ -485,9 +504,17 @@ async def delete_deployed_range(
         logger.debug(
             "Successfully marked deployed range: %s for deletion.", range_model.id
         )
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while marking deployed range: %s for deletion for user: %s. Exception: %s.",
+            range_model.id,
+            user_id,
+            e,
+        )
+        raise
     except Exception as e:
         logger.exception(
-            "Failed to mark deployed range: %s for deletion in database session for user: %s, Exception: %s.",
+            "Unexpected error while marking deployed range: %s for deletion for user: %s. Exception: %s.",
             range_model.id,
             user_id,
             e,
