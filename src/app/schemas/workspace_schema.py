@@ -2,6 +2,8 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..enums.permissions import PermissionType
+
 
 class WorkspaceBaseSchema(BaseModel):
     """Base schema for workspace data."""
@@ -53,5 +55,41 @@ class WorkspaceSchema(WorkspaceBaseSchema, WorkspaceID):
 
 class WorkspaceCreateSchema(WorkspaceBaseSchema):
     """Schema for creating a new workspace."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkspaceTemplateSchema(BaseModel):
+    """Schema for assigning a template to a workspace."""
+
+    template_id: uuid.UUID = Field(
+        ...,
+        description="ID of the template to share with the workspace",
+    )
+    template_type: str = Field(
+        "range_templates",
+        description="Type of template (range, vpc, subnet, host)",
+        examples=[
+            "range_templates",
+            "vpc_templates",
+            "subnet_templates",
+            "host_templates",
+        ],
+    )
+    permission_type: PermissionType = Field(
+        PermissionType.READ,
+        description="Type of permission (read or write)",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkspaceTemplateDeleteSchema(BaseModel):
+    """Schema for success message after template deletion."""
+
+    success: bool = Field(
+        True,
+        description="Whether the operation was successful",
+    )
 
     model_config = ConfigDict(from_attributes=True)
