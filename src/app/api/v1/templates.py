@@ -1,3 +1,4 @@
+import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
@@ -134,19 +135,41 @@ async def get_range_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # For admin users, don't filter by user_id to allow access to all templates
-    user_id = None if current_user.is_admin else current_user.id
-
-    # Get the template
-    range_template = await get_range_template(
-        db, TemplateRangeID(id=range_id), user_id=user_id
-    )
+    # First try to get the template without filtering by user to check if it exists
+    range_template = await get_range_template(db, TemplateRangeID(id=range_id))
 
     if not range_template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Range with ID: {range_id} not found or you don't have access to it!",
+            detail=f"Range with ID: {range_id} not found",
         )
+
+    # Check access permissions:
+    # 1. Admin users can access all templates
+    # 2. Owner can access their own templates
+    # 3. Users with direct or workspace-inherited permissions can access templates
+    if current_user.is_admin or range_template.owner_id == current_user.id:
+        # Admin users and owners have automatic access
+        pass
+    else:
+        # Check if the user has permission through direct permission or workspace membership
+        from ...crud.crud_template_permissions import check_user_template_access
+        from ...enums.permissions import PermissionType
+
+        # Check if the user has at least READ permission
+        has_access = await check_user_template_access(
+            db,
+            current_user.id,
+            "range_templates",
+            uuid.UUID(range_id),
+            PermissionType.READ,
+        )
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Range with ID: {range_id} not found or you don't have access to it!",
+            )
 
     return TemplateRangeSchema.model_validate(range_template, from_attributes=True)
 
@@ -293,17 +316,37 @@ async def get_vpc_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # For admin users, don't filter by user_id to allow access to all templates
-    user_id = None if current_user.is_admin else current_user.id
-
-    # Get the template
-    vpc_template = await get_vpc_template(db, TemplateVPCID(id=vpc_id), user_id=user_id)
+    # First try to get the template without filtering by user to check if it exists
+    vpc_template = await get_vpc_template(db, TemplateVPCID(id=vpc_id))
 
     if not vpc_template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"VPC with ID: {vpc_id} not found or you don't have access to it!",
+            detail=f"VPC with ID: {vpc_id} not found",
         )
+
+    # Check access permissions:
+    # 1. Admin users can access all templates
+    # 2. Owner can access their own templates
+    # 3. Users with direct or workspace-inherited permissions can access templates
+    if current_user.is_admin or vpc_template.owner_id == current_user.id:
+        # Admin users and owners have automatic access
+        pass
+    else:
+        # Check if the user has permission through direct permission or workspace membership
+        from ...crud.crud_template_permissions import check_user_template_access
+        from ...enums.permissions import PermissionType
+
+        # Check if the user has at least READ permission
+        has_access = await check_user_template_access(
+            db, current_user.id, "vpc_templates", uuid.UUID(vpc_id), PermissionType.READ
+        )
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"VPC with ID: {vpc_id} not found or you don't have access to it!",
+            )
 
     return TemplateVPCSchema.model_validate(vpc_template, from_attributes=True)
 
@@ -450,18 +493,41 @@ async def get_subnet_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # For admin users, don't filter by user_id to allow access to all templates
-    user_id = None if current_user.is_admin else current_user.id
-
-    subnet_template = await get_subnet_template(
-        db, TemplateSubnetID(id=subnet_id), user_id=user_id
-    )
+    # First try to get the template without filtering by user to check if it exists
+    subnet_template = await get_subnet_template(db, TemplateSubnetID(id=subnet_id))
 
     if not subnet_template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Subnet with ID: {subnet_id} not found or you don't have access to it!",
+            detail=f"Subnet with ID: {subnet_id} not found",
         )
+
+    # Check access permissions:
+    # 1. Admin users can access all templates
+    # 2. Owner can access their own templates
+    # 3. Users with direct or workspace-inherited permissions can access templates
+    if current_user.is_admin or subnet_template.owner_id == current_user.id:
+        # Admin users and owners have automatic access
+        pass
+    else:
+        # Check if the user has permission through direct permission or workspace membership
+        from ...crud.crud_template_permissions import check_user_template_access
+        from ...enums.permissions import PermissionType
+
+        # Check if the user has at least READ permission
+        has_access = await check_user_template_access(
+            db,
+            current_user.id,
+            "subnet_templates",
+            uuid.UUID(subnet_id),
+            PermissionType.READ,
+        )
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Subnet with ID: {subnet_id} not found or you don't have access to it!",
+            )
 
     return TemplateSubnetSchema.model_validate(subnet_template, from_attributes=True)
 
@@ -613,18 +679,41 @@ async def get_host_template_endpoint(
             detail="ID provided is not a valid UUID4.",
         )
 
-    # For admin users, don't filter by user_id to allow access to all templates
-    user_id = None if current_user.is_admin else current_user.id
-
-    host_template = await get_host_template(
-        db, TemplateHostID(id=host_id), user_id=user_id
-    )
+    # First try to get the template without filtering by user to check if it exists
+    host_template = await get_host_template(db, TemplateHostID(id=host_id))
 
     if not host_template:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Host with ID: {host_id} not found or you don't have access to it!",
+            detail=f"Host with ID: {host_id} not found",
         )
+
+    # Check access permissions:
+    # 1. Admin users can access all templates
+    # 2. Owner can access their own templates
+    # 3. Users with direct or workspace-inherited permissions can access templates
+    if current_user.is_admin or host_template.owner_id == current_user.id:
+        # Admin users and owners have automatic access
+        pass
+    else:
+        # Check if the user has permission through direct permission or workspace membership
+        from ...crud.crud_template_permissions import check_user_template_access
+        from ...enums.permissions import PermissionType
+
+        # Check if the user has at least READ permission
+        has_access = await check_user_template_access(
+            db,
+            current_user.id,
+            "host_templates",
+            uuid.UUID(host_id),
+            PermissionType.READ,
+        )
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Host with ID: {host_id} not found or you don't have access to it!",
+            )
 
     return TemplateHostSchema.model_validate(host_template, from_attributes=True)
 
