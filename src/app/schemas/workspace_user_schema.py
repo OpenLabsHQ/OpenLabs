@@ -41,6 +41,21 @@ class WorkspaceUserSchema(WorkspaceUserBaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
+class WorkspaceUserDetailSchema(WorkspaceUserSchema):
+    """Schema for workspace user data with detailed user information."""
+
+    name: str = Field(
+        ...,
+        description="Full name of the user",
+    )
+    email: str = Field(
+        ...,
+        description="Email of the user",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class WorkspaceUserCreateSchema(BaseModel):
     """Schema for adding a user to a workspace."""
 
