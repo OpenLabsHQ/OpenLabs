@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -7,7 +8,9 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ..models.user_model import UserModel
 from ..models.workspace_user_model import WorkspaceUserModel
-from ..schemas.workspace_user_schema import WorkspaceUserCreateSchema
+from ..schemas.workspace_user_schema import (
+    WorkspaceUserCreateSchema,
+)
 from .crud_workspaces import get_workspace
 
 logger = logging.getLogger(__name__)
@@ -133,6 +136,65 @@ async def get_workspace_users(
     )
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_workspace_users_with_details(
+    db: AsyncSession, workspace_id: UUID
+) -> list[tuple[WorkspaceUserModel, UserModel]]:
+    """Get all users in a workspace with their user details.
+
+    Args:
+    ----
+        db (AsyncSession): Database connection.
+        workspace_id (UUID): Workspace ID.
+
+    Returns:
+    -------
+        list[tuple[WorkspaceUserModel, UserModel]]: List of workspace user associations with user details.
+
+    """
+    stmt = (
+        select(WorkspaceUserModel, UserModel)
+        .join(UserModel, WorkspaceUserModel.user_id == UserModel.id)
+        .where(WorkspaceUserModel.workspace_id == workspace_id)
+    )
+    result = await db.execute(stmt)
+    # Convert the result to the expected type
+    return [row for row in result.all()]
+
+
+async def update_workspace_user(
+    db: AsyncSession, workspace_id: UUID, user_id: UUID, update_data: dict[str, Any]
+) -> WorkspaceUserModel | None:
+    """Update a user's role or time limit in a workspace.
+
+    Args:
+    ----
+        db (AsyncSession): Database connection.
+        workspace_id (UUID): Workspace ID.
+        user_id (UUID): User ID.
+        update_data (dict): Dictionary containing fields to update.
+
+    Returns:
+    -------
+        WorkspaceUserModel | None: The updated workspace user association if found, None otherwise.
+
+    """
+    workspace_user = await get_workspace_user(db, workspace_id, user_id)
+    if not workspace_user:
+        return None
+
+    # Update fields from the update_data dictionary
+    for key, value in update_data.items():
+        if value is not None and hasattr(workspace_user, key):
+            setattr(workspace_user, key, value)
+
+    # Update the timestamp
+    workspace_user.updated_at = datetime.now(UTC)
+
+    await db.commit()
+    await db.refresh(workspace_user)
+    return workspace_user
 
 
 async def remove_user_from_workspace(
