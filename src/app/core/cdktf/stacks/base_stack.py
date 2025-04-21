@@ -50,21 +50,22 @@ class AbstractBaseStack(TerraformStack):
         )
 
         # Will raise NotImplementedError when not-overriden by child class
-        parts = cdktf_id.split("-")
-        uuid_str = "-".join(parts[-5:])
-        range_name = f"{range_name}-{uuid_str}"
+
         self.build_resources(
             range_obj=range_obj,
             region=region,
-            cdktf_id=cdktf_id,
             range_name=range_name,
         )
+
+    def get_stack_range_name(self) -> str:
+        """Uniquely generated range name created by the Terraform stack."""
+        return self.range_name
+
 
     def build_resources(
         self,
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        cdktf_id: str,
         range_name: str,
     ) -> None:
         """'Psuedo-abtract' method to build the CDKTF resources.
@@ -73,7 +74,6 @@ class AbstractBaseStack(TerraformStack):
         ----
             range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
             region (OpenLabsRegion): Support OpenLabs cloud region.
-            cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
             range_name (str): Name of range to deploy.
 
         Returns:

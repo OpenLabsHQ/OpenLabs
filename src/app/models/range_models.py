@@ -72,8 +72,9 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
     region: Mapped[OpenLabsRegion] = mapped_column(Enum(OpenLabsRegion), nullable=False)
 
     # Jumpbox
-    public_ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
-    private_key: Mapped[str] = mapped_column(String, nullable=False)
+    jumpbox_resource_id: Mapped[str] = mapped_column(String, nullable=False)
+    jumpbox_public_ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
+    range_private_key: Mapped[str] = mapped_column(String, nullable=False)
 
     vpcs = relationship(
         "DeployedVPCModel",

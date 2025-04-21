@@ -63,9 +63,10 @@ class DeployedHostModel(Base, OwnableObjectMixin, HostMixin):
     ip_address: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
 
     # Parent relationship
-    subnet_id: Mapped[int] = mapped_column(
+    subnet_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("deployed_subnets.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        default=None
     )
     subnet = relationship("DeployedSubnetModel", back_populates="hosts")

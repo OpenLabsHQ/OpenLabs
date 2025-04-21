@@ -22,7 +22,7 @@ from cdktf_cdktf_provider_aws.vpc import Vpc
 from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
-from ....schemas.template_range_schema import TemplateRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from .base_stack import AbstractBaseStack
 from ....utils.crypto import generate_range_rsa_key_pair
 
@@ -32,19 +32,17 @@ class AWSStack(AbstractBaseStack):
 
     def build_resources(
         self,
-        template_range: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        cdktf_id: str,
         range_name: str,
     ) -> None:
         """Initialize AWS terraform stack.
 
         Args:
         ----
-            template_range (TemplateRangeSchema): Template range object to build terraform for.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Template range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
-            cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
-            range_name (str): Name of range to deploy.
+            range_name (str): Name of range to deploy. Range name + unique ID.
 
         Returns:
         -------
@@ -58,7 +56,7 @@ class AWSStack(AbstractBaseStack):
         )
 
         # Step 1: Create the key access to all instances provisioned on AWS
-        # Generate ed25519 key pair
+        # Generate RSA key pair
         range_private_key, range_public_key = generate_range_rsa_key_pair()
         key_pair = KeyPair(
             self,
@@ -73,6 +71,7 @@ class AWSStack(AbstractBaseStack):
             f"{range_name}-private-key",
             value=range_private_key,
             description="Private key to access range machines",
+            sensitive=True,
         )
 
         # Step 2: Create public vpc for jumpbox
@@ -153,12 +152,14 @@ class AWSStack(AbstractBaseStack):
             f"{range_name}-JumpboxPublicIp",
             value=jumpbox.public_ip,
             description="Public IP address of the Jumpbox instance",
+            sensitive=True,
         )
         TerraformOutput(
             self,
             f"{range_name}-JumpboxInstanceId",
             value=jumpbox.id,
             description="Instance ID of the Jumpbox instance",
+            sensitive=True,
         )
 
         # Step 6: Create an Internet Gateway for Public jumpbox Subnet -> this is the only way into the range from the internet
@@ -277,7 +278,7 @@ class AWSStack(AbstractBaseStack):
         )
 
         # Create Range vpcs, subnets, hosts
-        for vpc in template_range.vpcs:
+        for vpc in range_obj.vpcs:
 
             # Step 14: Create a VPC
             new_vpc = Vpc(
@@ -294,6 +295,7 @@ class AWSStack(AbstractBaseStack):
                 f"{range_name}-{vpc.name}-resource-id",
                 value=new_vpc.id,
                 description="Cloud resource id of the vpc created",
+                sensitive=True,
             )
 
             # Step 15: Create security group for access to range hosts
@@ -336,7 +338,7 @@ class AWSStack(AbstractBaseStack):
                 security_group_id=private_vpc_sg.id,
             )
 
-            current_vpc_subnets = []
+            current_vpc_subnets: list[Subnet] = []
             # Step 16: Create private subnets with their respecitve EC2 instances
             for subnet in vpc.subnets:
                 new_subnet = Subnet(
@@ -353,6 +355,7 @@ class AWSStack(AbstractBaseStack):
                     f"{range_name}-{vpc.name}-{subnet.name}-resource-id",
                     value=new_subnet.id,
                     description="Cloud resource id of the subnet created",
+                    sensitive=True,
                 )
 
                 current_vpc_subnets.append(new_subnet)
@@ -375,12 +378,14 @@ class AWSStack(AbstractBaseStack):
                         f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}-resource-id",
                         value=ec2_instance.id,
                         description="Cloud resource id of the ec2 instance created",
+                        sensitive=True,
                     )
                     TerraformOutput(
                         self,
                         f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}-private-ip",
                         value=ec2_instance.private_ip,
                         description="Cloud private IP address of the ec2 instance created",
+                        sensitive=True,
                     )
 
             # Step 17: Attach  VPC to Transit Gateway

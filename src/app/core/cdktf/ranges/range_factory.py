@@ -26,6 +26,7 @@ class RangeFactory:
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         secrets: SecretSchema,
+        description: str,
         state_file: dict[str, Any] | None = None,
     ) -> AbstractBaseRange:
         """Create range object.
@@ -59,5 +60,6 @@ class RangeFactory:
             range_obj=range_obj,
             region=region,
             secrets=secrets,
+            description=description,
             state_file=state_file,
         )

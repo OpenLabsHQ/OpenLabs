@@ -112,6 +112,7 @@ async def deploy_range_from_blueprint_endpoint(
         name=deploy_request.name,
         range_obj=blueprint_range,
         region=deploy_request.region,
+        description=deploy_request.description,
         secrets=decrypted_secrets,
     )
 
@@ -144,8 +145,8 @@ async def deploy_range_from_blueprint_endpoint(
             detail=f"Failed to synthesize range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
         )
 
-    successful_deploy = range_to_deploy.deploy()
-    if not successful_deploy:
+    create_deployed_range_schema = range_to_deploy.deploy()
+    if not create_deployed_range_schema:
         logger.error(
             "Failed to deploy range: %s from blueprint: %s (%s) for user: %s (%s).",
             range_to_deploy.name,
@@ -159,25 +160,10 @@ async def deploy_range_from_blueprint_endpoint(
             detail=f"Failed to deploy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
         )
 
-    # Build range schema
-    range_schema = DeployedRangeCreateSchema(
-        name=deploy_request.name,
-        vnc=blueprint_range.vnc,
-        vpn=blueprint_range.vpn,
-        provider=blueprint_range.provider,
-        description=deploy_request.description,
-        date=datetime.now(tz=timezone.utc),
-        readme=None,  # Let users set this later after deployment
-        state_file=range_to_deploy.get_state_file(),
-        state=RangeState.ON,  # Ranges get deployed on
-        region=deploy_request.region,
-        vpcs=blueprint_range.vpcs,
-    )
-
     # Store range in database
     try:
         deployed_range = await create_deployed_range(
-            db, range_schema, user_id=current_user.id
+            db, create_deployed_range_schema, user_id=current_user.id
         )
     except Exception as e:
         logger.exception(
@@ -286,6 +272,7 @@ async def delete_range_endpoint(
         name=deployed_range.name,
         range_obj=deployed_range,
         region=deployed_range.region,
+        description=deployed_range.description,
         secrets=decrypted_secrets,
         state_file=deployed_range.state_file,
     )

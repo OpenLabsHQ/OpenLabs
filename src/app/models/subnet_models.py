@@ -64,10 +64,11 @@ class DeployedSubnetModel(Base, OwnableObjectMixin, SubnetMixin):
     resource_id: Mapped[str] = mapped_column(String, nullable=False)
 
     # Parent relationship
-    vpc_id: Mapped[int] = mapped_column(
+    vpc_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("deployed_vpcs.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        default=None
     )
     vpc = relationship("DeployedVPCModel", back_populates="subnets")
 

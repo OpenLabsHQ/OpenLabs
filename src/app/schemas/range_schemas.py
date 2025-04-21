@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from ipaddress import IPv4Address
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
@@ -128,6 +129,24 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.") # Add 3 more fields, Jumpbox cloud resource id, Jumpbox public IP address, SSH private key for range
+    
+    # Jumpbox attributes
+    jumpbox_resource_id: str = Field(
+        ...,
+        min_length=1,
+        description="Deplyed jumpbox host cloud resource ID.",
+        examples=["i-05c770240dd042b88"],
+    )
+    jumpbox_public_ip: IPv4Address = Field(
+        ...,
+        description="Public IP address of deployed jumpbox.",
+        examples=["1.1.1.1", "34.156.17.99"],
+    )
+    range_private_key: str = Field(
+        ...,
+        min_length=1,
+        description="SSH private key for the range.",
+    )
 
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):

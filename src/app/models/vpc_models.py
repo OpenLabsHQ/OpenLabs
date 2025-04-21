@@ -64,10 +64,11 @@ class DeployedVPCModel(Base, OwnableObjectMixin, VPCMixin):
     resource_id: Mapped[str] = mapped_column(String, nullable=False)
 
     # Parent relationship
-    range_id: Mapped[int] = mapped_column(
+    range_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("deployed_ranges.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        default=None
     )
     range = relationship("DeployedRangeModel", back_populates="vpcs")
 

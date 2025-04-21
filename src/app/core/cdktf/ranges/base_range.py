@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import logging
 import os
@@ -11,7 +12,9 @@ from typing import Any
 from cdktf import App
 
 from ....enums.regions import OpenLabsRegion
-from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
+from ....enums.providers import OpenLabsProvider
+from ....enums.range_states import RangeState
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeCreateSchema, DeployedRangeSchema
 from ....schemas.secret_schema import SecretSchema
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
@@ -29,8 +32,10 @@ class AbstractBaseRange(ABC):
     region: OpenLabsRegion
     stack_name: str
     secrets: SecretSchema
+    deployed_range_name: str
+    description: str
 
-    # State varibles
+    # State variables
     _is_synthesized: bool
     _is_deployed: bool
 
@@ -40,6 +45,7 @@ class AbstractBaseRange(ABC):
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         secrets: SecretSchema,
+        description: str,
         state_file: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
@@ -47,6 +53,7 @@ class AbstractBaseRange(ABC):
         self.range_obj = range_obj
         self.region = region
         self.secrets = secrets
+        self.description = description
         self.state_file = state_file
         if not self.state_file:
             self._is_deployed = False
@@ -57,6 +64,7 @@ class AbstractBaseRange(ABC):
         self.unique_str = uuid.uuid4()
         self.stack_name = f"{self.range_obj.name}-{self.unique_str}"
         self._is_synthesized = False
+        self.deployed_range_name = f"{self.name}-{self.unique_str}"
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -116,7 +124,7 @@ class AbstractBaseRange(ABC):
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
-                range_name=self.name,
+                range_name=self.deployed_range_name,
             )
 
             # Synthesize Terraform files
@@ -135,17 +143,17 @@ class AbstractBaseRange(ABC):
             )
             return False
 
-    def deploy(self) -> bool:
+    def deploy(self) -> DeployedRangeCreateSchema | None:
         """Run `terraform deploy --auto-approve` programmatically.
 
         Returns
         -------
-            bool: True if successfully deployed range. False otherwise.
+            DeployedRangeCreateSchema: True if successfully deployed range. False otherwise.
 
         """
         if not self.is_synthesized():
             logger.error("Range to destroy is not synthesized!")
-            return False
+            return None
 
         try:
             initial_dir = os.getcwd()
@@ -161,6 +169,7 @@ class AbstractBaseRange(ABC):
                 check=True,
                 env=env,
             )
+            self._is_deployed = True
 
             # Load state
             state_file_path = self.get_state_file_path()
@@ -168,25 +177,32 @@ class AbstractBaseRange(ABC):
                 with open(state_file_path, "r", encoding="utf-8") as file:
                     self.state_file = json.loads(file.read())
             else:
-                logger.error(
-                    "State file was not created during deployment. Expected path: %s",
-                    state_file_path,
-                )
-                return False
+                msg = f"State file was not created during deployment. Expected path: {state_file_path}"
+                logger.error(msg)
+                return FileNotFoundError(msg)
 
-            self._is_deployed = True
+            # Parse output variables
+            deployed_range = self.parse_terraform_outputs()
+            if not deployed_range:
+                return None
+
             logger.info("Successfully deployed range: %s", self.name)
-
-            # Delete files made during deployment
-            os.chdir(initial_dir)
-            # self.cleanup_synth() TODO: Uncomment once terraform state file output variables are confirmed
-            return True
         except subprocess.CalledProcessError as e:
             logger.error("Terraform command failed: %s", e)
-            return False
+            if not self.destroy():
+                logger.error("Failed to cleanup after deployment failure.")
+            return None
         except Exception as e:
             logger.error("Error during deployment: %s", e)
-            return False
+            if not self.destroy():
+                logger.error("Failed to cleanup after deployment failure.")
+            return None
+
+        # Delete files made during deployment
+        os.chdir(initial_dir)
+        self.cleanup_synth() 
+
+        return deployed_range
 
     def destroy(self) -> bool:
         """Destroy terraform infrastructure.
@@ -245,6 +261,65 @@ class AbstractBaseRange(ABC):
         except Exception as e:
             logger.error("Error during destroy: %s", e)
             return False
+
+    def parse_terraform_outputs(self) -> dict[str, Any] | None:
+        """Parse Terraform output variables into a deployed range object."""
+        state_file_path = self.get_state_file_path()
+        if not state_file_path.exists():
+            logger.error("Failed to find state file at: %s when attempting to parse Terraform outputs.", state_file_path)
+            return None
+        
+        # Change to directory with state file
+        os.chdir(state_file_path.parent)
+
+        try:
+            result = subprocess.run(
+                ["terraform", "output", "-json"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error("Failed to parse Terraform outputs: %s", e)
+            return None
+        
+        # Parse Terraform Output variables
+        raw_outputs = json.loads(result.stdout)
+        dumped_schema = self.range_obj.model_dump()
+
+        try:
+            # Range attributes
+            dumped_schema["jumpbox_resource_id"] = raw_outputs[f"{self.deployed_range_name}-JumpboxInstanceId"]["value"]
+            dumped_schema["jumpbox_public_ip"] = raw_outputs[f"{self.deployed_range_name}-JumpboxPublicIp"]["value"]
+            dumped_schema["range_private_key"] = raw_outputs[f"{self.deployed_range_name}-private-key"]["value"]
+
+            
+            for x, vpc in enumerate(self.range_obj.vpcs):
+                current_vpc = dumped_schema["vpcs"][x]
+                current_vpc["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-resource-id"]["value"]
+                for y, subnet in enumerate(vpc.subnets):
+                    current_subnet = current_vpc["subnets"][y]
+                    current_subnet["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-resource-id"]["value"]
+                    for z, host in enumerate(subnet.hosts):
+                        current_host = current_subnet["hosts"][z]
+                        current_host["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-{host.hostname}-resource-id"]["value"]
+                        current_host["ip_address"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-{host.hostname}-private-ip"]["value"]
+        except KeyError as e:
+            logger.exception("Failed to parse Terraform outputs. Missing key in output. Exception: %s", e)
+            return None
+        except Exception as e:
+            logger.exception("Unknown error parsing Terraform outputs. Exception: %s", e)
+            return None
+
+        # Add missing attributes
+        dumped_schema["description"] = self.description
+        dumped_schema["date"] = datetime.now(tz=timezone.utc)
+        dumped_schema["readme"] = None
+        dumped_schema["state_file"] = self.get_state_file()
+        dumped_schema["state"] = RangeState.ON
+        dumped_schema["region"] = self.region
+
+        return DeployedRangeCreateSchema.model_validate(dumped_schema)
 
     def is_synthesized(self) -> bool:
         """Return if range is currently synthesized."""
