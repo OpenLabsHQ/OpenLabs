@@ -14,6 +14,7 @@ from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeCreateSchema,
     DeployedRangeHeaderSchema,
+    DeployedRangeKeySchema,
     DeployedRangeSchema,
 )
 from .crud_vpcs import build_blueprint_vpc_models, build_deployed_vpc_models
@@ -363,6 +364,69 @@ async def get_deployed_range(
         "User: %s is not authorized to fetch deployed range: %s.", user_id, range_id
     )
     return None
+
+async def get_deployed_range_key(
+    db: AsyncSession,
+    range_id: int,
+    user_id: int,
+    is_admin: bool = False,
+) -> DeployedRangeKeySchema | None:
+    """Get the SSH private key for a deployed range by ID.
+
+    Optimized to only query the required 'range_private_key' column.
+
+    Args:
+    ----
+        db (Session): Database connection.
+        range_id (int): ID of the deployed range.
+        user_id (int): ID of user requesting the key.
+        is_admin (bool): Admins can access other user's range keys.
+
+    Returns:
+    -------
+        Optional[DeployedRangeKeySchema]: Deployed range key data if the range exists and the user is authorized, otherwise None.
+
+    """
+    stmt = select(DeployedRangeModel.range_private_key).where(
+        DeployedRangeModel.id == range_id
+    )
+
+    if not is_admin:
+        stmt = stmt.where(DeployedRangeModel.owner_id == user_id)
+
+    try:
+        range_private_key = await db.scalar(stmt)
+
+        if range_private_key is None:
+            logger.warning(
+                "Failed to fetch deployed range key for range: %s for user %s. Range not found or unauthorized.",
+                range_id,
+                user_id,
+            )
+            return None
+
+        logger.debug(
+            "Fetched deployed range key for range: %s for user %s.", range_id, user_id
+        )
+        return DeployedRangeKeySchema(range_private_key=range_private_key)
+
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error fetching deployed range key for range: %s for user %s. Exception: %s",
+            range_id,
+            user_id,
+            e,
+        )
+        raise
+
+    except Exception as e:
+         logger.exception(
+            "Unexpected error fetching deployed range key for range: %s for user %s. Exception: %s",
+            range_id,
+            user_id,
+            e,
+        )
+         raise
 
 
 def build_deployed_range_models(

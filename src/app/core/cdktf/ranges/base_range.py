@@ -164,12 +164,12 @@ class AbstractBaseRange(ABC):
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
             logger.info("Deploying selected range: %s", self.name)
+            self._is_deployed = True # To allow for clean up if apply fails
             subprocess.run(  # noqa: S603
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
                 env=env,
             )
-            self._is_deployed = True
 
             # Load state
             state_file_path = self.get_state_file_path()
@@ -312,6 +312,7 @@ class AbstractBaseRange(ABC):
             return None
 
         # Add missing attributes
+        dumped_schema["name"] = self.name
         dumped_schema["description"] = self.description
         dumped_schema["date"] = datetime.now(tz=timezone.utc)
         dumped_schema["readme"] = None

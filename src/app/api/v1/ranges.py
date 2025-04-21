@@ -13,21 +13,155 @@ from ...crud.crud_ranges import (
     delete_deployed_range,
     get_blueprint_range,
     get_deployed_range,
+    get_deployed_range_headers,
+    get_deployed_range_key,
 )
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.range_states import RangeState
 from ...models.user_model import UserModel
 from ...schemas.message_schema import MessageSchema
 from ...schemas.range_schemas import (
-    DeployedRangeCreateSchema,
     DeployedRangeHeaderSchema,
     DeployRangeSchema,
+    DeployedRangeKeySchema,
+    DeployedRangeSchema,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ranges", tags=["ranges"])
 
+
+@router.get("")
+async def get_deployed_range_headers_endpoint(
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+) -> list[DeployedRangeHeaderSchema]:
+    """Get a list of deployed range headers.
+
+    Args:
+    ----
+        db (AsyncSession): Async database connection.
+        current_user (UserModel): Currently authenticated user.
+
+    Returns:
+    -------
+        list[DeployedRangeHeaderSchema]: List of deployed range headers. For admin users, shows all deployed ranges.
+                               For regular users, shows only the ranges they own.
+
+    """
+    range_headers = await get_deployed_range_headers(
+        db, current_user.id, current_user.is_admin
+    )
+
+    if not range_headers:
+        logger.info(
+            "No deployed range headers found for user: %s (%s)",
+            current_user.email,
+            current_user.id,
+        )
+        msg = (
+            "No deployed ranges found!"
+            if current_user.is_admin
+            else "Unable to find any deployed ranges that you own!"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=msg,
+        )
+
+    logger.info(
+        "Successfully retrieved %s deployed range headers for user: %s (%s).",
+        len(range_headers),
+        current_user.email,
+        current_user.id,
+    )
+
+    return range_headers
+
+
+@router.get("/{range_id}")
+async def get_deployed_range_endpoint(
+    range_id: int,
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+) -> DeployedRangeSchema:
+    """Get a deployed range.
+
+    Args:
+    ----
+        range_id (int): ID of the deployed range.
+        db (AsyncSession): Async database connection.
+        current_user (UserModel): Currently authenticated user.
+
+    Returns:
+    -------
+        DeployedRangeSchema: Deployed range data from database. Admin users can access any range.
+
+    """
+    deployed_range = await get_deployed_range(
+        db, range_id, current_user.id, current_user.is_admin
+    )
+
+    if not deployed_range:
+        logger.info(
+            "Failed to retrieve deployed range: %s for user: %s (%s).",
+            range_id,
+            current_user.email,
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Deployed range with ID: {range_id} not found or you don't have access to it!",
+        )
+
+    logger.info(
+        "Successfully retrieved deployed range: %s for user: %s (%s).",
+        deployed_range.id,
+        current_user.email,
+        current_user.id,
+    )
+
+    return deployed_range 
+
+
+@router.get("/{range_id}/key")
+async def get_deployed_range_key_endpoint(range_id: int, db: AsyncSession = Depends(async_get_db), current_user: UserModel = Depends(get_current_user)) -> DeployedRangeKeySchema:
+    """Get range SSH key.
+    
+    Args:
+    ----
+        range_id (int): ID of the deployed range.
+        db (AsyncSession): Async database connection.
+        current_user (UserModel): Currently authenticated user.
+
+    Returns:
+    -------
+        DeployedRangeKeySchema: Range SSH key response schema.
+
+    """
+    range_private_key = await get_deployed_range_key(db, range_id, current_user.id, current_user.is_admin)
+
+    if not range_private_key:
+        logger.info(
+            "Failed to retrieve deployed range: %s private key for user: %s (%s).",
+            range_id,
+            current_user.email,
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Failed to retrieve range private key. Deployed range with ID: {range_id} not found or you don't have access to it!",
+        )
+    
+    logger.info(
+        "Successfully retrieved deployed range: %s private key for user: %s (%s).",
+        range_id,
+        current_user.email,
+        current_user.id,
+    )
+
+    return range_private_key
 
 @router.post("/deploy")
 async def deploy_range_from_blueprint_endpoint(

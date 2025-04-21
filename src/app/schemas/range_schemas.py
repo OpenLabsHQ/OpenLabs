@@ -241,3 +241,14 @@ class DeployRangeSchema(BaseModel):
     )
     blueprint_id: int = Field(..., description="ID of blueprint range to deploy.")
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
+
+class DeployedRangeKeySchema(BaseModel):
+    """Deployed range SSH key schema."""
+
+    range_private_key: str = Field(
+        ...,
+        min_length=1,
+        description="SSH private key for the range.",
+    )
+
+    model_config = ConfigDict(from_attributes=True)

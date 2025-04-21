@@ -89,7 +89,7 @@ async def get_blueprint_range_headers_endpoint(
             current_user.id,
         )
         msg = (
-            "No range templates found!"
+            "No range blueprints found!"
             if current_user.is_admin
             else "Unable to find any range blueprints that you own!"
         )
