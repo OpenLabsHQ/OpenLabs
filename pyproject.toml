@@ -19,7 +19,7 @@ plugins = ["pydantic.mypy"]
 # McCabe complexity (`C901`) by default.
 lint.select = ["E", "F", "I", "N", "D", "W", "ANN", "S", "B", "A", "C4", "DTZ", "EM", "ISC", "G", "Q", "RET", "SIM", "TD", "FIX", "PL", "RUF", "LOG"]
 # Ansible specific ignores: C408, E402
-lint.ignore = ["E501", "D100", "TD003", "PLR0912", "PLR0915", "D203", "D213", "ISC001", "C408", "E402"]
+lint.ignore = ["E501", "D100", "TD003", "PLR0912", "PLR0915", "D203", "D213", "ISC001", "C408", "E402", "B008"]
 include = ["src/**", "tests/**"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
-from ...crud.crud_users import get_user_by_id, update_user_password
+from ...crud.crud_users import (
+    get_all_users,
+    get_user_by_id,
+    update_user_password,
+)
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
 from ...schemas.message_schema import (
@@ -32,9 +36,45 @@ from ...utils.crypto import (
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.get("")
+async def get_all_users_endpoint(
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+) -> list[UserInfoResponseSchema]:
+    """Get all users (admin only).
+
+    Args:
+    ----
+        current_user (UserModel): The authenticated user.
+        db (AsyncSession): Database connection.
+
+    Returns:
+    -------
+        list[UserInfoResponseSchema]: List of all users.
+
+    """
+    # Only admins can see all users
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can view all users",
+        )
+
+    # Get all users
+    users = await get_all_users(db)
+
+    # Convert to response schema
+    return [
+        UserInfoResponseSchema(
+            id=str(user.id), name=user.name, email=user.email, admin=user.is_admin
+        )
+        for user in users
+    ]
+
+
 @router.get("/me")
 async def get_user_info(
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),
 ) -> UserInfoResponseSchema:
     """Get the current user's information.
 
@@ -48,15 +88,18 @@ async def get_user_info(
 
     """
     return UserInfoResponseSchema(
-        name=current_user.name, email=current_user.email, admin=current_user.is_admin
+        id=str(current_user.id),
+        name=current_user.name,
+        email=current_user.email,
+        admin=current_user.is_admin,
     )
 
 
 @router.post("/me/password", response_model=UpdatePasswordMessageSchema)
 async def update_password(
     password_update: PasswordUpdateSchema,
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
 ) -> JSONResponse:
     """Update the current user's password.
 
@@ -117,8 +160,8 @@ async def update_password(
 
 @router.get("/me/secrets")
 async def get_user_secrets(
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
 ) -> UserSecretResponseSchema:
     """Get the current user's cloud provider secrets status.
 
@@ -173,8 +216,8 @@ async def get_user_secrets(
 @router.post("/me/secrets/aws")
 async def update_aws_secrets(
     aws_secrets: AWSSecrets,
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
 ) -> AWSUpdateSecretMessageSchema:
     """Update the current user's AWS secrets.
 
@@ -227,8 +270,8 @@ async def update_aws_secrets(
 @router.post("/me/secrets/azure")
 async def update_azure_secrets(
     azure_secrets: AzureSecrets,
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
 ) -> AzureUpdateSecretMessageSchema:
     """Update the current user's Azure secrets.
 

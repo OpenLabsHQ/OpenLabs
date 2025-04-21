@@ -21,4 +21,6 @@ __all__ = [
     "OwnableObjectMixin",
     "SecretModel",
     "UserModel",
+    "WorkspaceModel",
+    "WorkspaceUserModel",
 ]

@@ -14,7 +14,7 @@ from ..db.database import async_get_db
 async def get_current_user(
     request: Request,
     token: str | None = Cookie(None, alias="token", include_in_schema=False),
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
 ) -> UserModel:
     """Get the current user from the JWT token.
 
@@ -97,7 +97,7 @@ async def get_current_user(
         ) from e
 
 
-def is_admin(user: UserModel = Depends(get_current_user)) -> UserModel:  # noqa: B008
+def is_admin(user: UserModel = Depends(get_current_user)) -> UserModel:
     """Check if the user is an admin.
 
     Args:

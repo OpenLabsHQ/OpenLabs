@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login", response_model=UserLoginMessageSchema)
 async def login(
     openlabs_user: UserBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
 ) -> JSONResponse:
     """Login a user.
 
@@ -99,7 +99,7 @@ async def login(
 @router.post("/register")
 async def register_new_user(
     openlabs_user: UserCreateBaseSchema,
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),
 ) -> UserID:
     """Create a new user.
 
