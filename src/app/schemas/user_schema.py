@@ -105,6 +105,11 @@ class UserCreateSchema(UserCreateBaseSchema, UserID):
 class UserInfoResponseSchema(BaseModel):
     """User information response object for user page on OpenLabs Frontend."""
 
+    id: str = Field(
+        ...,
+        description="Unique user identifier",
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    )
     name: str = Field(
         ...,
         description="Full name of user",
