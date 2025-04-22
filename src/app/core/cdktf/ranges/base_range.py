@@ -62,9 +62,10 @@ class AbstractBaseRange(ABC):
 
         # Initial values
         self.unique_str = uuid.uuid4()
-        self.stack_name = f"{self.range_obj.name}-{self.unique_str}"
+        # Remove spaces to avoid CDKTF errors
+        self.stack_name = f"{self.range_obj.name.replace(' ', '')}-{self.unique_str}"
         self._is_synthesized = False
-        self.deployed_range_name = f"{self.name}-{self.unique_str}"
+        self.deployed_range_name = f"{self.name.replace(' ', '')}-{self.unique_str}"
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
