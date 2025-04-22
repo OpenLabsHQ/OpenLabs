@@ -289,21 +289,46 @@ class AbstractBaseRange(ABC):
 
         try:
             # Range attributes
-            dumped_schema["jumpbox_resource_id"] = raw_outputs[f"{self.deployed_range_name}-JumpboxInstanceId"]["value"]
-            dumped_schema["jumpbox_public_ip"] = raw_outputs[f"{self.deployed_range_name}-JumpboxPublicIp"]["value"]
-            dumped_schema["range_private_key"] = raw_outputs[f"{self.deployed_range_name}-private-key"]["value"]
+            jumpbox_key = next((key for key in raw_outputs.keys() if key.endswith("-JumpboxInstanceId")), None)
+            jumpbox_ip_key = next((key for key in raw_outputs.keys() if key.endswith("-JumpboxPublicIp")), None)
+            private_key = next((key for key in raw_outputs.keys() if key.endswith("-private-key")), None)
+            
+            if not all([jumpbox_key, jumpbox_ip_key, private_key]):
+                logger.error("Could not find required keys in Terraform output: %s", raw_outputs.keys())
+                return None
+                
+            dumped_schema["jumpbox_resource_id"] = raw_outputs[jumpbox_key]["value"]
+            dumped_schema["jumpbox_public_ip"] = raw_outputs[jumpbox_ip_key]["value"]
+            dumped_schema["range_private_key"] = raw_outputs[private_key]["value"]
 
             
             for x, vpc in enumerate(self.range_obj.vpcs):
                 current_vpc = dumped_schema["vpcs"][x]
-                current_vpc["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-resource-id"]["value"]
+                vpc_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-resource-id")), None)
+                if not vpc_key:
+                    logger.error("Could not find VPC resource ID key for %s in Terraform output", vpc.name)
+                    return None
+                current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
+                
                 for y, subnet in enumerate(vpc.subnets):
                     current_subnet = current_vpc["subnets"][y]
-                    current_subnet["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-resource-id"]["value"]
+                    subnet_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-resource-id")), None)
+                    if not subnet_key:
+                        logger.error("Could not find subnet resource ID key for %s in %s in Terraform output", subnet.name, vpc.name)
+                        return None
+                    current_subnet["resource_id"] = raw_outputs[subnet_key]["value"]
+                    
                     for z, host in enumerate(subnet.hosts):
                         current_host = current_subnet["hosts"][z]
-                        current_host["resource_id"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-{host.hostname}-resource-id"]["value"]
-                        current_host["ip_address"] = raw_outputs[f"{self.deployed_range_name}-{vpc.name}-{subnet.name}-{host.hostname}-private-ip"]["value"]
+                        host_id_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-{host.hostname}-resource-id")), None)
+                        host_ip_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-{host.hostname}-private-ip")), None)
+                        
+                        if not host_id_key or not host_ip_key:
+                            logger.error("Could not find host keys for %s in %s/%s in Terraform output", host.hostname, vpc.name, subnet.name)
+                            return None
+                            
+                        current_host["resource_id"] = raw_outputs[host_id_key]["value"]
+                        current_host["ip_address"] = raw_outputs[host_ip_key]["value"]
         except KeyError as e:
             logger.exception("Failed to parse Terraform outputs. Missing key in output. Exception: %s", e)
             return None
