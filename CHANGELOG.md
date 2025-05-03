@@ -1,3 +1,15 @@
+# v0.9.0 (Sat May 03 2025)
+
+#### 🚀 Enhancement
+
+- Add middleware to convert all requests content type yaml to json [#71](https://github.com/OpenLabsHQ/API/pull/71) ([@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 1
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+
+---
+
 # v0.8.2 (Thu Apr 03 2025)
 
 #### 🐛 Bug Fix
