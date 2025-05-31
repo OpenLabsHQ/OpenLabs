@@ -13,7 +13,7 @@ BASE_ROUTE = "/api/v1"
 # ==============================
 
 # Valid payload for comparison
-valid_range_payload: dict[str, Any] = {
+valid_blueprint_range_create_payload: dict[str, Any] = {
     "vpcs": [
         {
             "cidr": "192.168.0.0/16",
@@ -35,6 +35,7 @@ valid_range_payload: dict[str, Any] = {
             ],
         }
     ],
+    "description": "Test blueprint creation JSON.",
     "provider": "aws",
     "name": "example-range-1",
     "vnc": False,
@@ -50,9 +51,15 @@ valid_range_deploy_payload: dict[str, Any] = {
     "readme": "",
 }
 
-valid_vpc_payload = copy.deepcopy(valid_range_payload["vpcs"][0])
-valid_subnet_payload = copy.deepcopy(valid_vpc_payload["subnets"][0])
-valid_host_payload = copy.deepcopy(valid_subnet_payload["hosts"][0])
+valid_blueprint_vpc_create_payload = copy.deepcopy(
+    valid_blueprint_range_create_payload["vpcs"][0]
+)
+valid_blueprint_subnet_create_payload = copy.deepcopy(
+    valid_blueprint_vpc_create_payload["subnets"][0]
+)
+valid_blueprint_host_create_payload = copy.deepcopy(
+    valid_blueprint_subnet_create_payload["hosts"][0]
+)
 
 # ==============================
 #      User/Auth Payloads

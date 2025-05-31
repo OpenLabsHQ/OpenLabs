@@ -6,7 +6,7 @@ import shutil
 import socket
 import uuid
 from datetime import datetime, timezone
-from typing import AsyncGenerator, Callable, Generator
+from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
@@ -711,3 +711,33 @@ def mock_delete_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
         return None
 
     monkeypatch.setattr("src.app.api.v1.ranges.delete_range", mock_delete_range)
+
+
+def remove_key_recursively(
+    data_structure: dict[Any, Any] | list[Any], key_to_remove: str
+) -> None:
+    """Recursively removes all instances of a specific key from a nested data structure (dictionaries and lists of dictionaries).
+
+    The function modifies the 'data_structure' in-place.
+
+    Args:
+    ----
+        data_structure: The dictionary or list to process. This could be
+                        your main nested dictionary.
+        key_to_remove: The string key to search for and remove from
+                       any dictionaries found within the structure.
+
+    Returns:
+    -------
+        None
+
+    """
+    if isinstance(data_structure, dict):
+        for key in list(data_structure.keys()):
+            if key == key_to_remove:
+                del data_structure[key]
+            else:
+                remove_key_recursively(data_structure[key], key_to_remove)
+    elif isinstance(data_structure, list):
+        for item in data_structure:
+            remove_key_recursively(item, key_to_remove)
