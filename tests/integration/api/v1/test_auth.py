@@ -1,5 +1,4 @@
 import copy
-import uuid
 
 import pytest
 from fastapi import status
@@ -25,9 +24,9 @@ async def test_new_user_register_login_logout_flow(
     )
     assert response.status_code == status.HTTP_200_OK
 
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
+    # Capture user ID
+    user_id = int(response.json()["id"])
+    assert user_id
 
     # Login as new user
     response = await integration_client.post(
