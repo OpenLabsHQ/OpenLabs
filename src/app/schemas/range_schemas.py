@@ -128,8 +128,10 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         description="State of deployed range.",
         examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
-    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.") # Add 3 more fields, Jumpbox cloud resource id, Jumpbox public IP address, SSH private key for range
-    
+    region: OpenLabsRegion = Field(
+        ..., description="Cloud region of deployed range."
+    )  # Add 3 more fields, Jumpbox cloud resource id, Jumpbox public IP address, SSH private key for range
+
     # Jumpbox attributes
     jumpbox_resource_id: str = Field(
         ...,
@@ -241,6 +243,7 @@ class DeployRangeSchema(BaseModel):
     )
     blueprint_id: int = Field(..., description="ID of blueprint range to deploy.")
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
+
 
 class DeployedRangeKeySchema(BaseModel):
     """Deployed range SSH key schema."""

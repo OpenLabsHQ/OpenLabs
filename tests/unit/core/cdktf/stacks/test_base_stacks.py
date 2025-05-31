@@ -3,7 +3,7 @@ from cdktf import App
 
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.enums.regions import OpenLabsRegion
-from tests.unit.core.cdktf.config import one_all_template
+from tests.unit.core.cdktf.config import one_all_blueprint
 
 
 def test_abstract_stack_creation_not_implemented_error() -> None:
@@ -11,7 +11,7 @@ def test_abstract_stack_creation_not_implemented_error() -> None:
     with pytest.raises(NotImplementedError):
         AbstractBaseStack(
             scope=App(),
-            template_range=one_all_template,
+            template_range=one_all_blueprint,
             cdktf_id="test-abstract-stack",
             cdktf_dir="/nonexistent/dir",
             region=OpenLabsRegion.US_EAST_1,

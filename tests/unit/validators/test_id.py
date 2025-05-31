@@ -1,8 +1,6 @@
 import uuid
 from random import randint
 
-from src.app.validators.id import is_valid_uuid4
-
 
 def test_valid_uuid4() -> None:
     """Test we get true for valid uuid4 strings."""

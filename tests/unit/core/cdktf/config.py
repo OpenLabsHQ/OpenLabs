@@ -1,6 +1,6 @@
 from typing import Any
 
-from src.app.schemas.template_range_schema import TemplateRangeSchema
+from src.app.schemas.range_schemas import BlueprintRangeSchema
 
 
 # Function to derive a subnet CIDR from the VPC CIDR
@@ -14,36 +14,20 @@ def modify_cidr(vpc_cidr: str, new_third_octet: int) -> str:
 
 
 # Valid payload for comparison
-one_all_template_dict: dict[str, Any] = {
+one_all_blueprint_dict: dict[str, Any] = {
     "vpcs": [
         {
+            "id": 1,
             "cidr": "192.168.0.0/16",
             "name": "example-vpc-1",
             "subnets": [
                 {
+                    "id": 1,
                     "cidr": "192.168.1.0/24",
                     "name": "example-subnet-1",
                     "hosts": [
                         {
-                            "hostname": "example-host-1",
-                            "os": "debian_11",
-                            "spec": "tiny",
-                            "size": 8,
-                            "tags": ["web", "linux"],
-                        }
-                    ],
-                }
-            ],
-        },
-        {
-            "cidr": "10.10.0.0/16",
-            "name": "example-vpc-2",
-            "subnets": [
-                {
-                    "cidr": "10.10.1.0/24",
-                    "name": "example-subnet-1",
-                    "hosts": [
-                        {
+                            "id": 1,
                             "hostname": "example-host-1",
                             "os": "debian_11",
                             "spec": "tiny",
@@ -55,12 +39,13 @@ one_all_template_dict: dict[str, Any] = {
             ],
         },
     ],
+    "id": 1,
     "provider": "aws",
     "name": "example-range-2",
     "vnc": False,
     "vpn": False,
 }
 
-one_all_template = TemplateRangeSchema.model_validate(
-    one_all_template_dict, from_attributes=True
+one_all_blueprint = BlueprintRangeSchema.model_validate(
+    one_all_blueprint_dict, from_attributes=True
 )

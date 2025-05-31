@@ -10,8 +10,8 @@ import pytest
 from src.app.core.cdktf.ranges.aws_range import AWSRange
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.regions import OpenLabsRegion
+from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
 from src.app.schemas.user_schema import UserID
 from tests.unit.core.cdktf.cdktf_mocks import (
     DummyPath,
@@ -19,7 +19,7 @@ from tests.unit.core.cdktf.cdktf_mocks import (
     fake_run_exception,
     fake_subprocess_run_cpe,
 )
-from tests.unit.core.cdktf.config import one_all_template
+from tests.unit.core.cdktf.config import one_all_blueprint
 
 # NOTE:
 # This file is for testing base_range.py and the AbstractBaseRange class. Because
@@ -30,13 +30,13 @@ from tests.unit.core.cdktf.config import one_all_template
 @pytest.fixture(scope="function")
 def aws_range(
     range_factory: Callable[
-        [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+        [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
         AbstractBaseRange,
     ],
 ) -> AbstractBaseRange:
-    """Synthesize AWS stack with one_all_template."""
+    """Synthesize AWS stack with one_all_blueprint."""
     # Call the factory with the desired stack, stack name, and region.
-    return range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
+    return range_factory(AWSRange, one_all_blueprint, OpenLabsRegion.US_EAST_1)
 
 
 def test_base_range_synthesize_exception(
@@ -93,7 +93,7 @@ def test_base_range_init_with_state_file() -> None:
     aws_range = AWSRange(
         id=uuid.uuid4(),
         name="test-range",
-        template=one_all_template,
+        template=one_all_blueprint,
         region=OpenLabsRegion.US_EAST_1,
         owner_id=UserID(id=uuid.uuid4()),
         secrets=SecretSchema(),

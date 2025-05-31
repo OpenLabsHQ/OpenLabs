@@ -1,7 +1,5 @@
 import pytest
 
-from src.app.crud.crud_range_templates import delete_range_template
-
 from .crud_mocks import DummyDB, DummyTemplateRange
 
 

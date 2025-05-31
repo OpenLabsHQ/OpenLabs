@@ -6,9 +6,6 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
-from src.app.models.template_range_model import TemplateRangeModel
-from src.app.schemas.template_host_schema import TemplateHostSchema
-from src.app.schemas.template_subnet_schema import TemplateSubnetHeaderSchema
 from tests.conftest import authenticate_client
 
 from .config import (

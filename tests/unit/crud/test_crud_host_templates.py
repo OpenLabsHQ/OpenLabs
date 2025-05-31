@@ -1,7 +1,5 @@
 import pytest
 
-from src.app.crud.crud_host_templates import delete_host_template
-
 from .crud_mocks import DummyDB, DummyTemplateHost
 
 

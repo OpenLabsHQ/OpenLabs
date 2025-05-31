@@ -29,12 +29,10 @@ from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
-from src.app.models.range_model import RangeModel
+from src.app.models.range_models import DeployedRangeModel
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schema import RangeID, RangeSchema
+from src.app.schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
-from src.app.schemas.user_schema import UserID
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
 from tests.unit.api.v1.config import (
@@ -114,14 +112,14 @@ def create_db_schema(postgres_container: str) -> None:
 
 @pytest.fixture(scope="module")
 def synthesize_factory() -> (
-    Callable[[type[AbstractBaseStack], TemplateRangeSchema, str, OpenLabsRegion], str]
+    Callable[[type[AbstractBaseStack], BlueprintRangeSchema, str, OpenLabsRegion], str]
 ):
     """Get factory to generate CDKTF synthesis for different stack classes."""
     from cdktf import Testing
 
     def _synthesize(
         stack_cls: type[AbstractBaseStack],
-        cyber_range: TemplateRangeSchema,
+        cyber_range: BlueprintRangeSchema,
         stack_name: str = "test_range",
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
     ) -> str:
@@ -147,28 +145,25 @@ def synthesize_factory() -> (
 
 @pytest.fixture(scope="module")
 def range_factory() -> Callable[
-    [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+    [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
     AbstractBaseRange,
 ]:
     """Get factory to generate range object sythesis output."""
 
     def _range_synthesize(
         range_cls: type[AbstractBaseRange],
-        template: TemplateRangeSchema,
+        range_blueprint: BlueprintRangeSchema,
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
         state_file: None = None,
     ) -> AbstractBaseRange:
         """Create range object and return synth() output."""
-        range_id = uuid.uuid4()
-        owner_id = uuid.uuid4()
         secrets = SecretSchema()
 
         return RangeFactory.create_range(
-            id=range_id,
             name="test-range",
-            template=template,
+            description="Range for testing purposes!",
+            range_obj=range_blueprint,
             region=region,
-            owner_id=UserID(id=owner_id),
             secrets=secrets,
             state_file=state_file,
         )
@@ -218,7 +213,7 @@ async def register_user(
     email: str | None = None,
     password: str | None = None,
     name: str | None = None,
-) -> tuple[uuid.UUID, str, str, str]:
+) -> tuple[int, str, str, str]:
     """Register a user using the provided client.
 
     Optionally, provide a specific email, password, and name for the registered user.
@@ -232,7 +227,7 @@ async def register_user(
 
     Returns:
     -------
-        uuid.UUID: UUID of newly registered user.
+        int: ID of newly registered user.
         str: Username of registered user.
         str: Password of registered user.
         str: Name of the registered user.
@@ -268,10 +263,10 @@ async def register_user(
     )
     assert response.status_code == status.HTTP_200_OK, "Failed to register user."
 
-    user_id = response.json()["id"]
+    user_id = int(response.json()["id"])
     assert user_id, "Failed to retrieve test user ID."
 
-    return uuid.UUID(user_id, version=4), email, password, name
+    return user_id, email, password, name
 
 
 async def login_user(client: AsyncClient, email: str, password: str) -> bool:
@@ -603,6 +598,8 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
             OpenLabsRegion.US_EAST_1,
             uuid.uuid4(),
             SecretSchema(),
+            "Test range description.",
+            None,  # No state file
         ),
     )
 
@@ -610,7 +607,7 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return false to trigger specific error."""
-    template_schema = TemplateRangeSchema.model_validate(
+    template_schema = BlueprintRangeSchema.model_validate(
         valid_range_payload, from_attributes=True
     )
     monkeypatch.setattr(
@@ -640,7 +637,7 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return true."""
-    template_schema = TemplateRangeSchema.model_validate(
+    template_schema = BlueprintRangeSchema.model_validate(
         valid_range_payload, from_attributes=True
     )
     monkeypatch.setattr(
@@ -673,7 +670,7 @@ def mock_is_range_owner_false(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the is_range_owner function to return false."""
 
     async def mock_is_range_owner(
-        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
+        db: AsyncSession, range_id: int, user_id: uuid.UUID
     ) -> bool:
         return False
 
@@ -685,7 +682,7 @@ def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the is_range_owner function to return false."""
 
     async def mock_is_range_owner(
-        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
+        db: AsyncSession, range_id: int, user_id: int
     ) -> bool:
         return True
 
@@ -697,7 +694,7 @@ def mock_create_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the create_range function to return nothing to force the error when adding to the ranges table."""
 
     async def mock_create_range(
-        db: AsyncSession, range_schema: RangeSchema, owner_id: uuid.UUID
+        db: AsyncSession, range_schema: DeployedRangeSchema, owner_id: int
     ) -> None:
         return None
 
@@ -708,7 +705,9 @@ def mock_create_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_delete_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
 
-    async def mock_delete_range(db: AsyncSession, range_model: RangeModel) -> None:
+    async def mock_delete_range(
+        db: AsyncSession, range_model: DeployedRangeModel
+    ) -> None:
         return None
 
     monkeypatch.setattr("src.app.api.v1.ranges.delete_range", mock_delete_range)

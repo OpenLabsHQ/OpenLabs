@@ -1,7 +1,5 @@
 import pytest
 
-from src.app.crud.crud_subnet_templates import delete_subnet_template
-
 from .crud_mocks import DummyDB, DummyTemplateSubnet
 
 

@@ -9,13 +9,13 @@ from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.user_schema import UserID
-from tests.unit.core.cdktf.config import one_all_template
+from tests.unit.core.cdktf.config import one_all_blueprint
 
 
 def test_range_factory_non_existent_range_type() -> None:
     """Test that RangeFactory.create_range() raises a ValueError when invalid provider is provided."""
     # Set provider to non-existent provider
-    bad_provider_template = copy.deepcopy(one_all_template)
+    bad_provider_template = copy.deepcopy(one_all_blueprint)
 
     # Ignore invalid string assignment since we are triggering a ValueError
     bad_provider_template.provider = "FakeProvider"  # type: ignore
@@ -35,7 +35,7 @@ def test_range_factory_non_existent_range_type() -> None:
 def test_range_factory_build_aws_range() -> None:
     """Test that RangeFactory can build an AWSRange."""
     # Set template to AWS
-    aws_template = copy.deepcopy(one_all_template)
+    aws_template = copy.deepcopy(one_all_blueprint)
     aws_template.provider = OpenLabsProvider.AWS
 
     created_range = RangeFactory.create_range(

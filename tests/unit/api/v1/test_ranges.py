@@ -11,7 +11,6 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
 from tests.conftest import authenticate_client
 
 from .config import (

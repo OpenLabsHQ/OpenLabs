@@ -3,9 +3,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.app.crud.crud_ranges import delete_range, is_range_owner
-from src.app.schemas.range_schema import RangeID
-
 from .crud_mocks import DummyDB, DummyRangeModel
 
 

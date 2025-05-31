@@ -1,6 +1,5 @@
 import base64
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -17,14 +16,13 @@ from ...crud.crud_ranges import (
     get_deployed_range_key,
 )
 from ...crud.crud_users import get_decrypted_secrets
-from ...enums.range_states import RangeState
 from ...models.user_model import UserModel
 from ...schemas.message_schema import MessageSchema
 from ...schemas.range_schemas import (
     DeployedRangeHeaderSchema,
-    DeployRangeSchema,
     DeployedRangeKeySchema,
     DeployedRangeSchema,
+    DeployRangeSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -122,13 +120,17 @@ async def get_deployed_range_endpoint(
         current_user.id,
     )
 
-    return deployed_range 
+    return deployed_range
 
 
 @router.get("/{range_id}/key")
-async def get_deployed_range_key_endpoint(range_id: int, db: AsyncSession = Depends(async_get_db), current_user: UserModel = Depends(get_current_user)) -> DeployedRangeKeySchema:
+async def get_deployed_range_key_endpoint(
+    range_id: int,
+    db: AsyncSession = Depends(async_get_db),
+    current_user: UserModel = Depends(get_current_user),
+) -> DeployedRangeKeySchema:
     """Get range SSH key.
-    
+
     Args:
     ----
         range_id (int): ID of the deployed range.
@@ -140,7 +142,9 @@ async def get_deployed_range_key_endpoint(range_id: int, db: AsyncSession = Depe
         DeployedRangeKeySchema: Range SSH key response schema.
 
     """
-    range_private_key = await get_deployed_range_key(db, range_id, current_user.id, current_user.is_admin)
+    range_private_key = await get_deployed_range_key(
+        db, range_id, current_user.id, current_user.is_admin
+    )
 
     if not range_private_key:
         logger.info(
@@ -153,7 +157,7 @@ async def get_deployed_range_key_endpoint(range_id: int, db: AsyncSession = Depe
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Failed to retrieve range private key. Deployed range with ID: {range_id} not found or you don't have access to it!",
         )
-    
+
     logger.info(
         "Successfully retrieved deployed range: %s private key for user: %s (%s).",
         range_id,
@@ -162,6 +166,7 @@ async def get_deployed_range_key_endpoint(range_id: int, db: AsyncSession = Depe
     )
 
     return range_private_key
+
 
 @router.post("/deploy")
 async def deploy_range_from_blueprint_endpoint(
