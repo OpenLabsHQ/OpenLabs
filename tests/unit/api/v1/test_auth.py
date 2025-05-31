@@ -1,5 +1,4 @@
 import copy
-import uuid
 
 from fastapi import status
 from httpx import AsyncClient
@@ -20,9 +19,7 @@ async def test_user_register(client: AsyncClient) -> None:
     )
     assert response.status_code == status.HTTP_200_OK
 
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
+    assert int(response.json()["id"])
 
 
 async def test_user_register_bad_email(client: AsyncClient) -> None:
