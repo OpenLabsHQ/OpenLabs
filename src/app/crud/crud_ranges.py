@@ -203,7 +203,6 @@ async def create_blueprint_range(
         )
         raise
 
-    await db.commit()
     return BlueprintRangeHeaderSchema.model_validate(range_model)
 
 
