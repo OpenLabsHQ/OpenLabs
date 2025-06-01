@@ -39,7 +39,7 @@ from tests.unit.api.v1.config import (
     BASE_ROUTE,
     base_user_login_payload,
     base_user_register_payload,
-    valid_range_payload,
+    valid_blueprint_range_create_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -197,13 +197,25 @@ async def db_override(
 ) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
     """Fixture to override database dependency in test FastAPI app."""
     # Create a session factory using the captured engine.
-    async_session = async_sessionmaker(
+    async_session_factory_for_override = async_sessionmaker(
         bind=async_engine, expire_on_commit=False, class_=AsyncSession
     )
 
     async def override_async_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session() as session:
-            yield session
+        async with async_session_factory_for_override() as session:
+            try:
+                yield session
+                await session.commit()
+                logger.debug(
+                    "Test DB transaction committed successfully by override_async_get_db."
+                )
+            except Exception as e:
+                logger.debug(
+                    "Exception during test DB session or commit in override_async_get_db. Rolling back. Error: %s",
+                    e,
+                )
+                await session.rollback()
+                raise
 
     return override_async_get_db
 
