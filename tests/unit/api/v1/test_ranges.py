@@ -16,7 +16,7 @@ from tests.conftest import authenticate_client
 from .config import (
     BASE_ROUTE,
     valid_range_deploy_payload,
-    valid_range_payload,
+    valid_blueprint_range_create_payload,
 )
 
 ###### Test /ranges/deploy #######
