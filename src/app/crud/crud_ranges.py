@@ -49,6 +49,7 @@ async def get_blueprint_range_headers(
         BlueprintRangeModel.provider,
         BlueprintRangeModel.vnc,
         BlueprintRangeModel.vpn,
+        BlueprintRangeModel.description,
     ).select_from(BlueprintRangeModel)
 
     if not is_admin:
@@ -202,6 +203,7 @@ async def create_blueprint_range(
         )
         raise
 
+    await db.commit()
     return BlueprintRangeHeaderSchema.model_validate(range_model)
 
 
@@ -365,6 +367,7 @@ async def get_deployed_range(
     )
     return None
 
+
 async def get_deployed_range_key(
     db: AsyncSession,
     range_id: int,
@@ -420,13 +423,13 @@ async def get_deployed_range_key(
         raise
 
     except Exception as e:
-         logger.exception(
+        logger.exception(
             "Unexpected error fetching deployed range key for range: %s for user %s. Exception: %s",
             range_id,
             user_id,
             e,
         )
-         raise
+        raise
 
 
 def build_deployed_range_models(
