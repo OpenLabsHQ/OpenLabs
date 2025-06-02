@@ -217,7 +217,7 @@ async def delete_blueprint_range_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Range blueprint with id: {blueprint_id} not found or you don't have access to it!",
+            detail=f"Range blueprint with id: {blueprint_id} not found or you don't have permission to delete it!",
         )
 
     logger.info(
@@ -395,7 +395,7 @@ async def delete_blueprint_vpc_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"VPC blueprint with id: {blueprint_id} not found or you don't have access to it!",
+            detail=f"VPC blueprint with id: {blueprint_id} not found or you don't have permission to delete it!",
         )
 
     logger.info(
@@ -566,7 +566,7 @@ async def delete_subnet_template_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Subnet blueprint with id: {blueprint_id} not found or you don't have access to it!",
+            detail=f"Subnet blueprint with id: {blueprint_id} not found or you don't have permission to delete it!",
         )
 
     logger.info(
@@ -729,7 +729,7 @@ async def delete_blueprint_host_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Host blueprint with id: {blueprint_id} not found or you don't have access to it!",
+            detail=f"Host blueprint with id: {blueprint_id} not found or you don't have permission to delete it!",
         )
 
     logger.info(
