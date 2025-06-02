@@ -1,10 +1,10 @@
 from ipaddress import IPv4Network
 
 from sqlalchemy import BigInteger, ForeignKey, String
-from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from ..core.db.database import Base
+from ..core.db.ipv4_network_type import IPv4NetworkType
 from .mixin_models import OwnableObjectMixin
 
 
@@ -12,7 +12,7 @@ class VPCMixin(MappedAsDataclass):
     """Common VPC attributes."""
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    cidr: Mapped[IPv4Network] = mapped_column(CIDR, nullable=False)
+    cidr: Mapped[IPv4Network] = mapped_column(IPv4NetworkType, nullable=False)
 
 
 # ==================== Blueprints =====================
@@ -68,7 +68,7 @@ class DeployedVPCModel(Base, OwnableObjectMixin, VPCMixin):
         BigInteger,
         ForeignKey("deployed_ranges.id", ondelete="CASCADE"),
         nullable=True,
-        default=None
+        default=None,
     )
     range = relationship("DeployedRangeModel", back_populates="vpcs")
 
