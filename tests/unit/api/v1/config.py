@@ -9,7 +9,7 @@ BASE_ROUTE = "/api/v1"
 
 
 # ==============================
-#       Template Payloads
+#       Blueprint Payloads
 # ==============================
 
 # Valid payload for comparison
@@ -59,6 +59,81 @@ valid_blueprint_subnet_create_payload = copy.deepcopy(
 )
 valid_blueprint_host_create_payload = copy.deepcopy(
     valid_blueprint_subnet_create_payload["hosts"][0]
+)
+
+valid_blueprint_range_multi_create_payload: dict[str, Any] = {
+    "vpcs": [
+        {
+            "cidr": "10.0.0.0/16",
+            "name": "dev-vpc",
+            "subnets": [
+                {
+                    "cidr": "10.0.1.0/24",
+                    "name": "dev-subnet-web",
+                    "hosts": [
+                        {
+                            "hostname": "dev-web-01",
+                            "os": "ubuntu_22",
+                            "spec": "medium",
+                            "size": 20,
+                            "tags": ["web", "frontend", "ubuntu"],
+                        },
+                        {
+                            "hostname": "dev-db-01",
+                            "os": "suse_15",
+                            "spec": "large",
+                            "size": 50,
+                            "tags": ["database", "backend", "rocky"],
+                        },
+                    ],
+                },
+                {
+                    "cidr": "10.0.2.0/24",
+                    "name": "dev-subnet-app",
+                    "hosts": [
+                        {
+                            "hostname": "dev-app-01",
+                            "os": "debian_11",
+                            "spec": "medium",
+                            "size": 30,
+                            "tags": ["app", "linux"],
+                        }
+                    ],
+                },
+            ],
+        },
+        {
+            "cidr": "172.16.0.0/16",
+            "name": "prod-vpc",
+            "subnets": [
+                {
+                    "cidr": "172.16.1.0/24",
+                    "name": "prod-subnet-dmz",
+                    "hosts": [
+                        {
+                            "hostname": "prod-gateway-01",
+                            "os": "kali",
+                            "spec": "small",
+                            "size": 32,
+                            "tags": ["gateway", "security"],
+                        }
+                    ],
+                }
+            ],
+        },
+    ],
+    "description": "Multi-VPC, Multi-Subnet, Multi-Host test blueprint for OpenLabs.",
+    "provider": "aws",
+    "name": "multi-env-test-range",
+    "vnc": True,
+    "vpn": True,
+}
+
+valid_blueprint_vpc_multi_create_payload: dict[str, Any] = copy.deepcopy(
+    valid_blueprint_range_multi_create_payload["vpcs"][0]
+)
+valid_blueprint_subnet_multi_create_payload: dict[str, Any] = copy.deepcopy(
+    valid_blueprint_vpc_multi_create_payload["subnets"][0]
 )
 
 # ==============================
