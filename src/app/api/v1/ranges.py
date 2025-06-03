@@ -301,9 +301,12 @@ async def deploy_range_from_blueprint_endpoint(
 
     # Store range in database
     try:
-        deployed_range = await create_deployed_range(
+        deployed_range_header = await create_deployed_range(
             db, create_deployed_range_schema, user_id=current_user.id
         )
+        if not deployed_range_header:
+            msg = "Failed to save deployed range to database!"
+            raise RuntimeError(msg)
     except Exception as e:
         logger.exception(
             "Failed to commit range: %s to database on behalf of user: %s (%s)! Exception: %s",
@@ -316,18 +319,22 @@ async def deploy_range_from_blueprint_endpoint(
         # Auto clean up resources
         range_to_deploy.synthesize()
         range_to_deploy.destroy()
-        raise
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save deployed range to database. Range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
+        ) from e
 
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
-        deployed_range.name,
-        deployed_range.id,
+        deployed_range_header.name,
+        deployed_range_header.id,
         current_user.email,
         current_user.id,
     )
 
-    # Avoid returning lots of data
-    return DeployedRangeHeaderSchema.model_validate(deployed_range)
+    return deployed_range_header
 
 
 @router.delete("/{range_id}")
@@ -442,7 +449,7 @@ async def delete_range_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to synthesize range: {range_to_destroy.name}!",
+            detail=f"Failed to synthesize range: {range_to_destroy.name} ({range_id})!",
         )
 
     successful_destroy = range_to_destroy.destroy()
@@ -456,7 +463,7 @@ async def delete_range_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to destroy range: {range_to_destroy.name}!",
+            detail=f"Failed to destroy range: {range_to_destroy.name} ({range_id})!",
         )
 
     # Delete range from database
@@ -465,10 +472,8 @@ async def delete_range_endpoint(
             db, range_id, current_user.id, current_user.is_admin
         )
         if not deleted_from_db:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to delete deployed range in database! Range: {range_to_destroy.name}.",
-            )
+            msg = "Failed to delete destroyed range from DB!"
+            raise RuntimeError(msg)
     except Exception as e:
         logger.exception(
             "Failed to commit range deletion: %s to database on behalf of user: %s (%s)! Exception: %s",
@@ -477,7 +482,10 @@ async def delete_range_endpoint(
             current_user.id,
             e,
         )
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete deployed range in database! Range: {range_to_destroy.name} ({range_id}).",
+        ) from e
 
     return MessageSchema(
         message=f"Successfully destroyed range: {range_to_destroy.name} ({range_id})"
