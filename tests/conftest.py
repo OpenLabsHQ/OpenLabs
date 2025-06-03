@@ -2,6 +2,7 @@ import asyncio
 import copy
 import logging
 import os
+import random
 import shutil
 import socket
 import uuid
@@ -31,7 +32,11 @@ from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.range_models import DeployedRangeModel
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
+from src.app.schemas.range_schemas import (
+    BlueprintRangeSchema,
+    DeployedRangeHeaderSchema,
+    DeployedRangeSchema,
+)
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
@@ -40,6 +45,8 @@ from tests.unit.api.v1.config import (
     base_user_login_payload,
     base_user_register_payload,
     valid_blueprint_range_create_payload,
+    valid_deployed_range_data,
+    valid_deployed_range_header_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -588,8 +595,10 @@ def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.fixture
 async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the synthesize function call to return false to trigger specific error."""
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -604,11 +613,9 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "synthesize": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
             "Test range description.",
             None,  # No state file
@@ -619,8 +626,10 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return false to trigger specific error."""
-    template_schema = BlueprintRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -636,12 +645,12 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "deploy": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
+            "Test range description",
+            None,  # No state file
         ),
     )
 
@@ -649,8 +658,10 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return true."""
-    template_schema = BlueprintRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -666,13 +677,12 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
                 "deploy": lambda self: True,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "Test range description.",
+            None,  # No state file
         ),
     )
 
@@ -702,27 +712,75 @@ def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def mock_create_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the create_range function to return nothing to force the error when adding to the ranges table."""
+def mock_create_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the create_deployed_range crud function to return nothing to force the error when adding to the ranges table."""
 
-    async def mock_create_range(
-        db: AsyncSession, range_schema: DeployedRangeSchema, owner_id: int
-    ) -> None:
+    async def mock_create_range_in_db_failure(*args: dict, **kwargs: dict) -> None:
         return None
 
-    monkeypatch.setattr("src.app.api.v1.ranges.create_range", mock_create_range)
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_failure
+    )
 
 
 @pytest.fixture
-def mock_delete_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def mock_create_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the create_deployed_range crud function to return fake range to simulate success."""
+
+    async def mock_create_range_in_db_success(
+        *args: dict, **kwargs: dict
+    ) -> DeployedRangeHeaderSchema:
+        return DeployedRangeHeaderSchema.model_validate(
+            valid_deployed_range_header_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_success
+    )
+
+
+@pytest.fixture
+def mock_delete_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
 
-    async def mock_delete_range(
-        db: AsyncSession, range_model: DeployedRangeModel
-    ) -> None:
+    async def mock_delete_range(*args: dict, **kwargs: dict) -> None:
         return None
 
-    monkeypatch.setattr("src.app.api.v1.ranges.delete_range", mock_delete_range)
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range
+    )
+
+
+@pytest.fixture
+def mock_delete_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the delete_deployed_range crud function to return mock header data to simulate a successful delete."""
+
+    async def mock_delete_range_in_db_success(
+        *args: dict, **kwargs: dict
+    ) -> DeployedRangeHeaderSchema:
+        return DeployedRangeHeaderSchema.model_validate(
+            valid_deployed_range_header_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range_in_db_success
+    )
+
+
+@pytest.fixture
+def mock_retrieve_deployed_range_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Simulate successfully retrieving a deployed range from the database."""
+
+    async def mock_get_range_success(
+        *args: dict, **kwargs: dict
+    ) -> DeployedRangeSchema:
+        return DeployedRangeSchema.model_validate(
+            valid_deployed_range_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range", mock_get_range_success
+    )
 
 
 def remove_key_recursively(
@@ -753,3 +811,50 @@ def remove_key_recursively(
     elif isinstance(data_structure, list):
         for item in data_structure:
             remove_key_recursively(item, key_to_remove)
+
+
+def add_key_recursively(
+    data_structure: dict[Any, Any] | list[Any],
+    key_to_add: str,
+    value_generator: Callable[[], Any],
+) -> None:
+    """Recursively adds a specific key with a generated value to all dictionaries within a nested data structure (dictionaries and lists of dictionaries).
+
+    The function modifies the 'data_structure' in-place.
+
+    Args:
+    ----
+        data_structure: The dictionary or list to process.
+        key_to_add: The string key to add to any dictionaries found within the structure.
+        value_generator: A function that will be called to generate the value for the new key each time it's added.
+
+    Returns:
+    -------
+        None
+
+    """
+    if isinstance(data_structure, dict):
+        data_structure[key_to_add] = value_generator()
+        for key in data_structure:
+            # Avoid adding the key to the value we just added if it's also a dict
+            if key != key_to_add or not isinstance(data_structure[key], dict):
+                add_key_recursively(data_structure[key], key_to_add, value_generator)
+    elif isinstance(data_structure, list):
+        for item in data_structure:
+            add_key_recursively(item, key_to_add, value_generator)
+
+
+def generate_random_int(lower_bound: int = 1, upper_bound: int = 100) -> int:
+    """Generate random ints `lower_bound` <= int <= `upper_bound`.
+
+    Args:
+    ----
+        lower_bound (int): Lower bound of random ints generated.
+        upper_bound (int): Upper bound of random ints generated.
+
+    Returns:
+    -------
+        int: Randomly generated `lower_bound` <= int <= `upper_bound`.
+
+    """
+    return random.randint(lower_bound, upper_bound)  # noqa: S311

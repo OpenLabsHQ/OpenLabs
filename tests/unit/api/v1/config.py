@@ -1,7 +1,10 @@
 import copy
-import uuid
+import random
+from datetime import datetime, timezone
 from typing import Any
 
+from src.app.enums.providers import OpenLabsProvider
+from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion
 
 # Base route
@@ -46,9 +49,8 @@ valid_blueprint_range_create_payload: dict[str, Any] = {
 valid_range_deploy_payload: dict[str, Any] = {
     "name": "test-deploy-range-1",
     "description": "test range to deploy",
-    "template_id": str(uuid.uuid4()),
+    "blueprint_id": str(random.randint(1, 100)),  # noqa: S311
     "region": OpenLabsRegion.US_EAST_1.value,
-    "readme": "",
 }
 
 valid_blueprint_vpc_create_payload = copy.deepcopy(
@@ -135,6 +137,135 @@ valid_blueprint_vpc_multi_create_payload: dict[str, Any] = copy.deepcopy(
 valid_blueprint_subnet_multi_create_payload: dict[str, Any] = copy.deepcopy(
     valid_blueprint_vpc_multi_create_payload["subnets"][0]
 )
+
+valid_deployed_range_header_data: dict[str, Any] = {
+    "id": random.randint(1, 100),  # noqa: S311
+    "name": "Fake Deployed Range",
+    "description": "Description of fake deployed range for testing.",
+    "date": datetime.now(tz=timezone.utc),
+    "state": RangeState.ON,
+    "region": OpenLabsRegion.US_EAST_1,
+    "provider": OpenLabsProvider.AWS,
+}
+
+valid_deployed_range_data = {
+    "id": 999,
+    "vpcs": [
+        {
+            "id": 10,
+            "name": "production-vpc-main",
+            "cidr": "10.100.0.0/16",
+            "resource_id": "vpc-abc123xyz789",
+            "subnets": [
+                {
+                    "id": 101,
+                    "name": "prod-subnet-web-a",
+                    "cidr": "10.100.1.0/24",
+                    "resource_id": "subnet-def456uvw123",
+                    "hosts": [
+                        {
+                            "id": 1001,
+                            "hostname": "webserver-01",
+                            "os": "debian_11",
+                            "spec": "small",
+                            "size": 30,
+                            "tags": ["web", "frontend", "nginx"],
+                            "resource_id": "i-hostabc111",
+                            "ip_address": "10.100.1.10",
+                        },
+                        {
+                            "id": 1002,
+                            "hostname": "webserver-02",
+                            "os": "debian_11",
+                            "spec": "small",
+                            "size": 30,
+                            "tags": ["web", "frontend", "nginx"],
+                            "resource_id": "i-hostabc222",
+                            "ip_address": "10.100.1.11",
+                        },
+                    ],
+                },
+                {
+                    "id": 102,
+                    "name": "prod-subnet-app-a",
+                    "cidr": "10.100.2.0/24",
+                    "resource_id": "subnet-ghi789rst456",
+                    "hosts": [
+                        {
+                            "id": 1003,
+                            "hostname": "appserver-01",
+                            "os": "ubuntu_22",
+                            "spec": "medium",
+                            "size": 50,
+                            "tags": ["app", "backend", "api"],
+                            "resource_id": "i-hostdef333",
+                            "ip_address": "10.100.2.20",
+                        }
+                    ],
+                },
+                {
+                    "id": 103,
+                    "name": "prod-subnet-db-a",
+                    "cidr": "10.100.3.0/24",
+                    "resource_id": "subnet-jkl012pqr789",
+                    "hosts": [
+                        {
+                            "id": 1004,
+                            "hostname": "dbserver-01",
+                            "os": "windows_2022",
+                            "spec": "large",
+                            "size": 80,
+                            "tags": ["database", "sql", "critical"],
+                            "resource_id": "i-hostghi444",
+                            "ip_address": "10.100.3.30",
+                        }
+                    ],
+                },
+            ],
+        },
+        {
+            "id": 20,
+            "name": "staging-vpc",
+            "cidr": "10.200.0.0/16",
+            "resource_id": "vpc-lmn456opq012",
+            "subnets": [
+                {
+                    "id": 201,
+                    "name": "staging-subnet-main",
+                    "cidr": "10.200.1.0/24",
+                    "resource_id": "subnet-rst789uvw345",
+                    "hosts": [
+                        {
+                            "id": 2001,
+                            "hostname": "staging-app-01",
+                            "os": "kali",
+                            "spec": "medium",
+                            "size": 60,
+                            "tags": ["staging", "pentest"],
+                            "resource_id": "i-hostjkl555",
+                            "ip_address": "10.200.1.15",
+                        }
+                    ],
+                }
+            ],
+        },
+    ],
+    "description": "Comprehensive deployed test range with corrected schema attributes.",
+    "date": "2025-06-03T10:00:00Z",
+    "readme": "# Test Deployed Range: Version 2\n\nThis data uses the updated and correct schema definitions for all nested objects.\n\n## Environment Overview:\n- **Production VPC**: Contains web, app, and database subnets.\n- **Staging VPC**: Contains a general-purpose subnet for testing.\n",
+    "state_file": {
+        "simplified_mock_state": "Test data placeholder - not a real Terraform state."
+    },
+    "state": "on",
+    "region": "us_east_1",
+    "jumpbox_resource_id": "i-jumpbox789012",
+    "jumpbox_public_ip": "203.0.113.25",
+    "range_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDIfSjVkaDRtKNO\n... (rest of a mock SSH private key) ...\nhNUC8ZLe06edaNBX6N2jS9Wp3mk3JNGxQjagtrh9TGUrscedop4hCQABAoGALKe1\n-----END OPENSSH PRIVATE KEY-----",
+    "provider": "aws",
+    "name": "openlabs-deployed-test-v2",
+    "vnc": True,
+    "vpn": False,
+}
 
 # ==============================
 #      User/Auth Payloads
