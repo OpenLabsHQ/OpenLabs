@@ -4,7 +4,11 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
-from .config import BASE_ROUTE, base_user_login_payload, base_user_register_payload
+from tests.unit.api.v1.config import (
+    BASE_ROUTE,
+    base_user_login_payload,
+    base_user_register_payload,
+)
 
 user_register_payload = copy.deepcopy(base_user_register_payload)
 user_login_payload = copy.deepcopy(base_user_login_payload)

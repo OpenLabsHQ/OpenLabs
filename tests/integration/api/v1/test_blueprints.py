@@ -6,8 +6,7 @@ from httpx import AsyncClient
 
 from src.app.core.config import settings
 from tests.conftest import login_user, register_user, remove_key_recursively
-
-from .config import (
+from tests.unit.api.v1.config import (
     BASE_ROUTE,
     valid_blueprint_host_create_payload,
     valid_blueprint_range_create_payload,

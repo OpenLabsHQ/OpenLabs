@@ -2,7 +2,7 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
-from .config import BASE_ROUTE
+from tests.unit.api.v1.config import BASE_ROUTE
 
 
 @pytest.mark.asyncio(loop_scope="session")

@@ -6,8 +6,7 @@ from httpx import AsyncClient
 
 from src.app.core.config import settings
 from tests.conftest import login_user, logout_user, register_user
-
-from .config import (
+from tests.unit.api.v1.config import (
     BASE_ROUTE,
     aws_secrets_payload,
     azure_secrets_payload,
