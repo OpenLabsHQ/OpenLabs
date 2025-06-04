@@ -6,6 +6,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
+from src.app.core.auth.creds_factory import CredsFactory
+from src.app.schemas.creds_verify_schema import CredsVerifySchema
+
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
@@ -15,6 +18,7 @@ from ...models.user_model import UserModel
 from ...schemas.message_schema import (
     AWSUpdateSecretMessageSchema,
     AzureUpdateSecretMessageSchema,
+    MessageSchema,
     UpdatePasswordMessageSchema,
 )
 from ...schemas.secret_schema import (
@@ -168,6 +172,59 @@ async def get_user_secrets(
             created_at=azure_created_at,
         ),
     )
+
+
+@router.post("/me/secrets")
+async def update_user_secrets(
+    creds: CredsVerifySchema,
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+) -> MessageSchema:
+    """Update the current user's secrets.
+
+    Args:
+    ----
+        creds (CredsVerifySchema): The provider credentials to store.
+        current_user (UserModel): The authenticated user.
+        db (Session): Database connection.
+
+    Returns:
+    -------
+        AWSUpdateSecretMessageSchema: Status message. TODO: Update with abstract schema
+
+    """
+    # Fetch secrets explicitly from the database
+    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
+    result = await db.execute(stmt)
+    secrets = result.scalars().first()
+    if not secrets:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User secrets record not found",
+        )
+
+    # Verify credentials are valid before storing
+    creds_obj = CredsFactory.create_creds_verification(
+        provider=creds.provider, credentials=creds.credentials
+    )
+
+    # TODO: Add cred verifaciton functions in class  # noqa: FIX002, TD002
+
+    # Encrypt the AWS credentials using the user's public key
+    if not current_user.public_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User encryption keys not set up. Please register a new account.",
+        )
+
+    # Update user secrets
+    message = creds_obj.update_user_secrets(
+        secrets=secrets, current_user_public_key=current_user.public_key
+    )
+
+    await db.commit()
+
+    return message
 
 
 @router.post("/me/secrets/aws")
