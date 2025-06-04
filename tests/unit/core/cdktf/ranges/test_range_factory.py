@@ -31,7 +31,7 @@ def test_range_factory_non_existent_range_type() -> None:
 
 def test_range_factory_build_aws_range() -> None:
     """Test that RangeFactory can build an AWSRange."""
-    # Set template to AWS
+    # Set blueprint provider to AWS
     aws_blueprint = copy.deepcopy(one_all_blueprint)
     aws_blueprint.provider = OpenLabsProvider.AWS
 

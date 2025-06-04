@@ -536,7 +536,7 @@ async def upload_blueprint_subnet_endpoint(
 
 
 @router.delete("/subnets/{blueprint_id}")
-async def delete_subnet_template_endpoint(
+async def delete_blueprint_subnet_endpoint(
     blueprint_id: int,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008

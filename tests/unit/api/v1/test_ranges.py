@@ -51,8 +51,8 @@ async def test_deploy_without_valid_enc_key(auth_client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-async def test_deploy_without_valid_range_template(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range with a non-existent range template will fail."""
+async def test_deploy_without_valid_range_blueprint(auth_client: AsyncClient) -> None:
+    """Test that attempting to deploy a range with a non-existent range blueprint will fail."""
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     non_existent_range_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
@@ -77,12 +77,12 @@ async def test_deploy_without_valid_private_key(auth_client: AsyncClient) -> Non
     assert response.status_code == status.HTTP_200_OK
     blueprint_id = int(response.json()["id"])
 
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["blueprint_id"] = blueprint_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 

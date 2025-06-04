@@ -1,4 +1,3 @@
-import base64
 from cdktf import TerraformOutput
 from cdktf_cdktf_provider_aws.ec2_transit_gateway import Ec2TransitGateway
 from cdktf_cdktf_provider_aws.ec2_transit_gateway_route import Ec2TransitGatewayRoute
@@ -23,8 +22,8 @@ from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
-from .base_stack import AbstractBaseStack
 from ....utils.crypto import generate_range_rsa_key_pair
+from .base_stack import AbstractBaseStack
 
 
 class AWSStack(AbstractBaseStack):
@@ -40,7 +39,7 @@ class AWSStack(AbstractBaseStack):
 
         Args:
         ----
-            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Template range object to build terraform for.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Blueprint range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             range_name (str): Name of range to deploy. Range name + unique ID.
 
@@ -78,7 +77,7 @@ class AWSStack(AbstractBaseStack):
         jumpbox_vpc = Vpc(
             self,
             f"{range_name}-JumpBoxVPC",
-            cidr_block="10.255.0.0/16",  # TODO: Dynamically create a cidr block that does not exist with any of the vpc cidr blocks in the template
+            cidr_block="10.255.0.0/16",  # TODO: Dynamically create a cidr block that does not exist with any of the vpc cidr blocks in the blueprint
             enable_dns_support=True,
             enable_dns_hostnames=True,
             tags={"Name": "JumpBoxVPC"},

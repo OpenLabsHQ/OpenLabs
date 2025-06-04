@@ -78,7 +78,7 @@ async def test_blueprint_range_get_non_empty_list(client: AsyncClient) -> None:
     assert recieved_range == valid_blueprint_copy
 
 
-async def test_blueprint_all_get_non_standalone_templates(
+async def test_blueprint_all_get_non_standalone_blueprints(
     client: AsyncClient,
 ) -> None:
     """Test that, after uploading range blueprint previously, we have all non-standalone blueprints."""
@@ -413,7 +413,7 @@ async def test_blueprint_range_host_size_too_small(auth_client: AsyncClient) -> 
 
 
 async def test_blueprint_range_delete(auth_client: AsyncClient) -> None:
-    """Test that we can sucessfully delete a range template."""
+    """Test that we can sucessfully delete a blueprint range."""
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/ranges", json=valid_blueprint_range_create_payload
     )
@@ -443,7 +443,7 @@ async def test_blueprint_range_delete_invalid_id(auth_client: AsyncClient) -> No
 
 
 async def test_blueprint_ramge_delete_non_existent(auth_client: AsyncClient) -> None:
-    """Test that we get a 404 when trying to delete a nonexistent range template."""
+    """Test that we get a 404 when trying to delete a nonexistent blueprint range."""
     response = await auth_client.delete(
         f"{BASE_ROUTE}/blueprints/ranges/{random.randint(-420, -69)}"  # noqa: S311
     )
@@ -462,7 +462,7 @@ async def test_blueprint_range_delete_non_standalone(
     # Patch range model method to return False
     monkeypatch.setattr(BlueprintRangeModel, "is_standalone", lambda self: False)
 
-    # Add a range template
+    # Add a blueprint range
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/ranges", json=valid_blueprint_range_create_payload
     )
@@ -765,7 +765,7 @@ async def test_blueprint_vpc_delete_invalid_id(auth_client: AsyncClient) -> None
 async def test_blueprint_vpc_delete_non_existent(auth_client: AsyncClient) -> None:
     """Test that we get a 404 when trying to delete a nonexistent VPC blueprint."""
     response = await auth_client.delete(
-        f"{BASE_ROUTE}/templates/vpcs/{random.randint(-420, -69)}"  # noqa: S311
+        f"{BASE_ROUTE}/blueprints/vpcs/{random.randint(-420, -69)}"  # noqa: S311
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -801,7 +801,7 @@ async def test_blueprint_vpc_delete_cascade_single_subnet_and_host(
     auth_client: AsyncClient,
 ) -> None:
     """Test that when we delete a VPC blueprint it cascades and deletes the associated hosts."""
-    # Add a VPC template
+    # Add a blueprint VPC
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/vpcs", json=valid_blueprint_vpc_create_payload
     )
@@ -822,7 +822,7 @@ async def test_blueprint_vpc_delete_cascade_single_subnet_and_host(
     blueprint_host = blueprint_subnet["hosts"][0]
     blueprint_host_id = blueprint_host["id"]
 
-    # Delete standalone VPC template
+    # Delete standalone blueprint VPC
     response = await auth_client.delete(f"{BASE_ROUTE}/blueprints/vpcs/{vpc_id}")
     assert response.status_code == status.HTTP_200_OK
 
@@ -935,7 +935,7 @@ async def test_blueprint_subnet_valid_multi_payload(auth_client: AsyncClient) ->
     assert int(response.json()["id"])
 
 
-async def test_template_subnet_get_subnet_invalid_id(
+async def test_blueprint_subnet_get_subnet_invalid_id(
     auth_client: AsyncClient,
 ) -> None:
     """Test that we get a 422 when providing an invalid ID."""
@@ -1047,8 +1047,8 @@ async def test_blueprint_subnet_delete_invalid_id(auth_client: AsyncClient) -> N
 
 
 async def test_blueprint_subnet_delete_non_standalone(auth_client: AsyncClient) -> None:
-    """Test that we get a 404 when trying to delete a non-standalone subnet template."""
-    # Add a VPC template
+    """Test that we get a 404 when trying to delete a non-standalone blueprint subnet."""
+    # Add a blueprint VPC
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/vpcs", json=valid_blueprint_vpc_create_payload
     )
@@ -1064,7 +1064,7 @@ async def test_blueprint_subnet_delete_non_standalone(auth_client: AsyncClient) 
     assert len(blueprint_vpc["subnets"]) >= 1
     blueprint_subnet = blueprint_vpc["subnets"][0]
 
-    # Try to delete non-standalone subnet template
+    # Try to delete non-standalone blueprint subnet
     response = await auth_client.delete(
         f"{BASE_ROUTE}/blueprints/subnets/{blueprint_subnet["id"]}"
     )
@@ -1075,7 +1075,7 @@ async def test_blueprint_subnet_delete_cascade_single_host(
     auth_client: AsyncClient,
 ) -> None:
     """Test that when we delete a subnet blueprint it cascades and deletes the associated host."""
-    # Add a subnet template
+    # Add a subnet blueprint
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/subnets", json=valid_blueprint_subnet_create_payload
     )
@@ -1287,7 +1287,7 @@ async def test_blueprint_host_delete_non_existent(auth_client: AsyncClient) -> N
 
 async def test_blueprint_host_delete_non_standalone(auth_client: AsyncClient) -> None:
     """Test that we get a 404 when trying to delete a non-standalone host blueprint."""
-    # Add a subnet template
+    # Add a subnet blueprint
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/subnets", json=valid_blueprint_subnet_create_payload
     )

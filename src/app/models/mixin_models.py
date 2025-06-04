@@ -12,7 +12,7 @@ class OwnableObjectMixin(MappedAsDataclass):
         comment="Primary key (BIGSERIAL)",
     )
 
-    # User who owns this template
+    # User who owns this object
     owner_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="CASCADE"),
