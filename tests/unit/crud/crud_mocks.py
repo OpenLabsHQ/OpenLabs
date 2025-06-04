@@ -7,44 +7,49 @@ class DummyDB:
 
     def __init__(self) -> None:
         """Initialize dummy db."""
+        self.get = AsyncMock()
         self.delete = AsyncMock()
         self.commit = AsyncMock()
         self.execute = AsyncMock()
 
 
-class DummyTemplateHost:
-    """Dummy host template model for testing."""
+class DummyBlueprintHost:
+    """Dummy blueprint host model for testing."""
+
+    def __init__(self) -> None:
+        """Initialize dummy host."""
+        self.id = 1
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateSubnet:
-    """Dummy template subnet model for testing."""
+class DummyBlueprintSubnet:
+    """Dummy blueprint subnet model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateVPC:
-    """Dummy template VPC model for testing."""
+class DummyBlueprintVPC:
+    """Dummy blueprint VPC model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateRange:
-    """Dummy template range model for testing."""
+class DummyBlueprintRange:
+    """Dummy blueprint range model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyRangeModel:
-    """Dummy range model for testing."""
+class DummyDeployedRange:
+    """Dummy deployed range for testing."""
 
     pass
