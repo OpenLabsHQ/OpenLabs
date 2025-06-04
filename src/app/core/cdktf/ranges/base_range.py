@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import json
 import logging
 import os
@@ -6,15 +5,19 @@ import shutil
 import subprocess
 import uuid
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from cdktf import App
 
-from ....enums.regions import OpenLabsRegion
-from ....enums.providers import OpenLabsProvider
 from ....enums.range_states import RangeState
-from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeCreateSchema, DeployedRangeSchema
+from ....enums.regions import OpenLabsRegion
+from ....schemas.range_schemas import (
+    BlueprintRangeSchema,
+    DeployedRangeCreateSchema,
+    DeployedRangeSchema,
+)
 from ....schemas.secret_schema import SecretSchema
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
@@ -165,7 +168,7 @@ class AbstractBaseRange(ABC):
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
             logger.info("Deploying selected range: %s", self.name)
-            self._is_deployed = True # To allow for clean up if apply fails
+            self._is_deployed = True  # To allow for clean up if apply fails
             subprocess.run(  # noqa: S603
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
@@ -180,7 +183,7 @@ class AbstractBaseRange(ABC):
             else:
                 msg = f"State file was not created during deployment. Expected path: {state_file_path}"
                 logger.error(msg)
-                return FileNotFoundError(msg)
+                raise FileNotFoundError(msg)
 
             # Parse output variables
             deployed_range = self.parse_terraform_outputs()
@@ -201,7 +204,7 @@ class AbstractBaseRange(ABC):
 
         # Delete files made during deployment
         os.chdir(initial_dir)
-        self.cleanup_synth() 
+        self.cleanup_synth()
 
         return deployed_range
 
@@ -263,19 +266,22 @@ class AbstractBaseRange(ABC):
             logger.error("Error during destroy: %s", e)
             return False
 
-    def parse_terraform_outputs(self) -> dict[str, Any] | None:
+    def parse_terraform_outputs(self) -> DeployedRangeCreateSchema | None:
         """Parse Terraform output variables into a deployed range object."""
         state_file_path = self.get_state_file_path()
         if not state_file_path.exists():
-            logger.error("Failed to find state file at: %s when attempting to parse Terraform outputs.", state_file_path)
+            logger.error(
+                "Failed to find state file at: %s when attempting to parse Terraform outputs.",
+                state_file_path,
+            )
             return None
-        
+
         # Change to directory with state file
         os.chdir(state_file_path.parent)
 
         try:
-            result = subprocess.run(
-                ["terraform", "output", "-json"],
+            result = subprocess.run(  # noqa: S603
+                ["terraform", "output", "-json"],  # noqa: S607
                 check=True,
                 capture_output=True,
                 text=True,
@@ -283,58 +289,118 @@ class AbstractBaseRange(ABC):
         except subprocess.CalledProcessError as e:
             logger.error("Failed to parse Terraform outputs: %s", e)
             return None
-        
+
         # Parse Terraform Output variables
         raw_outputs = json.loads(result.stdout)
         dumped_schema = self.range_obj.model_dump()
 
         try:
             # Range attributes
-            jumpbox_key = next((key for key in raw_outputs.keys() if key.endswith("-JumpboxInstanceId")), None)
-            jumpbox_ip_key = next((key for key in raw_outputs.keys() if key.endswith("-JumpboxPublicIp")), None)
-            private_key = next((key for key in raw_outputs.keys() if key.endswith("-private-key")), None)
-            
+            jumpbox_key = next(
+                (key for key in raw_outputs if key.endswith("-JumpboxInstanceId")),
+                None,
+            )
+            jumpbox_ip_key = next(
+                (key for key in raw_outputs if key.endswith("-JumpboxPublicIp")),
+                None,
+            )
+            private_key = next(
+                (key for key in raw_outputs if key.endswith("-private-key")),
+                None,
+            )
+
             if not all([jumpbox_key, jumpbox_ip_key, private_key]):
-                logger.error("Could not find required keys in Terraform output: %s", raw_outputs.keys())
+                logger.error(
+                    "Could not find required keys in Terraform output: %s",
+                    raw_outputs.keys(),
+                )
                 return None
-                
+
             dumped_schema["jumpbox_resource_id"] = raw_outputs[jumpbox_key]["value"]
             dumped_schema["jumpbox_public_ip"] = raw_outputs[jumpbox_ip_key]["value"]
             dumped_schema["range_private_key"] = raw_outputs[private_key]["value"]
 
-            
             for x, vpc in enumerate(self.range_obj.vpcs):
                 current_vpc = dumped_schema["vpcs"][x]
-                vpc_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-resource-id")), None)
+                vpc_key = next(
+                    (
+                        key
+                        for key in raw_outputs
+                        if key.endswith(f"-{vpc.name}-resource-id")
+                    ),
+                    None,
+                )
                 if not vpc_key:
-                    logger.error("Could not find VPC resource ID key for %s in Terraform output", vpc.name)
+                    logger.error(
+                        "Could not find VPC resource ID key for %s in Terraform output",
+                        vpc.name,
+                    )
                     return None
                 current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
-                
+
                 for y, subnet in enumerate(vpc.subnets):
                     current_subnet = current_vpc["subnets"][y]
-                    subnet_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-resource-id")), None)
+                    subnet_key = next(
+                        (
+                            key
+                            for key in raw_outputs
+                            if key.endswith(f"-{vpc.name}-{subnet.name}-resource-id")
+                        ),
+                        None,
+                    )
                     if not subnet_key:
-                        logger.error("Could not find subnet resource ID key for %s in %s in Terraform output", subnet.name, vpc.name)
+                        logger.error(
+                            "Could not find subnet resource ID key for %s in %s in Terraform output",
+                            subnet.name,
+                            vpc.name,
+                        )
                         return None
                     current_subnet["resource_id"] = raw_outputs[subnet_key]["value"]
-                    
+
                     for z, host in enumerate(subnet.hosts):
                         current_host = current_subnet["hosts"][z]
-                        host_id_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-{host.hostname}-resource-id")), None)
-                        host_ip_key = next((key for key in raw_outputs.keys() if key.endswith(f"-{vpc.name}-{subnet.name}-{host.hostname}-private-ip")), None)
-                        
+                        host_id_key = next(
+                            (
+                                key
+                                for key in raw_outputs
+                                if key.endswith(
+                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-resource-id"
+                                )
+                            ),
+                            None,
+                        )
+                        host_ip_key = next(
+                            (
+                                key
+                                for key in raw_outputs
+                                if key.endswith(
+                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-private-ip"
+                                )
+                            ),
+                            None,
+                        )
+
                         if not host_id_key or not host_ip_key:
-                            logger.error("Could not find host keys for %s in %s/%s in Terraform output", host.hostname, vpc.name, subnet.name)
+                            logger.error(
+                                "Could not find host keys for %s in %s/%s in Terraform output",
+                                host.hostname,
+                                vpc.name,
+                                subnet.name,
+                            )
                             return None
-                            
+
                         current_host["resource_id"] = raw_outputs[host_id_key]["value"]
                         current_host["ip_address"] = raw_outputs[host_ip_key]["value"]
         except KeyError as e:
-            logger.exception("Failed to parse Terraform outputs. Missing key in output. Exception: %s", e)
+            logger.exception(
+                "Failed to parse Terraform outputs. Missing key in output. Exception: %s",
+                e,
+            )
             return None
         except Exception as e:
-            logger.exception("Unknown error parsing Terraform outputs. Exception: %s", e)
+            logger.exception(
+                "Unknown error parsing Terraform outputs. Exception: %s", e
+            )
             return None
 
         # Add missing attributes
