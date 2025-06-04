@@ -2,7 +2,6 @@ import json
 import os
 import shutil
 import subprocess
-import uuid
 from typing import Callable
 
 import pytest
@@ -12,7 +11,6 @@ from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.user_schema import UserID
 from tests.unit.core.cdktf.cdktf_mocks import (
     DummyPath,
     fake_open,
@@ -91,11 +89,10 @@ def test_base_range_init_with_state_file() -> None:
     test_state_file = {"test": "Test content"}
 
     aws_range = AWSRange(
-        id=uuid.uuid4(),
         name="test-range",
-        template=one_all_blueprint,
+        range_obj=one_all_blueprint,
         region=OpenLabsRegion.US_EAST_1,
-        owner_id=UserID(id=uuid.uuid4()),
+        description="Test description.",
         secrets=SecretSchema(),
         state_file=test_state_file,
     )
@@ -192,6 +189,9 @@ def test_base_range_deploy_success(
 
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
+    monkeypatch.setattr(
+        aws_range, "parse_terraform_outputs", lambda: {"fake": "output range"}
+    )
 
     # Patch cleanup_synth to simulate successful cleanup
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
@@ -202,8 +202,7 @@ def test_base_range_deploy_success(
         fake_open,
     )
 
-    result = aws_range.deploy()
-    assert result is True
+    assert aws_range.deploy()  # None means deploy failed
 
 
 def test_base_range_deploy_calledprocesserror(
@@ -221,8 +220,7 @@ def test_base_range_deploy_calledprocesserror(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
 
-    result: bool = aws_range.deploy()
-    assert result is False
+    assert not aws_range.deploy()  # None means deploy failed
 
 
 def test_base_range_deploy_exception(
@@ -240,8 +238,7 @@ def test_base_range_deploy_exception(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
 
-    result: bool = aws_range.deploy()
-    assert result is False
+    assert not aws_range.deploy()  # None means deploy failed
 
 
 def test_base_range_deploy_no_state_file(
@@ -264,8 +261,7 @@ def test_base_range_deploy_no_state_file(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: dummy_path_no_exist)
     monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
 
-    result = aws_range.deploy()
-    assert result is False
+    assert not aws_range.deploy()  # None means deploy failed
 
 
 def test_base_range_destroy_success(
