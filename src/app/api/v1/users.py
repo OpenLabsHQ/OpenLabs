@@ -217,7 +217,7 @@ async def update_user_secrets(
             detail="User encryption keys not set up. Please register a new account.",
         )
 
-    # Update user secrets
+    # Update user secrets with encryption
     message = creds_obj.update_user_secrets(
         secrets=secrets, current_user_public_key=current_user.public_key
     )
