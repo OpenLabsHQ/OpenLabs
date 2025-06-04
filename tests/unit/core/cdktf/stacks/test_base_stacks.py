@@ -11,7 +11,7 @@ def test_abstract_stack_creation_not_implemented_error() -> None:
     with pytest.raises(NotImplementedError):
         AbstractBaseStack(
             scope=App(),
-            template_range=one_all_blueprint,
+            range_obj=one_all_blueprint,
             cdktf_id="test-abstract-stack",
             cdktf_dir="/nonexistent/dir",
             region=OpenLabsRegion.US_EAST_1,
