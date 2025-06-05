@@ -27,6 +27,8 @@ from tests.unit.api.v1.config import (
 
 from .crud_mocks import DummyBlueprintHost, DummyDB
 
+# ==================== Blueprints =====================
+
 
 @pytest.mark.parametrize(
     "is_admin, standalone_only, expect_owner_filter, expect_subnet_filter",
@@ -428,6 +430,9 @@ async def test_no_delete_non_standalone_blueprint_hosts(
     # Verify that delete and commit were not called
     dummy_db.delete.assert_not_called()
     dummy_db.flush.assert_not_called()
+
+
+# ==================== Deployed (Instances) =====================
 
 
 async def test_build_deployed_host_models() -> None:
