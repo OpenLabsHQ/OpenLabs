@@ -12,15 +12,8 @@ class DummyDB(AsyncMock):
         super().__init__(*args, spec=AsyncSession, **kwargs)
 
 
-class DummyBlueprintHost:
+class DummyBlueprintHost(Mock):
     """Dummy blueprint host model for testing."""
-
-    def __init__(self) -> None:
-        """Initialize dummy host."""
-        self.owner_id = 1
-        self.id = 1
-        self.subnet_id = 1
-        self.hostname = "hostname"
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
