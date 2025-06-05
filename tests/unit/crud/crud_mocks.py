@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,12 +20,8 @@ class DummyBlueprintHost(Mock):
         return True
 
 
-class DummyBlueprintSubnet:
+class DummyBlueprintSubnet(Mock):
     """Dummy blueprint subnet model for testing."""
-
-    def __init__(self) -> None:
-        """Initialize dummy subnet."""
-        self.id = 1
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
