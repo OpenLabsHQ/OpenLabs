@@ -1,17 +1,15 @@
-# Dummy DB session for testing
+from typing import Any
 from unittest.mock import AsyncMock
 
+from sqlalchemy.ext.asyncio import AsyncSession
 
-class DummyDB:
+
+class DummyDB(AsyncMock):
     """Dummy database class for testing."""
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: dict[str, Any]) -> None:  # noqa: ANN401
         """Initialize dummy db."""
-        self.get = AsyncMock()
-        self.delete = AsyncMock()
-        self.commit = AsyncMock()
-        self.execute = AsyncMock()
-        self.flush = AsyncMock()
+        super().__init__(*args, spec=AsyncSession, **kwargs)
 
 
 class DummyBlueprintHost:
@@ -19,7 +17,10 @@ class DummyBlueprintHost:
 
     def __init__(self) -> None:
         """Initialize dummy host."""
+        self.owner_id = 1
         self.id = 1
+        self.subnet_id = 1
+        self.hostname = "hostname"
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""

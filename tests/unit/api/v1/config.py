@@ -138,6 +138,10 @@ valid_blueprint_subnet_multi_create_payload: dict[str, Any] = copy.deepcopy(
     valid_blueprint_vpc_multi_create_payload["subnets"][0]
 )
 
+# ==============================
+#       Deployed Payloads
+# ==============================
+
 valid_deployed_range_header_data: dict[str, Any] = {
     "id": random.randint(1, 100),  # noqa: S311
     "name": "Fake Deployed Range",
@@ -148,7 +152,7 @@ valid_deployed_range_header_data: dict[str, Any] = {
     "provider": OpenLabsProvider.AWS,
 }
 
-valid_deployed_range_data = {
+valid_deployed_range_data: dict[str, Any] = {
     "id": 999,
     "vpcs": [
         {
@@ -266,6 +270,18 @@ valid_deployed_range_data = {
     "vnc": True,
     "vpn": False,
 }
+
+valid_deployed_vpc_data: dict[str, Any] = copy.deepcopy(
+    valid_deployed_range_data["vpcs"][0]
+)
+
+valid_deployed_subnet_data: dict[str, Any] = copy.deepcopy(
+    valid_deployed_vpc_data["subnets"][0]
+)
+
+valid_deployed_host_data: dict[str, Any] = copy.deepcopy(
+    valid_deployed_subnet_data["hosts"][0]
+)
 
 # ==============================
 #      User/Auth Payloads
