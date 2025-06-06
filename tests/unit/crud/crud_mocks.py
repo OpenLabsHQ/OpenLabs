@@ -36,24 +36,13 @@ class DummyBlueprintVPC(Mock):
         return True
 
 
-class DummyBlueprintRange:
+class DummyBlueprintRange(Mock):
     """Dummy blueprint range model for testing."""
 
-    def __init__(self) -> None:
-        """Initialize dummy range."""
-        self.id = 1
-
-    def is_standalone(self) -> bool:
-        """Return dummy standalone state."""
-        return True
+    pass
 
 
-class DummyDeployedRange:
+class DummyDeployedRange(Mock):
     """Dummy deployed range model for testing."""
-
-    def __init__(self) -> None:
-        """Initialize dummy deployed range."""
-        self.id = 1
-        self.owner_id = 1
 
     pass

@@ -396,39 +396,20 @@ async def get_deployed_range_key(
     if not is_admin:
         stmt = stmt.where(DeployedRangeModel.owner_id == user_id)
 
-    try:
-        range_private_key = await db.scalar(stmt)
+    range_private_key = await db.scalar(stmt)
 
-        if range_private_key is None:
-            logger.warning(
-                "Failed to fetch deployed range key for range: %s for user %s. Range not found or unauthorized.",
-                range_id,
-                user_id,
-            )
-            return None
-
-        logger.debug(
-            "Fetched deployed range key for range: %s for user %s.", range_id, user_id
-        )
-        return DeployedRangeKeySchema(range_private_key=range_private_key)
-
-    except SQLAlchemyError as e:
-        logger.exception(
-            "Database error fetching deployed range key for range: %s for user %s. Exception: %s",
+    if range_private_key is None:
+        logger.warning(
+            "Failed to fetch deployed range key for range: %s for user %s. Range not found or unauthorized.",
             range_id,
             user_id,
-            e,
         )
-        raise
+        return None
 
-    except Exception as e:
-        logger.exception(
-            "Unexpected error fetching deployed range key for range: %s for user %s. Exception: %s",
-            range_id,
-            user_id,
-            e,
-        )
-        raise
+    logger.debug(
+        "Fetched deployed range key for range: %s for user %s.", range_id, user_id
+    )
+    return DeployedRangeKeySchema(range_private_key=range_private_key)
 
 
 def build_deployed_range_models(
