@@ -28,12 +28,8 @@ class DummyBlueprintSubnet(Mock):
         return True
 
 
-class DummyBlueprintVPC:
+class DummyBlueprintVPC(Mock):
     """Dummy blueprint VPC model for testing."""
-
-    def __init__(self) -> None:
-        """Initialize dummy VPC."""
-        self.id = 1
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
