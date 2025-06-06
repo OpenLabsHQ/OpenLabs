@@ -118,11 +118,11 @@ async def test_admin_get_all_blueprint_subnets(
     assert isinstance(args[0], DummyBlueprintSubnet)
 
 
-async def test_get_non_existent_subnet_host() -> None:
+async def test_get_non_existent_blueprint_subnet() -> None:
     """Test that the crud function returns None when the blueprint subnet doesn't exist in the database."""
     dummy_db = DummyDB()
 
-    # Ensure that the "db" returns nothing like the host doesn't exist
+    # Ensure that the "db" returns nothing like the subnet doesn't exist
     dummy_db.get.return_value = None
 
     assert not await get_blueprint_subnet(dummy_db, subnet_id=1, user_id=-1)
@@ -415,8 +415,13 @@ async def test_delete_blueprint_subnet_raises_generic_errors(
     )
 
 
+@pytest.mark.parametrize(
+    "is_admin",
+    [True, False],
+)
 async def test_no_delete_non_standalone_blueprint_subnets(
     monkeypatch: pytest.MonkeyPatch,
+    is_admin: bool,
 ) -> None:
     """Test that attempting to delete a non-standalone blueprint subnet fails."""
     dummy_db = DummyDB()
@@ -428,7 +433,7 @@ async def test_no_delete_non_standalone_blueprint_subnets(
     # Ensure that we get the dummy subnet from the "db"
     dummy_db.get.return_value = dummy_subnet
 
-    assert not await delete_blueprint_subnet(dummy_db, 1, 100)
+    assert not await delete_blueprint_subnet(dummy_db, 1, 100, is_admin=is_admin)
 
     # Verify that delete and commit were not called
     dummy_db.delete.assert_not_called()
