@@ -246,9 +246,11 @@ async def test_create_blueprint_host_non_standalone(
     subnet_id = random.randint(1, 100)  # noqa: S311
 
     # Clear any subnet ID
-    dummy_host.subnet_id = None  # type: ignore
+    dummy_host.subnet_id = None
 
-    assert await create_blueprint_host(dummy_db, dummy_host, user_id, subnet_id=subnet_id)  # type: ignore
+    assert await create_blueprint_host(
+        dummy_db, dummy_host, user_id, subnet_id=subnet_id
+    )
     assert dummy_host.subnet_id == subnet_id
 
     # Check we make it to the end
@@ -412,8 +414,13 @@ async def test_delete_blueprint_host_raises_generic_errors(
     )
 
 
+@pytest.mark.parametrize(
+    "is_admin",
+    [True, False],
+)
 async def test_no_delete_non_standalone_blueprint_hosts(
     monkeypatch: pytest.MonkeyPatch,
+    is_admin: bool,
 ) -> None:
     """Test that attempting to delete a non-standalone blueprint host fails."""
     dummy_db = DummyDB()
@@ -425,7 +432,7 @@ async def test_no_delete_non_standalone_blueprint_hosts(
     # Ensure that we get the dummy host from the "db"
     dummy_db.get.return_value = dummy_host
 
-    assert not await delete_blueprint_host(dummy_db, 1, 100)
+    assert not await delete_blueprint_host(dummy_db, 1, 100, is_admin=is_admin)
 
     # Verify that delete and commit were not called
     dummy_db.delete.assert_not_called()
