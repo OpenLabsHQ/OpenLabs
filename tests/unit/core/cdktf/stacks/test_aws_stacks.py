@@ -43,35 +43,31 @@ def test_aws_stack_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
         )
 
 
-def test_aws_stack_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
-    """Ensure each VPC has at least one public subnet."""
+def test_aws_stack_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
+    """Ensure each the range stack has one public subnet."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_blueprint.vpcs:
-        # Generate the new subnet CIDR with third octet = 99
-        public_subnet_cidr = modify_cidr(str(vpc.cidr), 99)
-        assert Testing.to_have_resource_with_properties(
-            aws_one_all_synthesis,
-            Subnet.TF_RESOURCE_TYPE,
-            {
-                "tags": {"Name": f"RangePublicSubnet-{vpc.name}"},
-                "cidr_block": str(public_subnet_cidr),
-            },
-        )
+    assert Testing.to_have_resource_with_properties(
+        aws_one_all_synthesis,
+        Subnet.TF_RESOURCE_TYPE,
+        {
+            "tags": {"Name": "JumpBoxVPCPublicSubnet"},
+            "cidr_block": "10.255.99.0/24",
+        },
+    )
 
 
-def test_aws_stack_each_vpc_has_a_jumpbox_ec2_instance(
+def test_aws_stack_has_a_jumpbox_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
-    """Ensure each VPC has a jumpbox EC2 instance."""
+    """Ensure each the range stack has a jumpbox EC2 instance."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_blueprint.vpcs:
-        assert Testing.to_have_resource_with_properties(
-            aws_one_all_synthesis,
-            Instance.TF_RESOURCE_TYPE,
-            {"tags": {"Name": f"JumpBox-{vpc.name}"}},
-        )
+    assert Testing.to_have_resource_with_properties(
+        aws_one_all_synthesis,
+        Instance.TF_RESOURCE_TYPE,
+        {"tags": {"Name": "JumpBox"}},
+    )
 
 
 def test_aws_stack_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
@@ -84,7 +80,7 @@ def test_aws_stack_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) 
                 aws_one_all_synthesis,
                 Subnet.TF_RESOURCE_TYPE,
                 {
-                    "tags": {"Name": f"{subnet.name}-{vpc.name}"},
+                    "tags": {"Name": f"{subnet.name}"},
                     "cidr_block": str(subnet.cidr),
                 },
             )
@@ -103,7 +99,7 @@ def test_aws_stack_each_subnet_has_at_least_one_ec2_instance(
                     aws_one_all_synthesis,
                     Instance.TF_RESOURCE_TYPE,
                     {
-                        "tags": {"Name": f"{host.hostname}-{vpc.name}"},
+                        "tags": {"Name": f"{host.hostname}"},
                         "ami": str(AWS_OS_MAP[host.os]),
                         "instance_type": str(AWS_SPEC_MAP[host.spec]),
                     },

@@ -143,7 +143,7 @@ class AWSStack(AbstractBaseStack):
             vpc_security_group_ids=[jumpbox_sg.id],
             associate_public_ip_address=True,  # Ensures public IP is assigned
             key_name=key_pair.key_name,  # Use the generated key pair
-            tags={"Name": f"{range_name}-JumpBox"},
+            tags={"Name": "JumpBox"},
         )
 
         TerraformOutput(
