@@ -182,22 +182,22 @@ class AbstractBaseRange(ABC):
                     self.state_file = json.loads(file.read())
             else:
                 msg = f"State file was not created during deployment. Expected path: {state_file_path}"
-                logger.error(msg)
                 raise FileNotFoundError(msg)
 
             # Parse output variables
-            deployed_range = self.parse_terraform_outputs()
+            deployed_range = self._parse_terraform_outputs()
             if not deployed_range:
-                return None
+                msg = "Failed to parse terraform outputs!"
+                raise RuntimeError(msg)
 
             logger.info("Successfully deployed range: %s", self.name)
         except subprocess.CalledProcessError as e:
-            logger.error("Terraform command failed: %s", e)
+            logger.exception("Terraform command failed: %s", e)
             if not self.destroy():
                 logger.error("Failed to cleanup after deployment failure.")
             return None
         except Exception as e:
-            logger.error("Error during deployment: %s", e)
+            logger.exception("Error during deployment: %s", e)
             if not self.destroy():
                 logger.error("Failed to cleanup after deployment failure.")
             return None
@@ -233,9 +233,17 @@ class AbstractBaseRange(ABC):
             # Change to directory with `cdk.tf.json`
             initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
-            if not self.create_state_file():
+
+            # Try to create the state file
+            if not self.state_file and not self.create_state_file():
+                logger.info(
+                    "State file not saved! Unable to create a new one in the filesystem."
+                )
+
+            # Check for an existing state file to be used for destroying
+            if not self.get_state_file_path().exists():
                 msg = f"Unable to destroy range: {self.name} missing state file!"
-                raise ValueError(msg)
+                raise FileNotFoundError(msg)
 
             # Run Terraform commands
             env = os.environ.copy()
@@ -260,14 +268,18 @@ class AbstractBaseRange(ABC):
             logger.info("Successfully destroyed range: %s", self.name)
             return True
         except subprocess.CalledProcessError as e:
-            logger.error("Terraform command failed: %s", e)
+            logger.exception("Terraform command failed: %s", e)
             return False
         except Exception as e:
-            logger.error("Error during destroy: %s", e)
+            logger.exception("Error during destroy: %s", e)
             return False
 
-    def parse_terraform_outputs(self) -> DeployedRangeCreateSchema | None:
-        """Parse Terraform output variables into a deployed range object."""
+    def _parse_terraform_outputs(self) -> DeployedRangeCreateSchema | None:
+        """Parse Terraform output variables into a deployed range object.
+
+        Internal class function should not be called externally.
+
+        """
         state_file_path = self.get_state_file_path()
         if not state_file_path.exists():
             logger.error(
@@ -287,7 +299,7 @@ class AbstractBaseRange(ABC):
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            logger.error("Failed to parse Terraform outputs: %s", e)
+            logger.exception("Failed to parse Terraform outputs: %s", e)
             return None
 
         # Parse Terraform Output variables
