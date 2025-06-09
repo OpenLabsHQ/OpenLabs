@@ -678,11 +678,39 @@ async def test_blueprint_vpc_invalid_cidr(auth_client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+async def test_blueprint_vpc_invalid_public_cidr(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 response when the VPC CIDR is public."""
+    invalid_payload = copy.deepcopy(valid_blueprint_vpc_create_payload)
+    invalid_payload["cidr"] = "155.75.140.0/24"
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 async def test_blueprint_vpc_invalid_subnet_cidr(auth_client: AsyncClient) -> None:
     """Test that we get a 422 response when the VPC subnet CIDR is invalid."""
     invalid_payload = copy.deepcopy(valid_blueprint_vpc_create_payload)
     assert len(invalid_payload["subnets"]) >= 1
     invalid_payload["subnets"][0]["cidr"] = "192.168.300.0/24"
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+async def test_blueprint_vpc_overlap_subnet_cidr(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 response when the VPC subnet's CIDRs overlap."""
+    invalid_payload = copy.deepcopy(valid_blueprint_vpc_create_payload)
+    assert len(invalid_payload["subnets"]) >= 1
+    invalid_payload["subnets"][0]["cidr"] = "192.168.1.0/24"
+
+    # Create overlapping subnet
+    overlapping_subnet = copy.deepcopy(invalid_payload["subnets"][0])
+    overlapping_subnet["cidr"] = "192.168.1.0/26"
+    overlapping_subnet["name"] = invalid_payload["subnets"][0]["name"] + "-1"
+    invalid_payload["subnets"].append(overlapping_subnet)
+
     response = await auth_client.post(
         f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
     )
