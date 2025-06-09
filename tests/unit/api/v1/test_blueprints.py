@@ -250,6 +250,25 @@ async def test_blueprint_range_invalid_vpc_cidr(auth_client: AsyncClient) -> Non
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+async def test_blueprint_range_overlap_vpc_cidr(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 response when the range's VPC's CIDRs overlap."""
+    invalid_payload = copy.deepcopy(valid_blueprint_range_create_payload)
+    assert len(invalid_payload["vpcs"]) >= 1
+    invalid_payload["vpcs"][0]["cidr"] = "192.168.1.0/24"
+
+    # Create overlapping VPC
+    overlapping_vpc = copy.deepcopy(invalid_payload["vpcs"][0])
+    overlapping_vpc["cidr"] = "192.168.1.0/26"
+    overlapping_vpc["name"] = invalid_payload["vpcs"][0]["name"] + "-1"
+    overlapping_vpc["subnets"][0]["cidr"] = "192.168.1.0/27"
+    invalid_payload["vpcs"].append(overlapping_vpc)
+
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 async def test_blueprint_range_invalid_subnet_cidr(auth_client: AsyncClient) -> None:
     """Test for 422 response when subnet CIDR is invalid."""
     # Use deepcopy to ensure all nested dicts are copied
@@ -1251,6 +1270,33 @@ async def test_blueprint_host_get_nonexistent_host(auth_client: AsyncClient) -> 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+async def test_blueprint_host_duplicate_tags(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 error when a host has duplicate tags."""
+    dup_tags_host = copy.deepcopy(valid_blueprint_host_create_payload)
+
+    for _ in range(2):
+        dup_tags_host["tags"].append("duplicate-tag")
+
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/hosts", json=dup_tags_host
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+async def test_blueprint_host_long_tag(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 error when a host has a tag that is too long."""
+    long_tag_host = copy.deepcopy(valid_blueprint_host_create_payload)
+
+    # Max length 63
+    long_tag = "h" + "i" * 75
+    long_tag_host["tags"].append(long_tag)
+
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/hosts", json=long_tag_host
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 async def test_user_cant_access_other_blueprints(
     client: AsyncClient, auth_client: AsyncClient
 ) -> None:
@@ -1305,7 +1351,7 @@ async def test_blueprint_host_delete(auth_client: AsyncClient) -> None:
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-async def test_blueprint_host_delete_invalid_uuid(auth_client: AsyncClient) -> None:
+async def test_blueprint_host_delete_invalid_id(auth_client: AsyncClient) -> None:
     """Test that we get a 422 when providing an invalid non-int ID."""
     random_str = "".join(
         random.choice(string.ascii_letters)  # noqa: S311
