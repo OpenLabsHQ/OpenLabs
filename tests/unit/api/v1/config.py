@@ -283,6 +283,10 @@ valid_deployed_host_data: dict[str, Any] = copy.deepcopy(
     valid_deployed_subnet_data["hosts"][0]
 )
 
+valid_range_private_key_data: dict[str, Any] = {
+    "range_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDIfSjVkaDRtKNO\n... (rest of a mock SSH private key) ...\nhNUC8ZLe06edaNBX6N2jS9Wp3mk3JNGxQjagtrh9TGUrscedop4hCQABAoGALKe1\n-----END OPENSSH PRIVATE KEY-----",
+}
+
 # ==============================
 #      User/Auth Payloads
 # ==============================

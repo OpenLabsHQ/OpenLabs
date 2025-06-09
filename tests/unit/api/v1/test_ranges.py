@@ -1,6 +1,7 @@
 import copy
 import random
 import string
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
@@ -11,7 +12,11 @@ from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schemas import DeployedRangeSchema
+from src.app.schemas.range_schemas import (
+    DeployedRangeHeaderSchema,
+    DeployedRangeKeySchema,
+    DeployedRangeSchema,
+)
 from src.app.schemas.secret_schema import SecretSchema
 from tests.conftest import authenticate_client
 
@@ -20,6 +25,7 @@ from .config import (
     valid_blueprint_range_create_payload,
     valid_deployed_range_data,
     valid_range_deploy_payload,
+    valid_range_private_key_data,
 )
 
 ###### Test /ranges/deploy #######
@@ -508,3 +514,80 @@ async def test_destroy_range_destroy_success(
         f"{BASE_ROUTE}/ranges/{valid_deployed_range_data["id"]}"
     )
     assert response.status_code == status.HTTP_200_OK
+
+
+async def test_get_range_headers_empty_list(client: AsyncClient) -> None:
+    """Test that we get a 404 when there are no deployed range headers."""
+    # Make a new user that will not have deployed ranges
+    assert await authenticate_client(client)
+
+    response = await client.get(f"{BASE_ROUTE}/ranges")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+async def test_get_range_headers_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get a 200 response when there is at least one range header found."""
+    header = DeployedRangeHeaderSchema.model_validate(valid_deployed_range_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range_headers",
+        AsyncMock(return_value=[header]),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == [header.model_dump(mode="json")]
+
+
+async def test_get_range_details_non_existent(auth_client: AsyncClient) -> None:
+    """Test that we get a 404 when we request a non-existent range."""
+    non_existent_id = random.randint(-420, -69)  # noqa: S311
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+async def test_get_range_details_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get a 200 response when the range we request exists."""
+    test_range = DeployedRangeSchema.model_validate(valid_deployed_range_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range",
+        AsyncMock(return_value=test_range),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/1337")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == test_range.model_dump(mode="json")
+
+
+async def test_get_range_key_non_existent(auth_client: AsyncClient) -> None:
+    """Test that we get a 404 when we request a non-existent range's key."""
+    non_existent_id = random.randint(-420, -69)  # noqa: S311
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}/key")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+async def test_get_range_key_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get 200 response when we request the private key for an existing range."""
+    test_key = DeployedRangeKeySchema.model_validate(valid_range_private_key_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range_key",
+        AsyncMock(return_value=test_key),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/1337/key")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == test_key.model_dump(mode="json")
