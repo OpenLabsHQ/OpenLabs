@@ -996,6 +996,16 @@ async def test_blueprint_subnet_invalid_subnet_cidr(auth_client: AsyncClient) ->
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+async def test_blueprint_subnet_invalid_public_cidr(auth_client: AsyncClient) -> None:
+    """Test that we get a 422 response when the subnet CIDR is public."""
+    invalid_payload = copy.deepcopy(valid_blueprint_subnet_create_payload)
+    invalid_payload["cidr"] = "155.76.15.0/24"
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/blueprints/subnets", json=invalid_payload
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 async def test_blueprints_subnet_too_many_hosts(auth_client: AsyncClient) -> None:
     """Test that we get a 422 response when more hosts in subnet than CIDR allows."""
     invalid_payload = copy.deepcopy(valid_blueprint_subnet_create_payload)
