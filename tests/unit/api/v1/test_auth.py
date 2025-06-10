@@ -1,5 +1,6 @@
 import copy
 
+import pytest
 from fastapi import status
 from httpx import AsyncClient
 
@@ -10,6 +11,8 @@ user_login_payload = copy.deepcopy(base_user_login_payload)
 
 user_register_payload["email"] = "test-auth@ufsit.club"
 user_login_payload["email"] = user_register_payload["email"]
+
+pytestmark = pytest.mark.unit
 
 
 async def test_user_register(client: AsyncClient) -> None:

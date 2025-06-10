@@ -28,6 +28,9 @@ from .config import (
     valid_range_private_key_data,
 )
 
+pytestmark = pytest.mark.unit
+
+
 ###### Test /ranges/deploy #######
 
 

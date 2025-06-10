@@ -80,6 +80,12 @@ filterwarnings = [
     "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning"
 ]
 
+# Register markers to easily select unit or integration tests.
+markers = [
+    "unit: marks tests as unit tests.",
+    "integration: marks tests as integration tests.",
+]
+
 [tool.coverage.run]
 source = ["."]
 omit = [

@@ -9,6 +9,8 @@ from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.secret_schema import SecretSchema
 from tests.unit.core.cdktf.config import one_all_blueprint
 
+pytestmark = pytest.mark.unit
+
 
 def test_range_factory_non_existent_range_type() -> None:
     """Test that RangeFactory.create_range() raises a ValueError when invalid provider is provided."""

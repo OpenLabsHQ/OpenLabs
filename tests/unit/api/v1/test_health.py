@@ -1,7 +1,10 @@
+import pytest
 from fastapi import status
 from httpx import AsyncClient
 
 from .config import BASE_ROUTE
+
+pytestmark = pytest.mark.unit
 
 
 async def test_ping_check(client: AsyncClient) -> None:

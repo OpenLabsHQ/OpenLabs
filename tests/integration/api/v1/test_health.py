@@ -4,6 +4,8 @@ from httpx import AsyncClient
 
 from tests.unit.api.v1.config import BASE_ROUTE
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_ping_check(integration_client: AsyncClient) -> None:

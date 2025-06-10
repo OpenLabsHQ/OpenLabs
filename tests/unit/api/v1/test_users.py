@@ -1,5 +1,6 @@
 import copy
 
+import pytest
 from fastapi import status
 from httpx import AsyncClient
 
@@ -11,6 +12,8 @@ from .config import (
     azure_secrets_payload,
     password_update_payload,
 )
+
+pytestmark = pytest.mark.unit
 
 
 async def test_get_user_info(client: AsyncClient) -> None:

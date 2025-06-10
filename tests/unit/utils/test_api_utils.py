@@ -2,6 +2,8 @@ import pytest
 
 from src.app.utils.api_utils import get_api_base_route
 
+pytestmark = pytest.mark.unit
+
 
 def test_get_api_base_route_v1() -> None:
     """Test that get_api_base_route returns the correct version 1 base route."""

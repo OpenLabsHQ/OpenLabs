@@ -14,7 +14,9 @@ from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.range_schemas import BlueprintRangeSchema
-from tests.unit.core.cdktf.config import modify_cidr, one_all_blueprint
+from tests.unit.core.cdktf.config import one_all_blueprint
+
+pytestmark = pytest.mark.unit
 
 
 @pytest.fixture(scope="module")

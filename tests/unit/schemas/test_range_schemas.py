@@ -7,6 +7,8 @@ from pydantic import ValidationError
 from src.app.schemas.range_schemas import DeployedRangeCreateSchema
 from tests.unit.api.v1.config import valid_deployed_range_data
 
+pytestmark = pytest.mark.unit
+
 
 def test_deployed_range_schema_duplicate_vpc_names() -> None:
     """Test that the deployed range creation schema fails when there are duplicate VPC names."""

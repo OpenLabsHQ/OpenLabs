@@ -20,6 +20,9 @@ from .config import (
     valid_blueprint_vpc_multi_create_payload,
 )
 
+pytestmark = pytest.mark.unit
+
+
 ###### Test /blueprints/ranges #######
 
 

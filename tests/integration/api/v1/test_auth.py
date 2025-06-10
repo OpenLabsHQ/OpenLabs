@@ -10,6 +10,9 @@ from tests.unit.api.v1.config import (
     base_user_register_payload,
 )
 
+pytestmark = pytest.mark.integration
+
+
 user_register_payload = copy.deepcopy(base_user_register_payload)
 user_login_payload = copy.deepcopy(base_user_login_payload)
 

@@ -14,6 +14,8 @@ from tests.unit.api.v1.config import (
     valid_blueprint_vpc_create_payload,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_user_add_remove_range_blueprint_flow(

@@ -13,6 +13,8 @@ from tests.unit.api.v1.config import (
     password_update_payload,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_user_change_password_flow(integration_client: AsyncClient) -> None:
