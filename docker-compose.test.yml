@@ -1,0 +1,11 @@
+services:
+  fastapi:
+    build:
+      target: dev
+    command: >
+      coverage run -m uvicorn src.app.main:app --host 0.0.0.0 --port 80
+    volumes:
+      - .:/code
+    environment:
+      - COVERAGE_PROCESS_START=/code/pyproject.toml
+      - COVERAGE_FILE=/code/.coverage

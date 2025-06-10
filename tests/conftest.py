@@ -30,7 +30,6 @@ from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.regions import OpenLabsRegion
-from src.app.models.range_models import DeployedRangeModel
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeSchema,
@@ -492,9 +491,11 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
     os.environ[ip_var_name] = "127.127.127.127"
     os.environ[port_var_name] = str(get_free_port)
 
+    compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
+
     with DockerCompose(
         context=".",
-        compose_file_name="docker-compose.yml",
+        compose_file_name=compose_files,
         pull=True,
         build=True,
         wait=False,

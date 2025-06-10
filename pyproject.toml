@@ -87,18 +87,25 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["."]
+parallel = true
+source = ["src"]
 omit = [
-    "*/.local/*",   # omit anything in a .local directory anywhere
-    "__init__.py",
+    "*/.local/*",
     "tests/*",
     "*/tests/*",
     "test_*",
-    "venv/*",       # omit anything in a .venv directory anywhere
+    "venv/*",
     "*logger*",
-    "*.tf*"        # omit terraform files
+    "*.tf*",
+    "__init__.py"
 ]
 concurrency = ["gevent"]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    "/code/src",
+]
 
 [tool.coverage.report]
 fail_under = 85
