@@ -8,6 +8,7 @@ from ....schemas.secret_schema import SecretSchema
 from ....schemas.template_range_schema import TemplateRangeSchema
 from ....schemas.user_schema import UserID
 from .aws_range import AWSRange
+from .azure_range import AzureRange
 from .base_range import AbstractBaseRange
 
 # Configure logging
@@ -19,6 +20,7 @@ class RangeFactory:
 
     _registry: ClassVar[dict[OpenLabsProvider, Type[AbstractBaseRange]]] = {
         OpenLabsProvider.AWS: AWSRange,
+        OpenLabsProvider.AZURE: AzureRange,
     }
 
     @classmethod

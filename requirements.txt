@@ -8,6 +8,7 @@ pyyaml~=6.0
 # CDKTF
 cdktf>=0.20
 cdktf-cdktf-provider-aws>=19.52
+cdktf-cdktf-provider-azurerm>=7.27
 
 # Auth
 pyjwt
