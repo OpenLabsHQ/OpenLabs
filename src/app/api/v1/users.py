@@ -208,12 +208,12 @@ async def update_user_secrets(
         provider=creds.provider, credentials=creds.credentials
     )
 
-    authenticated = creds_obj.authenticate()
+    verify = creds_obj.verify_creds()
 
-    if not authenticated[0]:
+    if not verify[0]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=authenticated[1].message,
+            detail=verify[1].message,
         )
 
     # Encrypt the AWS credentials using the user's public key

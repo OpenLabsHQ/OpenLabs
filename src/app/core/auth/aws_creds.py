@@ -47,7 +47,7 @@ class AWSCreds(AbstractBaseCreds):
             message="AWS credentials updated successfully"
         )
 
-    def authenticate(self) -> Tuple[bool, MessageSchema]:
+    def verify_creds(self) -> Tuple[bool, MessageSchema]:
         """Verify credentials authenticate to an AWS account."""
         try:
             client = boto3.client(

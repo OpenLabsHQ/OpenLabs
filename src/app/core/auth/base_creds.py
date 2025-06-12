@@ -27,6 +27,6 @@ class AbstractBaseCreds(ABC):
         pass
 
     @abstractmethod
-    def authenticate(self) -> Tuple[bool, MessageSchema]:
+    def verify_creds(self) -> Tuple[bool, MessageSchema]:
         """Verify that user provided credentials properly authenticate to a provider account."""
         pass
