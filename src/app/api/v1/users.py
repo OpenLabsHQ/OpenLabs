@@ -190,7 +190,7 @@ async def update_user_secrets(
 
     Returns:
     -------
-        AWSUpdateSecretMessageSchema: Status message. TODO: Update with abstract schema
+        MessageSchema: Status message of updating user secrets.
 
     """
     # Fetch secrets explicitly from the database
@@ -208,7 +208,13 @@ async def update_user_secrets(
         provider=creds.provider, credentials=creds.credentials
     )
 
-    # TODO: Add cred verifaciton functions in class  # noqa: FIX002, TD002
+    authenticated = creds_obj.authenticate()
+
+    if not authenticated[0]:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=authenticated[1].message,
+        )
 
     # Encrypt the AWS credentials using the user's public key
     if not current_user.public_key:

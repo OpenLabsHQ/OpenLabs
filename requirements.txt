@@ -12,6 +12,7 @@ cdktf-cdktf-provider-aws>=19.52
 # Auth
 pyjwt
 bcrypt
+boto3>=1.38.0
 
 # Crypto
 cryptography>=41.0.0

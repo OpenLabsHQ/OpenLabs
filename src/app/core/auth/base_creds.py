@@ -1,11 +1,8 @@
-import logging
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 from src.app.models.secret_model import SecretModel
 from src.app.schemas.message_schema import MessageSchema
-
-# Configure logging
-logger = logging.getLogger(__name__)
 
 
 class AbstractBaseCreds(ABC):
@@ -15,7 +12,7 @@ class AbstractBaseCreds(ABC):
     def update_user_secrets(
         self, secrets: SecretModel, current_user_public_key: str
     ) -> MessageSchema:
-        """Return specific provider stack class to instantiate.
+        """Add encrypted user credentials to secrets record in database.
 
         Args:
         ----
@@ -24,7 +21,12 @@ class AbstractBaseCreds(ABC):
 
         Returns:
         -------
-            None.
+            MessageSchema.
 
         """
+        pass
+
+    @abstractmethod
+    def authenticate(self) -> Tuple[bool, MessageSchema]:
+        """Verify that user provided credentials properly authenticate to a provider account."""
         pass
