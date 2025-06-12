@@ -3,9 +3,9 @@ services:
     build:
       target: dev
     command: >
-      coverage run -m uvicorn src.app.main:app --host 0.0.0.0 --port 80
+      uvicorn tests.integration.main_test:app --host 0.0.0.0 --port 80
     volumes:
-      - .:/code
+      - ./.coverage-out:/code/.coverage-out
     environment:
       - COVERAGE_PROCESS_START=/code/pyproject.toml
-      - COVERAGE_FILE=/code/.coverage
+      - COVERAGE_FILE=/code/.coverage-out/.coverage

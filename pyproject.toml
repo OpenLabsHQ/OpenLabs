@@ -87,6 +87,7 @@ markers = [
 ]
 
 [tool.coverage.run]
+data_file = ".coverage-out/.coverage" 
 parallel = true
 source = ["src"]
 omit = [
