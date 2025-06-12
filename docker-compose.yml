@@ -27,7 +27,7 @@ services:
     command: ["python", "-m", "src.scripts.create_admin"]
     depends_on:
       fastapi:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
     networks:

@@ -42,6 +42,9 @@ COPY .git /code/.git
 
 EXPOSE 80
 
+HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
+ CMD ["python", "-m", "src.scripts.health_check"]
+
 # ========= Stage 2: Dev Image =========
 # Adds development dependencies
 FROM builder AS dev
