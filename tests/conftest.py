@@ -546,6 +546,26 @@ async def auth_integration_client(
 
 
 @pytest.fixture
+def api_client(request: pytest.FixtureRequest) -> AsyncClient:
+    """Return the corresponding client fixture.
+
+    Only used for unauthenticated client fixtures.
+
+    """
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture
+def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
+    """Return the corresponding client fixture.
+
+    Only use for authenticated client fixtures.
+
+    """
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture
 def mock_decrypt_no_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass secrets decryption to return a fake secrets record for the user."""
 
