@@ -235,7 +235,7 @@ class AbstractBaseRange(ABC):
             os.chdir(self.get_synth_dir())
 
             # Try to create the state file
-            if not self.state_file and not self.create_state_file():
+            if not self.create_state_file():
                 logger.info(
                     "State file not saved! Unable to create a new one in the filesystem."
                 )
