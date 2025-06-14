@@ -7,7 +7,6 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
-from src.app.core.config import settings
 from tests.common.api.v1.config import (
     API_CLIENT_PARAMS,
     AUTH_API_CLIENT_PARAMS,
@@ -23,8 +22,6 @@ from tests.common.api.v1.config import (
 )
 from tests.conftest import (
     authenticate_client,
-    login_user,
-    register_user,
     remove_key_recursively,
 )
 
