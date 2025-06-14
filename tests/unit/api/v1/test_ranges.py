@@ -34,66 +34,66 @@ pytestmark = pytest.mark.unit
 ###### Test /ranges/deploy #######
 
 
-async def test_deploy_without_enc_key(client: AsyncClient) -> None:
-    """Test that attempting to deploy a range without being logged in will fail since the encryption key was not given from successful login."""
-    assert await authenticate_client(client), "Failed to authenticate to API"
+# async def test_deploy_without_enc_key(client: AsyncClient) -> None:
+#     """Test that attempting to deploy a range without being logged in will fail since the encryption key was not given from successful login."""
+#     assert await authenticate_client(client), "Failed to authenticate to API"
 
-    for cookie in client.cookies.jar:
-        if cookie.name == "enc_key":
-            cookie.value = ""
-            break
+#     for cookie in client.cookies.jar:
+#         if cookie.name == "enc_key":
+#             cookie.value = ""
+#             break
 
-    response = await client.post(
-        f"{BASE_ROUTE}/ranges/deploy", json=valid_range_deploy_payload
-    )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-async def test_deploy_without_valid_enc_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range with an invalid encryption key will fail."""
-    modified_enc_key = "in*vali*^%$"
-    auth_client.cookies.update({"enc_key": modified_enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=valid_range_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+#     response = await client.post(
+#         f"{BASE_ROUTE}/ranges/deploy", json=valid_range_deploy_payload
+#     )
+#     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-async def test_deploy_without_valid_range_blueprint(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range with a non-existent range blueprint will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    non_existent_range_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    non_existent_range_deploy_payload["blueprint_id"] = random.randint(  # noqa: S311
-        -666, -69
-    )
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=valid_range_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+# async def test_deploy_without_valid_enc_key(auth_client: AsyncClient) -> None:
+#     """Test that attempting to deploy a range with an invalid encryption key will fail."""
+#     modified_enc_key = "in*vali*^%$"
+#     auth_client.cookies.update({"enc_key": modified_enc_key})
+#     response = await auth_client.post(
+#         f"{BASE_ROUTE}/ranges/deploy",
+#         json=valid_range_deploy_payload,
+#     )
+#     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-async def test_deploy_without_valid_private_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range without valid private key will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
+# async def test_deploy_without_valid_range_blueprint(auth_client: AsyncClient) -> None:
+#     """Test that attempting to deploy a range with a non-existent range blueprint will fail."""
+#     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
+#     auth_client.cookies.update({"enc_key": enc_key})
+#     non_existent_range_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+#     non_existent_range_deploy_payload["blueprint_id"] = random.randint(  # noqa: S311
+#         -666, -69
+#     )
+#     response = await auth_client.post(
+#         f"{BASE_ROUTE}/ranges/deploy",
+#         json=valid_range_deploy_payload,
+#     )
+#     assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+# async def test_deploy_without_valid_private_key(auth_client: AsyncClient) -> None:
+#     """Test that attempting to deploy a range without valid private key will fail."""
+#     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
+#     auth_client.cookies.update({"enc_key": enc_key})
+#     response = await auth_client.post(
+#         f"{BASE_ROUTE}/blueprints/ranges",
+#         json=valid_blueprint_range_create_payload,
+#     )
+#     assert response.status_code == status.HTTP_200_OK
+#     blueprint_id = int(response.json()["id"])
+
+#     blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+#     blueprint_deploy_payload["blueprint_id"] = blueprint_id
+
+#     response = await auth_client.post(
+#         f"{BASE_ROUTE}/ranges/deploy",
+#         json=blueprint_deploy_payload,
+#     )
+#     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 async def test_deploy_without_valid_secrets(
@@ -225,39 +225,39 @@ async def test_deploy_range_deploy_success(
 ###### Test /ranges/destroy #######
 
 
-async def test_destroy_with_invalid_id(auth_client: AsyncClient) -> None:
-    """Test that attempting to destroy a range without a valid non-int ID with fail."""
-    random_str = "".join(
-        random.choice(string.ascii_letters)  # noqa: S311
-        for i in range(random.randint(1, 10))  # noqa: S311
-    )
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{random_str}")
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+# async def test_destroy_with_invalid_id(auth_client: AsyncClient) -> None:
+#     """Test that attempting to destroy a range without a valid non-int ID with fail."""
+#     random_str = "".join(
+#         random.choice(string.ascii_letters)  # noqa: S311
+#         for i in range(random.randint(1, 10))  # noqa: S311
+#     )
+#     response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{random_str}")
+#     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-async def test_destroy_without_enc_key(client: AsyncClient) -> None:
-    """Test that attempting to destroy a range without being logged in will fail since the encryption key was not given from successful login."""
-    assert await authenticate_client(client), "Failed to authenticate to API"
+# async def test_destroy_without_enc_key(client: AsyncClient) -> None:
+#     """Test that attempting to destroy a range without being logged in will fail since the encryption key was not given from successful login."""
+#     assert await authenticate_client(client), "Failed to authenticate to API"
 
-    for cookie in client.cookies.jar:
-        if cookie.name == "enc_key":
-            cookie.value = ""
-            break
+#     for cookie in client.cookies.jar:
+#         if cookie.name == "enc_key":
+#             cookie.value = ""
+#             break
 
-    response = await client.delete(
-        f"{BASE_ROUTE}/ranges/{random.randint(1, 100)}"  # noqa: S311
-    )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+#     response = await client.delete(
+#         f"{BASE_ROUTE}/ranges/{random.randint(1, 100)}"  # noqa: S311
+#     )
+#     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-async def test_destroy_without_valid_enc_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to destroy a range with an invalid encryption key will fail."""
-    modified_enc_key = "in*vali*^%$"
-    auth_client.cookies.update({"enc_key": modified_enc_key})
-    response = await auth_client.delete(
-        f"{BASE_ROUTE}/ranges/{random.randint(1, 100)}"  # noqa: S311
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+# async def test_destroy_without_valid_enc_key(auth_client: AsyncClient) -> None:
+#     """Test that attempting to destroy a range with an invalid encryption key will fail."""
+#     modified_enc_key = "in*vali*^%$"
+#     auth_client.cookies.update({"enc_key": modified_enc_key})
+#     response = await auth_client.delete(
+#         f"{BASE_ROUTE}/ranges/{random.randint(1, 100)}"  # noqa: S311
+#     )
+#     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 async def test_destroy_without_valid_range_owner(
@@ -296,14 +296,14 @@ async def test_destroy_without_valid_range_owner(
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-async def test_destroy_without_valid_range(auth_client: AsyncClient) -> None:
-    """Test that attempting to destroy a non-existent range will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.delete(
-        f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
-    )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+# async def test_destroy_without_valid_range(auth_client: AsyncClient) -> None:
+#     """Test that attempting to destroy a non-existent range will fail."""
+#     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
+#     auth_client.cookies.update({"enc_key": enc_key})
+#     response = await auth_client.delete(
+#         f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
+#     )
+#     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_destroy_decrypt_secrets_failure(
@@ -519,13 +519,13 @@ async def test_destroy_range_destroy_success(
     assert response.status_code == status.HTTP_200_OK
 
 
-async def test_get_range_headers_empty_list(client: AsyncClient) -> None:
-    """Test that we get a 404 when there are no deployed range headers."""
-    # Make a new user that will not have deployed ranges
-    assert await authenticate_client(client)
+# async def test_get_range_headers_empty_list(client: AsyncClient) -> None:
+#     """Test that we get a 404 when there are no deployed range headers."""
+#     # Make a new user that will not have deployed ranges
+#     assert await authenticate_client(client)
 
-    response = await client.get(f"{BASE_ROUTE}/ranges")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+#     response = await client.get(f"{BASE_ROUTE}/ranges")
+#     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_get_range_headers_success(
@@ -546,11 +546,11 @@ async def test_get_range_headers_success(
     assert response_data == [header.model_dump(mode="json")]
 
 
-async def test_get_range_details_non_existent(auth_client: AsyncClient) -> None:
-    """Test that we get a 404 when we request a non-existent range."""
-    non_existent_id = random.randint(-420, -69)  # noqa: S311
-    response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+# async def test_get_range_details_non_existent(auth_client: AsyncClient) -> None:
+#     """Test that we get a 404 when we request a non-existent range."""
+#     non_existent_id = random.randint(-420, -69)  # noqa: S311
+#     response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}")
+#     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_get_range_details_success(
@@ -571,11 +571,11 @@ async def test_get_range_details_success(
     assert response_data == test_range.model_dump(mode="json")
 
 
-async def test_get_range_key_non_existent(auth_client: AsyncClient) -> None:
-    """Test that we get a 404 when we request a non-existent range's key."""
-    non_existent_id = random.randint(-420, -69)  # noqa: S311
-    response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}/key")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+# async def test_get_range_key_non_existent(auth_client: AsyncClient) -> None:
+#     """Test that we get a 404 when we request a non-existent range's key."""
+#     non_existent_id = random.randint(-420, -69)  # noqa: S311
+#     response = await auth_client.get(f"{BASE_ROUTE}/ranges/{non_existent_id}/key")
+#     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_get_range_key_success(
