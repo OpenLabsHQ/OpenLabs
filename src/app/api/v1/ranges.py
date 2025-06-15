@@ -498,7 +498,7 @@ async def delete_range_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete deployed range in database! Range: {range_to_destroy.name} ({range_id}).",
+            detail=f"Range destroyed but failed to delete deployed range in database! Range: {range_to_destroy.name} ({range_id}).",
         ) from e
 
     return MessageSchema(
