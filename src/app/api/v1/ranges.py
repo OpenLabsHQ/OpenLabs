@@ -299,6 +299,11 @@ async def deploy_range_from_blueprint_endpoint(
             detail=f"Failed to deploy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
         )
 
+    # Pre-fetch/save data for logging incase of a database error
+    range_name = range_to_deploy.name
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
     # Store range in database
     try:
         deployed_range_header = await create_deployed_range(
@@ -308,11 +313,13 @@ async def deploy_range_from_blueprint_endpoint(
             msg = "Failed to save deployed range to database!"
             raise RuntimeError(msg)
     except Exception as e:
+        await db.rollback()
+
         logger.exception(
             "Failed to commit range: %s to database on behalf of user: %s (%s)! Exception: %s",
-            range_to_deploy.name,
-            current_user.email,
-            current_user.id,
+            range_name,
+            current_user_email,
+            current_user_id,
             e,
         )
 
@@ -466,6 +473,11 @@ async def delete_range_endpoint(
             detail=f"Failed to destroy range: {range_to_destroy.name} ({range_id})!",
         )
 
+    # Pre-fetch/save data for logging incase of a database error
+    range_name = range_to_destroy.name
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
     # Delete range from database
     try:
         deleted_from_db = await delete_deployed_range(
@@ -475,11 +487,13 @@ async def delete_range_endpoint(
             msg = "Failed to delete destroyed range from DB!"
             raise RuntimeError(msg)
     except Exception as e:
+        db.rollback()
+
         logger.exception(
             "Failed to commit range deletion: %s to database on behalf of user: %s (%s)! Exception: %s",
-            range_to_destroy.name,
-            current_user.email,
-            current_user.id,
+            range_name,
+            current_user_email,
+            current_user_id,
             e,
         )
         raise HTTPException(
