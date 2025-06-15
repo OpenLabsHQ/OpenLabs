@@ -487,7 +487,7 @@ async def delete_range_endpoint(
             msg = "Failed to delete destroyed range from DB!"
             raise RuntimeError(msg)
     except Exception as e:
-        db.rollback()
+        await db.rollback()
 
         logger.exception(
             "Failed to commit range deletion: %s to database on behalf of user: %s (%s)! Exception: %s",
