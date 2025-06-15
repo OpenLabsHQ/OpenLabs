@@ -392,7 +392,7 @@ class AWSStack(AbstractBaseStack):
                 self,
                 f"{range_name}-{vpc.name}-PrivateVpcTgwAttachment",
                 subnet_ids=[
-                    s.id for s in current_vpc_subnets
+                    current_vpc_subnets[0].id
                 ],  # Attach TGW ENIs to all private subnets
                 transit_gateway_id=tgw.id,
                 vpc_id=new_vpc.id,
