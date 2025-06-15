@@ -8,7 +8,7 @@ from src.app.core.db.ipv4_network_type import IPv4NetworkType
 pytestmark = pytest.mark.unit
 
 
-def test_process_bind_param_invalid_type() -> None:
+def test_process_bind_param_invalid_type_ipv4_network_type() -> None:
     """Verify that process_bind_param raises a TypeError when the provided value is not an IPv4Network."""
     custom_type = IPv4NetworkType()
     mock_dialect = Mock(spec=Dialect)
@@ -21,7 +21,7 @@ def test_process_bind_param_invalid_type() -> None:
     assert "expected ipv4network" in str(exc_info.value).lower()
 
 
-def test_process_result_value_invalid_cidr() -> None:
+def test_process_result_value_invalid_cidr_ipv4_network_type() -> None:
     """Verify that process_result_value raises a ValueError when the string from the database is not a valid CIDR network."""
     custom_type = IPv4NetworkType()
     mock_dialect = Mock(spec=Dialect)

@@ -1,10 +1,10 @@
 from ipaddress import IPv4Address
 
 from sqlalchemy import ARRAY, BigInteger, Enum, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from ..core.db.database import Base
+from ..core.db.ipv4_address_type import IPv4AddressType
 from ..enums.operating_systems import OpenLabsOS
 from ..enums.specs import OpenLabsSpec
 from .mixin_models import OwnableObjectMixin
@@ -60,13 +60,13 @@ class DeployedHostModel(Base, OwnableObjectMixin, HostMixin):
 
     # Cloud provider fields
     resource_id: Mapped[str] = mapped_column(String, nullable=False)
-    ip_address: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
+    ip_address: Mapped[IPv4Address] = mapped_column(IPv4AddressType, nullable=False)
 
     # Parent relationship
     subnet_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("deployed_subnets.id", ondelete="CASCADE"),
         nullable=True,
-        default=None
+        default=None,
     )
     subnet = relationship("DeployedSubnetModel", back_populates="hosts")
