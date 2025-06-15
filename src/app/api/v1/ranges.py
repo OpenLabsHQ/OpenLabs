@@ -126,8 +126,8 @@ async def get_deployed_range_endpoint(
 @router.get("/{range_id}/key")
 async def get_deployed_range_key_endpoint(
     range_id: int,
-    db: AsyncSession = Depends(async_get_db),
-    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
 ) -> DeployedRangeKeySchema:
     """Get range SSH key.
 
