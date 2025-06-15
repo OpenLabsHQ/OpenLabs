@@ -172,9 +172,29 @@ async def upload_blueprint_range_endpoint(
         BlueprintRangeHeaderSchema: Header info of the new range blueprint.
 
     """
-    created_blueprint = await create_blueprint_range(
-        db, blueprint_range, current_user.id
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        created_blueprint = await create_blueprint_range(
+            db, blueprint_range, current_user.id
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to flush range blueprint: %s to database on behalf of user: %s (%s)!",
+            blueprint_range.name,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save range blueprint: {blueprint_range.name} to database!",
+        ) from None
 
     logger.info(
         "Successfully processed range blueprint creation request for user: %s (%s). Blueprint ID: %s",
@@ -205,9 +225,30 @@ async def delete_blueprint_range_endpoint(
         MessageSchema: Message regarding status of deletion.
 
     """
-    deleted_blueprint = await delete_blueprint_range(
-        db, blueprint_id, current_user.id, current_user.is_admin
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        deleted_blueprint = await delete_blueprint_range(
+            db, blueprint_id, current_user.id, current_user.is_admin
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to delete range blueprint: %s from database on behalf of user: %s (%s)!",
+            blueprint_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete range blueprint: {blueprint_id} from database!",
+        ) from None
+
     if not deleted_blueprint:
         logger.info(
             "Failed to delete range blueprint: %s for user: %s (%s).",
@@ -349,10 +390,30 @@ async def upload_blueprint_vpc_endpoint(
         BlueprintVPCHeaderSchema: Header info of the new VPC blueprint.
 
     """
-    # No range ID since this is a standalone blueprint
-    created_blueprint = await create_blueprint_vpc(
-        db, blueprint_vpc, current_user.id, range_id=None
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        # No range ID since this is a standalone blueprint
+        created_blueprint = await create_blueprint_vpc(
+            db, blueprint_vpc, current_user.id, range_id=None
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to flush VPC blueprint: %s to database on behalf of user: %s (%s)!",
+            blueprint_vpc.name,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save VPC blueprint: {blueprint_vpc.name} to database!",
+        ) from None
 
     logger.info(
         "Successfully processed VPC blueprint creation request for user: %s (%s). Blueprint ID: %s.",
@@ -383,9 +444,30 @@ async def delete_blueprint_vpc_endpoint(
         MessageSchema: Message regarding status of deletion.
 
     """
-    deleted_blueprint = await delete_blueprint_vpc(
-        db, blueprint_id, current_user.id, current_user.is_admin
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        deleted_blueprint = await delete_blueprint_vpc(
+            db, blueprint_id, current_user.id, current_user.is_admin
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to delete VPC blueprint: %s from database on behalf of user: %s (%s)!",
+            blueprint_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete VPC blueprint: {blueprint_id} from database!",
+        ) from None
+
     if not deleted_blueprint:
         logger.info(
             "Failed to delete VPC blueprint: %s for user: %s (%s).",
@@ -520,10 +602,30 @@ async def upload_blueprint_subnet_endpoint(
         BlueprintSubnetHeaderSchema: Header info of the new subnet blueprint.
 
     """
-    # No VPC ID since this a standalone blueprint
-    created_blueprint = await create_blueprint_subnet(
-        db, blueprint_subnet, current_user.id, vpc_id=None
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        # No VPC ID since this a standalone blueprint
+        created_blueprint = await create_blueprint_subnet(
+            db, blueprint_subnet, current_user.id, vpc_id=None
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to flush subnet blueprint: %s to database on behalf of user: %s (%s)!",
+            blueprint_subnet.name,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save subnet blueprint: {blueprint_subnet.name} to database!",
+        ) from None
 
     logger.info(
         "Successfully processed subnet blueprint creation request for user: %s (%s). Blueprint ID: %s",
@@ -554,9 +656,30 @@ async def delete_blueprint_subnet_endpoint(
         MessageSchema: Message regarding status of deletion.
 
     """
-    deleted_blueprint = await delete_blueprint_subnet(
-        db, blueprint_id, current_user.id, current_user.is_admin
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        deleted_blueprint = await delete_blueprint_subnet(
+            db, blueprint_id, current_user.id, current_user.is_admin
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to delete subnet blueprint: %s from database on behalf of user: %s (%s)!",
+            blueprint_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete subnet blueprint: {blueprint_id} from database!",
+        ) from None
+
     if not deleted_blueprint:
         logger.info(
             "Failed to delete subnet blueprint: %s for user: %s (%s).",
@@ -683,10 +806,30 @@ async def upload_blueprint_host_endpoint(
         BlueprintHostHeaderSchema: Header info of the new host blueprint.
 
     """
-    # No subnet ID since this a standalone blueprint
-    created_blueprint = await create_blueprint_host(
-        db, blueprint_host, current_user.id, subnet_id=None
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        # No subnet ID since this a standalone blueprint
+        created_blueprint = await create_blueprint_host(
+            db, blueprint_host, current_user.id, subnet_id=None
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to flush host blueprint: %s to database on behalf of user: %s (%s)!",
+            blueprint_host.hostname,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save host blueprint: {blueprint_host.hostname} to database!",
+        ) from None
 
     logger.info(
         "Successfully processed host blueprint creation request for user: %s (%s). Blueprint ID: %s",
@@ -717,9 +860,30 @@ async def delete_blueprint_host_endpoint(
         MessageSchema: Message regarding status of deletion.
 
     """
-    deleted_blueprint = await delete_blueprint_host(
-        db, blueprint_id, current_user.id, current_user.is_admin
-    )
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        deleted_blueprint = await delete_blueprint_host(
+            db, blueprint_id, current_user.id, current_user.is_admin
+        )
+    except Exception:
+        await db.rollback()
+
+        logger.error(
+            "Failed to delete host blueprint: %s from database on behalf of user: %s (%s)!",
+            blueprint_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete host blueprint: {blueprint_id} from database!",
+        ) from None
+
     if not deleted_blueprint:
         logger.info(
             "Failed to delete host blueprint: %s for user: %s (%s).",
