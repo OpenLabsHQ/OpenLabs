@@ -9,3 +9,5 @@ services:
     environment:
       - COVERAGE_PROCESS_START=/code/pyproject.toml
       - COVERAGE_FILE=/code/.coverage-out/.coverage
+    logging:
+      driver: "local"
