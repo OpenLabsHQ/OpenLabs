@@ -17,3 +17,5 @@ black>=25.1.0
 mypy>=1.14.1
 pytest-mock>=3.14.0
 
+# Deploy tests
+python-dotenv>=1.1.0

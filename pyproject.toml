@@ -84,6 +84,8 @@ filterwarnings = [
 markers = [
     "unit: marks tests as unit tests.",
     "integration: marks tests as integration tests.",
+    "deploy: marks tests that deploy live infrastructure.",
+    "aws: marks tests related to AWS specific functionality."
 ]
 
 [tool.coverage.run]
@@ -98,7 +100,8 @@ omit = [
     "venv/*",
     "*logger*",
     "*.tf*",
-    "__init__.py"
+    "__init__.py",
+    "/code/tests/*"
 ]
 concurrency = ["gevent"]
 

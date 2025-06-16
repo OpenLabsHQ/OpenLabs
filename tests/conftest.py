@@ -11,6 +11,7 @@ from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, create_engine
@@ -29,9 +30,11 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
+from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
+    BlueprintRangeHeaderSchema,
     BlueprintRangeSchema,
     DeployedRangeHeaderSchema,
     DeployedRangeSchema,
@@ -520,7 +523,7 @@ async def integration_client(
 
     # Wait for docker compose and container to start
     await wait_for_fastapi_service(
-        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
+        f"{base_url}{get_api_base_route(version=1)}", timeout=60
     )
 
     async with AsyncClient(base_url=base_url) as client:
@@ -537,12 +540,252 @@ async def auth_integration_client(
 
     # Wait for docker compose and container to start
     await wait_for_fastapi_service(
-        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
+        f"{base_url}{get_api_base_route(version=1)}", timeout=60
     )
 
     async with AsyncClient(base_url=base_url) as client:
         assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
+
+
+async def add_cloud_credentials(
+    auth_client: AsyncClient,
+    provider: OpenLabsProvider,
+    credentials_payload: dict[str, Any],
+) -> bool:
+    """Add cloud credentials to the authenticated client's account.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE FIXTURE!
+        provider (OpenLabsProvider): A valid OpenLabs cloud provider to configure credentials for.
+        credentials_payload(dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
+
+    Returns:
+    -------
+        bool: True if cloud credentials successfully store. False otherwise.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    if not credentials_payload:
+        logger.error("Failed to add cloud credentials. Payload empty!")
+        return False
+
+    # Verify we are logged in
+    response = await auth_client.get(f"{base_route}/users/me")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to add cloud credentials. Provided client is not authenticated!"
+        )
+        return False
+
+    # Submit credentials
+    provider_url = provider.value.lower()
+    response = await auth_client.post(
+        f"{base_route}/users/me/secrets/{provider_url}", json=credentials_payload
+    )
+    return response.status_code == status.HTTP_200_OK
+
+
+async def add_blueprint_range(
+    auth_client: AsyncClient, blueprint_range: dict[str, Any]
+) -> BlueprintRangeHeaderSchema | None:
+    """Add a range blueprint to the application.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE FIXTURE!
+        blueprint_range (dict[str, Any]): Dictionary representation of a BlueprintRangeCreateSchema.
+
+    Returns:
+    -------
+        BlueprintRangeHeaderSchema: Header info of saved blueprint range.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    if not blueprint_range:
+        logger.error("Failed to add range blueprint! Blueprint empty!")
+        return None
+
+    # Verify we are logged in
+    response = await auth_client.get(f"{base_route}/users/me")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to add range blueprint. Provided client is not authenticated!"
+        )
+        return None
+
+    # Submit blueprint range
+    response = await auth_client.post(
+        f"{base_route}/blueprints/ranges", json=blueprint_range
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    return BlueprintRangeHeaderSchema.model_validate(response.json())
+
+
+async def deploy_range(
+    auth_client: AsyncClient,
+    blueprint_id: int,
+    base_name: str = "Test Range",
+    description: str = "Test range. Auto generated for testing.",
+    region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
+) -> DeployedRangeHeaderSchema | None:
+    """Deploy a range from an existing blueprint range.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE FIXTURE!
+        blueprint_id (int): ID of the blueprint range to deploy.
+        base_name (str): String to include in the name. Extra information will be included to make it more identifiable.
+        description (str): Description for deployed range.
+        region (OpenLabsRegion): Cloud region to deploy range into.
+
+    Returns:
+    -------
+        DeployedRangeHeaderSchema: Header info of the deployed range if successfully deployed. None otherwise.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    # Verify we are logged in
+    response = await auth_client.get(f"{base_route}/users/me")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error("Failed to deploy range. Provided client is not authenticated!")
+        return None
+
+    # Fetch blueprint to aid in building descriptive name
+    response = await auth_client.get(f"{base_route}/blueprints/ranges/{blueprint_id}")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error("Failed to deploy range. Could not fetch range blueprint!")
+        return None
+    blueprint_range = response.json()
+
+    # Deploy range
+    deploy_payload = {
+        "name": f"Test-({base_name})-{blueprint_range["provider"]}-Range-from-({blueprint_range["name"]} ({blueprint_range["id"]}))",
+        "description": f"{description} This range was auto generated by testing utility functions.",
+        "blueprint_id": blueprint_id,
+        "region": region.value,
+    }
+    response = await auth_client.post(
+        f"{base_route}/ranges/deploy",
+        json=deploy_payload,
+        timeout=None,  # TODO: remove when ARQ jobs implemented
+    )
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to deploy range due to error while deploying. Ensure that all resources were successfully cleaned up!"
+        )
+        return None
+
+    return DeployedRangeHeaderSchema.model_validate(response.json())
+
+
+async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
+    """Deploy a range from an existing blueprint range.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE FIXTURE!
+        range_id (int): ID of the deployed range.
+
+    Returns:
+    -------
+        bool: True if range successfully destroyed. False otherwise.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    # Verify we are logged in
+    response = await auth_client.get(f"{base_route}/users/me")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error("Failed to destroy range. Provided client is not authenticated!")
+        return False
+
+    # Destroy range
+    response = await auth_client.delete(
+        f"{base_route}/ranges/{range_id}",
+        timeout=None,  # TODO: remove when ARQ jobs implemented
+    )
+
+    return response.status_code == status.HTTP_200_OK
+
+
+@pytest.fixture(scope="session")
+def load_test_env_file() -> bool:
+    """Load .env.tests file.
+
+    Returns
+    -------
+        bool: If at least one environment variable was set. False otherwise.
+
+    """
+    return load_dotenv(".env.tests")
+
+
+@pytest_asyncio.fixture(scope="session")
+async def aws_one_all_deployed_range(
+    auth_integration_client: AsyncClient,
+    load_test_env_file: bool,
+    request: pytest.FixtureRequest,
+) -> DeployedRangeHeaderSchema:
+    """Deploy the one VPC, one subnet, and one host range to AWS using the authenticated integration client.
+
+    Returns
+    -------
+        DeployedRangeHeaderSchema: The header data of the deployed range.
+
+    """
+    if not load_test_env_file:
+        logger.warning("No env variables loaded from `.env.tests`.")
+
+    # Check for configured AWS credentials
+    aws_access_key = os.environ.get("INTEGRATION_TEST_AWS_ACCESS_KEY")
+    aws_secret_key = os.environ.get("INTEGRATION_TEST_AWS_SECRET_KEY")
+
+    if not all([aws_access_key, aws_secret_key]):
+        pytest.skip(
+            "Skipping AWS one-all deployment tests:"
+            "INTEGRATION_TEST_AWS_ACCESS_KEY and/or INTEGRATION_TEST_AWS_SECRET_KEY environment variables are not set.",
+        )
+
+    # Configure AWS credentials
+    credential_payload = {
+        "aws_access_key": aws_access_key,
+        "aws_secret_key": aws_secret_key,
+    }
+    assert await add_cloud_credentials(
+        auth_integration_client, OpenLabsProvider.AWS, credential_payload
+    )
+
+    # Create range blueprint
+    blueprint_range = copy.deepcopy(valid_blueprint_range_create_payload)
+    blueprint_range["provider"] = OpenLabsProvider.AWS.value
+    blueprint_header = await add_blueprint_range(
+        auth_integration_client, blueprint_range
+    )
+    assert blueprint_header is not None
+
+    # Deploy range
+    deployed_range_header = await deploy_range(
+        auth_integration_client, blueprint_header.id, base_name="Integation_Test"
+    )
+    assert deployed_range_header is not None
+
+    # This is required as addfinalizer() requires a synchronous function
+    def aws_one_all_deployed_range_finalizer() -> None:
+        """Range cleanup."""
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(
+            destroy_range(auth_integration_client, deployed_range_header.id)
+        )
+
+    request.addfinalizer(aws_one_all_deployed_range_finalizer)
+
+    return deployed_range_header
 
 
 @pytest.fixture
@@ -561,6 +804,15 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
 
     Only use for authenticated client fixtures.
 
+    """
+    return request.getfixturevalue(request.param)
+
+
+@pytest.fixture
+def one_all_deployed_range(request: pytest.FixtureRequest) -> DeployedRangeHeaderSchema:
+    """Return the corresponding one-all range header.
+
+    Only use for one-all ranges.
     """
     return request.getfixturevalue(request.param)
 

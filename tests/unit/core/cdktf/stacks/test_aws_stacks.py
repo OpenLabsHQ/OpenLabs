@@ -14,7 +14,7 @@ from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.range_schemas import BlueprintRangeSchema
 from tests.unit.core.cdktf.config import one_all_blueprint
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.aws]
 
 
 @pytest.fixture(scope="module")
