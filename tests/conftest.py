@@ -5,6 +5,7 @@ import os
 import random
 import shutil
 import socket
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable, Generator
@@ -460,6 +461,22 @@ def get_free_port() -> int:
         return int(s.getsockname()[1])
 
 
+@pytest.fixture(scope="session")
+def create_test_output_dir() -> str:
+    """Create test output directory `.testing-out`.
+
+    Returns
+    -------
+        str: Path to test output dir.
+
+    """
+    test_output_dir = ".testing-out"
+    if not os.path.exists(test_output_dir):
+        os.makedirs(test_output_dir)
+
+    return test_output_dir
+
+
 async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
     """Poll the FastAPI health endpoint until it returns a 200 status code or the timeout is reached."""
     url = f"{base_url}/health/ping"
@@ -485,7 +502,9 @@ async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
 
 
 @pytest.fixture(scope="session")
-def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
+def docker_services(
+    get_free_port: int, create_test_output_dir: str
+) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
     ip_var_name = "API_IP_ADDR"
     port_var_name = "API_PORT"
@@ -505,8 +524,30 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
         keep_volumes=False,
     ) as compose:
         logger.info("Docker Compose environment started.")
+        try:
+            yield compose
+        finally:
+            logger.info("Saving container logs...")
 
-        yield compose
+            # Check if the test run failed by seeing if an exception was raised
+            exc_type, _, _ = sys.exc_info()
+            did_fail = exc_type is not None
+
+            status = "FAILED" if did_fail else "PASSED"
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+            log_filename = f"integration_test_{status}_{timestamp}.log"
+            log_path = os.path.join(create_test_output_dir, log_filename)
+
+            stdout, stderr = compose.get_logs()
+
+            # Save the logs to a file
+            with open(log_filename, "w", encoding="utf-8") as f:
+                f.write("--- STDOUT ---\n")
+                f.write(stdout)
+                f.write("\n--- STDERR ---\n")
+                f.write(stderr)
+
+            logger.info("Container logs saved to: %s", log_path)
 
     del os.environ[ip_var_name]
     del os.environ[port_var_name]
