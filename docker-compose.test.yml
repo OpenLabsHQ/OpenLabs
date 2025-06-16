@@ -3,7 +3,7 @@ services:
     build:
       target: dev
     command: >
-      uvicorn tests.integration.main_test:app --host 0.0.0.0 --port 80
+      uvicorn tests.integration.main_test:app --host 0.0.0.0 --port 80 --workers 4
     volumes:
       - ./.coverage-out:/code/.coverage-out
     environment:
