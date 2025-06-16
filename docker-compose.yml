@@ -45,6 +45,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: "local"
     networks:
       - fastapi_network
 
