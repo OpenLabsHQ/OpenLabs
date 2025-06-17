@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
@@ -204,16 +205,20 @@ async def update_user_secrets(
         )
 
     # Verify credentials are valid before storing
-    creds_obj = CredsFactory.create_creds_verification(
-        provider=creds.provider, credentials=creds.credentials
-    )
+    try:
+        creds_obj = CredsFactory.create_creds_verification(
+            provider=creds.provider, credentials=creds.credentials
+        )
+    except ValidationError as e:
+        error = e.errors()[0]["msg"].split(", ", 1)[-1]
+        raise HTTPException(status_code=400, detail=error) from None
 
-    verify = creds_obj.verify_creds()
+    verified, msg = creds_obj.verify_creds()
 
-    if not verify[0]:
+    if not verified:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=verify[1].message,
+            detail=msg.message,
         )
 
     # Encrypt the AWS credentials using the user's public key

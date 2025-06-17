@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SecretBaseSchema(BaseModel):
@@ -65,6 +65,48 @@ class AWSSecrets(BaseModel):
         ...,
         description="Secret key for AWS account",
     )
+
+    @field_validator("aws_access_key")
+    @classmethod
+    def validate_access_key(cls, aws_access_key: str) -> str:
+        """Check AWS access key is correct length.
+
+        Args:
+        ----
+            cls: AWSSecrets object.
+            aws_access_key (str): AWS access key.
+
+        Returns:
+        -------
+            str: AWS access key.
+
+        """
+        access_key_length = 20
+        if len(aws_access_key) != access_key_length:
+            msg = "Invalid credential length. Please ensure your AWS credentials are of valid length."
+            raise ValueError(msg)
+        return aws_access_key
+
+    @field_validator("aws_secret_key")
+    @classmethod
+    def validate_secret_key(cls, aws_secret_key: str) -> str:
+        """Check AWS secret key is correct length.
+
+        Args:
+        ----
+            cls: AWSSecrets object.
+            aws_secret_key (str): AWS secret key.
+
+        Returns:
+        -------
+            str: AWS access key.
+
+        """
+        secret_key_length = 40
+        if len(aws_secret_key) != secret_key_length:
+            msg = "Invalid credential length. Please ensure your AWS credentials are of valid length."
+            raise ValueError(msg)
+        return aws_secret_key
 
 
 class AzureSecrets(BaseModel):
