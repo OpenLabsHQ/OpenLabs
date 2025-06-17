@@ -14,9 +14,10 @@
 2. [Project Structure](#project-structure)
 3. [Environment Setup](#environment-setup)
 4. [Tests](#tests)
-5. [Workflows](#workflows)
-6. [Contributing](/CONTRIBUTING.md)
-7. [License](/LICENSE)
+5. [Debugging](#debugging)
+6. [Workflows](#workflows)
+7. [Contributing](/CONTRIBUTING.md)
+8. [License](/LICENSE)
 
 
 ## Quickstart
@@ -67,7 +68,7 @@ src/
 │   ├── models              # ORM models
 │   ├── schemas             # API/Pydantic schemas
 │   ├── utils
-|   ├── validators
+│   ├── validators
 │   └── main.py             # Application entry point
 │
 └── scripts                 # Setup scripts
