@@ -8,6 +8,7 @@ import socket
 import sys
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
@@ -477,6 +478,40 @@ def create_test_output_dir() -> str:
     return test_output_dir
 
 
+@pytest.fixture(scope="session")
+def rotate_docker_compose_test_log_files(create_test_output_dir: str) -> None:
+    """Rotate and cleanup docker_compose_test_*.log files."""
+    logs_to_keep = 5
+    log_prefix = "docker_compose_test_"
+    logger.info(
+        "--- Log Cleanup ---\nRunning log rotation. Keeping the newest %d log(s).",
+        logs_to_keep,
+    )
+
+    try:
+        log_dir = Path(create_test_output_dir)
+        log_files = sorted(
+            log_dir.glob(f"{log_prefix}*.log"), reverse=True
+        )  # Logs named with YYYY-MM-DD_HH-MM-SS format
+
+        files_to_delete = log_files[logs_to_keep:]
+
+        if not files_to_delete:
+            logger.info("No old logs to delete.")
+            return
+
+        logger.info("Found %d old log(s) to delete.", len(files_to_delete))
+        for log_file in files_to_delete:
+            try:
+                log_file.unlink()
+                logger.debug("Deleted old log file: %s", log_file)
+            except OSError as e:
+                logger.error("Error deleting file %s: %s", log_file, e)
+
+    except Exception as e:
+        logger.error("An unexpected error occurred during log cleanup: %s", e)
+
+
 async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
     """Poll the FastAPI health endpoint until it returns a 200 status code or the timeout is reached."""
     url = f"{base_url}/health/ping"
@@ -503,7 +538,9 @@ async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
 
 @pytest.fixture(scope="session")
 def docker_services(
-    get_free_port: int, create_test_output_dir: str
+    get_free_port: int,
+    create_test_output_dir: str,
+    rotate_docker_compose_test_log_files: None,
 ) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
     ip_var_name = "API_IP_ADDR"
