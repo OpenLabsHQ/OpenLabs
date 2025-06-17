@@ -13,7 +13,7 @@ pytestmark = pytest.mark.integration
     indirect=True,
 )
 async def test_aws_one_all_deployed_range(
-    one_all_deployed_range: DeployedRangeSchema,
+    one_all_deployed_range: tuple[DeployedRangeSchema, str, str],
 ) -> None:
     """Test that the deployment was successful.
 
@@ -21,5 +21,12 @@ async def test_aws_one_all_deployed_range(
     one-all range deployment fixture failed. This means that the
     deployment logic in the application is broken.
     """
-    if not one_all_deployed_range:
+    range_info, email, password = one_all_deployed_range
+
+    # Check that we recieved auth info
+    assert email
+    assert password
+
+    # Check that range deployed
+    if not range_info:
         pytest.fail("One-all range failed to deploy!")

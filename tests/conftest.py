@@ -639,7 +639,7 @@ async def add_cloud_credentials(
     ----
         auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
         provider (OpenLabsProvider): A valid OpenLabs cloud provider to configure credentials for.
-        credentials_payload(dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
+        credentials_payload (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
 
     Returns:
     -------
@@ -860,8 +860,23 @@ async def managed_deployed_range(
     provider: OpenLabsProvider,
     cloud_credentials_payload: dict[str, Any],
     blueprint_range: BlueprintRangeCreateSchema,
-) -> AsyncGenerator[DeployedRangeSchema, None]:
-    """Deploy a range for testing with automatic cleanup."""
+) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
+    """Deploy a range for testing with automatic cleanup.
+
+    Args:
+    ----
+        integration_client (AsyncClient): Any authenticated httpx client. Normally, the integration clients. NOT THE `integration_client` FIXTURE!
+        provider (OpenLabsProvider): A supported OpenLabs cloud provider.
+        cloud_credentials_payload (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
+        blueprint_range (BlueprintRangeCreateSchema): Blueprint range creation schema to save and deploy.
+
+    Returns:
+    -------
+        DeployedRangeSchema: Deployed range info.
+        str: Email of user that owns the deployed range.
+        str: Password of user that owns the deployed range.
+
+    """
     deployment_info: dict[str, Any] = {}
     try:
         # Create new user
@@ -908,7 +923,7 @@ async def managed_deployed_range(
             "password": password,
         }
 
-        yield deployed_range
+        yield deployed_range, email, password
 
     finally:
         # TEARDOWN
@@ -933,11 +948,18 @@ async def one_all_deployed_range(
     request: pytest.FixtureRequest,
     integration_client: AsyncClient,
     load_test_env_file: bool,  # Assuming this fixture is still needed
-) -> AsyncGenerator[DeployedRangeSchema, None]:
+) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
     """Deploys a 'one-all' range to a specific cloud provider.
 
     The provider is determined by the indirect parameter from the test
     (e.g., "aws", "gcp") via `request.param`.
+
+    Returns
+    -------
+        DeployedRangeSchema: Deployed range info.
+        str: Email of user that owns the deployed range.
+        str: Password of user that owns the deployed range.
+
     """
     # Get the provider name from the test's parameter
     provider_name = request.param
@@ -975,8 +997,8 @@ async def one_all_deployed_range(
         provider=provider,
         cloud_credentials_payload=credentials,
         blueprint_range=blueprint_range,
-    ) as deployed_range:
-        yield deployed_range
+    ) as deployed_range_data:
+        yield deployed_range_data
 
 
 @pytest.fixture
