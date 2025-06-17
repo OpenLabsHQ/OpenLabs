@@ -470,7 +470,7 @@ def create_test_output_dir() -> str:
         str: Path to test output dir.
 
     """
-    test_output_dir = ".testing-out"
+    test_output_dir = "./.testing-out/"
     if not os.path.exists(test_output_dir):
         os.makedirs(test_output_dir)
 
@@ -535,13 +535,13 @@ def docker_services(
 
             status = "FAILED" if did_fail else "PASSED"
             timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-            log_filename = f"integration_test_{status}_{timestamp}.log"
+            log_filename = f"docker_compose_test_{status}_{timestamp}.log"
             log_path = os.path.join(create_test_output_dir, log_filename)
 
             stdout, stderr = compose.get_logs()
 
             # Save the logs to a file
-            with open(log_filename, "w", encoding="utf-8") as f:
+            with open(log_path, "w", encoding="utf-8") as f:
                 f.write("--- STDOUT ---\n")
                 f.write(stdout)
                 f.write("\n--- STDERR ---\n")
