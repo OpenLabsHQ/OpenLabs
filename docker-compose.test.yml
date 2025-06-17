@@ -5,9 +5,9 @@ services:
     command: >
       uvicorn tests.integration.main_test:app --host 0.0.0.0 --port 80 --workers 4
     volumes:
-      - ./.coverage-out:/code/.coverage-out
+      - ./.testing-out:/code/.testing-out
     environment:
       - COVERAGE_PROCESS_START=/code/pyproject.toml
-      - COVERAGE_FILE=/code/.coverage-out/.coverage
+      - COVERAGE_FILE=/code/.testing-out/.coverage
     logging:
       driver: "local"
