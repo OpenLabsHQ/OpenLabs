@@ -626,7 +626,13 @@ async def add_cloud_credentials(
     response = await auth_client.post(
         f"{base_route}/users/me/secrets/{provider_url}", json=credentials_payload
     )
-    return response.status_code == status.HTTP_200_OK
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to add cloud credentials. Error: %s", response.json()["detail"]
+        )
+        return False
+
+    return True
 
 
 async def add_blueprint_range(
@@ -662,7 +668,11 @@ async def add_blueprint_range(
     response = await auth_client.post(
         f"{base_route}/blueprints/ranges", json=blueprint_range
     )
-    assert response.status_code == status.HTTP_200_OK
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to add range blueprint. Error: %s", response.json()["detail"]
+        )
+        return None
 
     return BlueprintRangeHeaderSchema.model_validate(response.json())
 
@@ -700,7 +710,10 @@ async def deploy_range(
     # Fetch blueprint to aid in building descriptive name
     response = await auth_client.get(f"{base_route}/blueprints/ranges/{blueprint_id}")
     if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to deploy range. Could not fetch range blueprint!")
+        logger.error(
+            "Failed to deploy range. Could not fetch range blueprint! Error: %s",
+            response.json()["detail"],
+        )
         return None
     blueprint_range = response.json()
 
@@ -718,7 +731,8 @@ async def deploy_range(
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(
-            "Failed to deploy range due to error while deploying. Ensure that all resources were successfully cleaned up!"
+            "Failed to deploy range due to error while deploying. Ensure that all resources were successfully cleaned up! Error: %s",
+            response.json()["detail"],
         )
         return None
 
@@ -769,7 +783,7 @@ def load_test_env_file() -> bool:
 
 @pytest_asyncio.fixture(scope="session")
 async def aws_one_all_deployed_range(
-    auth_integration_client: AsyncClient,
+    integration_client: AsyncClient,
     load_test_env_file: bool,
     request: pytest.FixtureRequest,
 ) -> DeployedRangeHeaderSchema:
@@ -793,26 +807,29 @@ async def aws_one_all_deployed_range(
             "INTEGRATION_TEST_AWS_ACCESS_KEY and/or INTEGRATION_TEST_AWS_SECRET_KEY environment variables are not set.",
         )
 
+    # Log client in to get a fresh account
+    assert await authenticate_client(
+        integration_client
+    ), "Failed to login in with client!"
+
     # Configure AWS credentials
     credential_payload = {
         "aws_access_key": aws_access_key,
         "aws_secret_key": aws_secret_key,
     }
     assert await add_cloud_credentials(
-        auth_integration_client, OpenLabsProvider.AWS, credential_payload
+        integration_client, OpenLabsProvider.AWS, credential_payload
     )
 
     # Create range blueprint
     blueprint_range = copy.deepcopy(valid_blueprint_range_create_payload)
     blueprint_range["provider"] = OpenLabsProvider.AWS.value
-    blueprint_header = await add_blueprint_range(
-        auth_integration_client, blueprint_range
-    )
+    blueprint_header = await add_blueprint_range(integration_client, blueprint_range)
     assert blueprint_header is not None
 
     # Deploy range
     deployed_range_header = await deploy_range(
-        auth_integration_client, blueprint_header.id, base_name="Integation_Test"
+        integration_client, blueprint_header.id, base_name="Integation_Test"
     )
     assert deployed_range_header is not None
 
@@ -821,7 +838,7 @@ async def aws_one_all_deployed_range(
         """Range cleanup."""
         loop = asyncio.get_event_loop()
         loop.run_until_complete(
-            destroy_range(auth_integration_client, deployed_range_header.id)
+            destroy_range(integration_client, deployed_range_header.id)
         )
 
     request.addfinalizer(aws_one_all_deployed_range_finalizer)
