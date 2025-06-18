@@ -852,15 +852,16 @@ def load_test_env_file() -> bool:
     return load_dotenv(".env.tests")
 
 
-async def setup_managed_range(
+async def deploy_managed_range(
     client: AsyncClient,
     provider: OpenLabsProvider,
     cloud_credentials_payload: dict[str, Any],
     blueprint_range: BlueprintRangeCreateSchema,
 ) -> dict[str, Any]:
-    """
-    Sets up a single range and returns a dictionary with its data and auth info.
-    This replaces the 'try' block of the old context manager.
+    """Deploy a single range and returns a dictionary with its data and auth info.
+
+    **Note:** Do not use this to deploy a range with the API manually/in tests. This
+    is used by fixtures only for automatic test range deployments.
     """
     # Create new user for this deployment
     _, email, password, _ = await register_user(client)
@@ -895,28 +896,33 @@ async def setup_managed_range(
     }
 
 
-async def teardown_managed_range(
+async def destroy_managed_range(
     client: AsyncClient,
     email: str,
     password: str,
     range_id: int,
     provider: OpenLabsProvider,
 ) -> None:
-    """
-    Tears down a single range.
-    This replaces the 'finally' block of the old context manager.
+    """Destroy a single range.
+
+    **Note:** Do not use this to destroy a range manually with the API. This is
+    used by fixtures only for automatic test range destroys.
     """
     try:
         # Log back in to the dedicated user to destroy the range
         if await login_user(client, email=email, password=password):
             if not await destroy_range(client, range_id):
                 logger.critical(
-                    f"TEARDOWN FAILED for range {range_id} in {provider.value}!"
+                    "Destroy failed for range %s in %s! Likely dangling resources left behind.",
+                    range_id,
+                    provider.value.upper(),
                 )
         else:
-            logger.critical(f"TEARDOWN FAILED: Could not log in as user {email}.")
+            logger.critical("Destroy failed! Could not log in as user %s.", email)
     except Exception as e:
-        logger.critical(f"TEARDOWN EXCEPTION for range {range_id}: {e}", exc_info=True)
+        logger.critical(
+            "Destroy failed for range %s! Exception: %s", range_id, e, exc_info=True
+        )
 
 
 def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None:
@@ -961,7 +967,7 @@ def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None
 async def isolated_integration_client(
     base_url: str,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Provide a single, isolated client to the live API for one task."""
+    """Provide a single, isolated client to the docker compose API."""
     async with AsyncClient(base_url=base_url) as client:
         yield client
 
@@ -979,8 +985,7 @@ async def parallel_deployed_ranges_for_provider(
         provider.value.upper(),
     )
 
-    teardown_details = []
-    # This stack now only manages the clients' lifecycles
+    destroy_details = []
     async with AsyncExitStack() as client_stack:
         try:
             blueprint_map = {
@@ -988,8 +993,10 @@ async def parallel_deployed_ranges_for_provider(
                 "multi": valid_blueprint_range_multi_create_payload,
             }
 
-            async def create_and_setup(key: str, payload: dict) -> dict:
-                """Helper to create a client and run the setup task."""
+            async def create_and_setup(
+                key: str, blueprint_dict: dict[str, Any]
+            ) -> dict:
+                """Create a client and run the setup task."""
                 client = await client_stack.enter_async_context(
                     isolated_integration_client(docker_compose_api_url)
                 )
@@ -997,36 +1004,36 @@ async def parallel_deployed_ranges_for_provider(
                 if not creds:
                     pytest.skip(f"Credentials for {provider.value.upper()} not set.")
 
-                setup_info = await setup_managed_range(
+                setup_info = await deploy_managed_range(
                     client=client,
                     provider=provider,
                     cloud_credentials_payload=creds,
                     blueprint_range=BlueprintRangeCreateSchema.model_validate(
-                        copy.deepcopy(payload)
+                        copy.deepcopy(blueprint_dict)
                     ),
                 )
                 # Add the live client to the info needed for teardown
                 setup_info["client"] = client
                 return setup_info
 
-            # --- SETUP (in parallel) ---
-            setup_tasks = {
-                key: create_and_setup(key, payload)
-                for key, payload in blueprint_map.items()
+            # Deploy ranges
+            deploy_tasks = {
+                key: create_and_setup(key, blueprint_dict)
+                for key, blueprint_dict in blueprint_map.items()
             }
             results = await asyncio.gather(
-                *setup_tasks.values(), return_exceptions=True
+                *deploy_tasks.values(), return_exceptions=True
             )
 
-            # Check for setup errors
+            # Check for deploy errors
             deployed_data_for_yield: dict[str, tuple[DeployedRangeSchema, str, str]] = (
                 {}
             )
             has_errors = False
-            for key, result in zip(setup_tasks.keys(), results, strict=True):
+            for key, result in zip(deploy_tasks.keys(), results, strict=True):
                 if isinstance(result, BaseException):
                     logger.critical(
-                        "SETUP FAILED for '%s': %s", key, result, exc_info=result
+                        "Deploy failed for '%s': %s", key, result, exc_info=result
                     )
                     has_errors = True
                 else:
@@ -1041,8 +1048,8 @@ async def parallel_deployed_ranges_for_provider(
                         result["email"],
                         result["password"],
                     )
-                    # Store the full dictionary for teardown
-                    teardown_details.append(result)
+                    # Store the full dictionary for destroying
+                    destroy_details.append(result)
 
             if has_errors:
                 pytest.fail(
@@ -1052,30 +1059,30 @@ async def parallel_deployed_ranges_for_provider(
             yield deployed_data_for_yield
 
         finally:
-            if teardown_details:
+            if destroy_details:
                 logger.info(
-                    "Starting parallel teardown of all test ranges for provider: %s...",
+                    "Starting parallel destroy of all test ranges for provider: %s...",
                     provider.value.upper(),
                 )
-                teardown_tasks = [
-                    teardown_managed_range(
+                destroy_tasks = [
+                    destroy_managed_range(
                         client=info["client"],
                         email=info["email"],
                         password=info["password"],
                         range_id=info["range_id"],
                         provider=provider,
                     )
-                    for info in teardown_details
+                    for info in destroy_details
                 ]
-                teardown_results = await asyncio.gather(
-                    *teardown_tasks, return_exceptions=True
+                destroy_results = await asyncio.gather(
+                    *destroy_tasks, return_exceptions=True
                 )
 
-                for result in teardown_results:
+                for result in destroy_results:
                     if isinstance(result, BaseException):
                         # Log any errors during teardown but don't fail the test run
                         logger.error(
-                            "Error during parallel teardown: %s",
+                            "Error during parallel destroy: %s",
                             result,
                             exc_info=result,
                         )
