@@ -1,33 +1,19 @@
 import copy
 import random
 import string
-from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
-from src.app.core.cdktf.ranges.range_factory import RangeFactory
-from src.app.enums.regions import OpenLabsRegion
-from src.app.models.user_model import UserModel
-from src.app.schemas.range_schemas import (
-    DeployedRangeHeaderSchema,
-    DeployedRangeKeySchema,
-    DeployedRangeSchema,
-)
-from src.app.schemas.secret_schema import SecretSchema
+from tests.api_test_utils import authenticate_client
 from tests.common.api.v1.config import (
-    BASE_ROUTE,
     API_CLIENT_PARAMS,
     AUTH_API_CLIENT_PARAMS,
+    BASE_ROUTE,
     valid_blueprint_range_create_payload,
-    valid_deployed_range_data,
     valid_range_deploy_payload,
-    valid_range_private_key_data,
 )
-from tests.conftest import authenticate_client
 
 
 @pytest.mark.asyncio(loop_scope="session")

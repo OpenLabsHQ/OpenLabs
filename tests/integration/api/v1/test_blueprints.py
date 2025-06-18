@@ -3,7 +3,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.app.core.config import settings
-from tests.conftest import (
+from tests.api_test_utils import (
     login_user,
     register_user,
 )

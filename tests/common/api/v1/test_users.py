@@ -4,6 +4,12 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
+from tests.api_test_utils import (
+    authenticate_client,
+    login_user,
+    logout_user,
+    register_user,
+)
 from tests.common.api.v1.config import (
     API_CLIENT_PARAMS,
     AUTH_API_CLIENT_PARAMS,
@@ -12,7 +18,6 @@ from tests.common.api.v1.config import (
     azure_secrets_payload,
     password_update_payload,
 )
-from tests.conftest import authenticate_client, login_user, logout_user, register_user
 
 
 @pytest.mark.asyncio(loop_scope="session")

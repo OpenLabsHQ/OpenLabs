@@ -2,20 +2,18 @@ import asyncio
 import copy
 import logging
 import os
-import random
 import shutil
 import socket
 import sys
 import uuid
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -38,7 +36,6 @@ from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeCreateSchema,
-    BlueprintRangeHeaderSchema,
     BlueprintRangeSchema,
     DeployedRangeHeaderSchema,
     DeployedRangeSchema,
@@ -46,10 +43,22 @@ from src.app.schemas.range_schemas import (
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
+from tests.api_test_utils import (
+    authenticate_client,
+    wait_for_fastapi_service,
+)
+from tests.deploy_test_utils import (
+    deploy_managed_range,
+    destroy_managed_range,
+    get_provider_test_creds,
+    isolated_integration_client,
+)
+from tests.test_utils import (
+    add_key_recursively,
+    generate_random_int,
+    rotate_docker_compose_test_log_files,
+)
 from tests.unit.api.v1.config import (
-    BASE_ROUTE,
-    base_user_login_payload,
-    base_user_register_payload,
     valid_blueprint_range_create_payload,
     valid_blueprint_range_multi_create_payload,
     valid_deployed_range_data,
@@ -234,151 +243,6 @@ async def db_override(
     return override_async_get_db
 
 
-async def register_user(
-    client: AsyncClient,
-    email: str | None = None,
-    password: str | None = None,
-    name: str | None = None,
-) -> tuple[int, str, str, str]:
-    """Register a user using the provided client.
-
-    Optionally, provide a specific email, password, and name for the registered user.
-
-    Args:
-    ----
-        client (AsyncClient): Client object to interact with the API.
-        email (Optional[str]): Email to use for registration. Random email used if not provided.
-        password (Optional[str]): Password to use for registration. Random password used if not provided.
-        name (Optional[str]): Name to use for registration. Random name used if not provided.
-
-    Returns:
-    -------
-        int: ID of newly registered user.
-        str: Email of registered user.
-        str: Password of registered user.
-        str: Name of the registered user.
-
-    """
-    registration_payload = copy.deepcopy(base_user_register_payload)
-
-    unique_str = str(uuid.uuid4())
-
-    # Create unique email
-    if not email:
-        email_split = registration_payload["email"].split("@")
-        email_split_len = 2  # username and domain from email
-        assert len(email_split) == email_split_len
-        email = f"{email_split[0]}-{unique_str}@{email_split[1]}"
-
-    # Make name unique for debugging
-    if not name:
-        name = f"{registration_payload['name']} {unique_str}"
-
-    # Create unique password
-    if not password:
-        password = f"password-{unique_str}"
-
-    # Build payload with values
-    registration_payload["email"] = email
-    registration_payload["password"] = password
-    registration_payload["name"] = name
-
-    # Register user
-    response = await client.post(
-        f"{BASE_ROUTE}/auth/register", json=registration_payload
-    )
-    assert response.status_code == status.HTTP_200_OK, "Failed to register user."
-
-    user_id = int(response.json()["id"])
-    assert user_id, "Failed to retrieve test user ID."
-
-    return user_id, email, password, name
-
-
-async def login_user(client: AsyncClient, email: str, password: str) -> bool:
-    """Login into an existing/registered user.
-
-    Sets authentication cookies secure = False to allow for HTTP transportation.
-    Ensure that this function is only used in a test environment and sent to
-    localhost only.
-
-    Args:
-    ----
-        client (AsyncClient): Client to login with.
-        email (str): Email of user to login as.
-        password (str): Password of user to login as.
-
-    Returns:
-    -------
-        bool: True if successfully logged in. False otherwise.
-
-    """
-    if not email:
-        msg = "Did not provide an email to login with!"
-        raise ValueError(msg)
-
-    if not password:
-        msg = "Did not provide a password to login with!"
-        raise ValueError(msg)
-
-    # Build login payload
-    login_payload = copy.deepcopy(base_user_login_payload)
-    login_payload["email"] = email
-    login_payload["password"] = password
-
-    # Login
-    response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to login as user: %s", email)
-        return False
-
-    # Make cookies non-secure (Works with HTTP)
-    for cookie in client.cookies.jar:
-        cookie.secure = False
-
-    return True
-
-
-async def logout_user(client: AsyncClient) -> bool:
-    """Logout out of current user.
-
-    Returns
-    -------
-        bool: True if successful. False otherwise.
-
-    """
-    response = await client.post(f"{BASE_ROUTE}/auth/logout")
-    return response.status_code == status.HTTP_200_OK
-
-
-async def authenticate_client(
-    client: AsyncClient,
-    email: str | None = None,
-    password: str | None = None,
-    name: str | None = None,
-) -> bool:
-    """Register and login a user using the provided client.
-
-    This function is here for convinience stringing together register_user
-    and login_user.
-
-    Args:
-    ----
-        client (AsyncClient): Client object to interact with the API.
-        email (Optional[str]): Email to use for registration. Random email used if not provided.
-        password (Optional[str]): Password to use for registration. Random password used if not provided.
-        name (Optional[str]): Name to use for registration. Random name used if not provided.
-
-
-    Returns:
-    -------
-        bool: True if successfully logged in. False otherwise.
-
-    """
-    _, email, password, _ = await register_user(client, email, password, name)
-    return await login_user(client, email, password)
-
-
 @pytest.fixture(scope="session")
 def client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
@@ -481,63 +345,6 @@ def create_test_output_dir() -> str:
     return test_output_dir
 
 
-def rotate_docker_compose_test_log_files(test_output_dir: str) -> None:
-    """Rotate and cleanup docker_compose_test_*.log files."""
-    logs_to_keep = 5
-    log_prefix = "docker_compose_test_"
-    logger.info(
-        "--- Log Cleanup ---\nRunning log rotation. Keeping the newest %d log(s).",
-        logs_to_keep,
-    )
-
-    try:
-        log_dir = Path(test_output_dir)
-        log_files = sorted(
-            log_dir.glob(f"{log_prefix}*.log"), reverse=True
-        )  # Logs named with YYYY-MM-DD_HH-MM-SS format
-
-        files_to_delete = log_files[logs_to_keep:]
-
-        if not files_to_delete:
-            logger.info("No old logs to delete.")
-            return
-
-        logger.info("Found %d old log(s) to delete.", len(files_to_delete))
-        for log_file in files_to_delete:
-            try:
-                log_file.unlink()
-                logger.debug("Deleted old log file: %s", log_file)
-            except OSError as e:
-                logger.error("Error deleting file %s: %s", log_file, e)
-
-    except Exception as e:
-        logger.error("An unexpected error occurred during log cleanup: %s", e)
-
-
-async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
-    """Poll the FastAPI health endpoint until it returns a 200 status code or the timeout is reached."""
-    url = f"{base_url}/health/ping"
-    start = asyncio.get_event_loop().time()
-
-    while True:
-        try:
-            async with AsyncClient() as client:
-                response = await client.get(url)
-            if response.status_code == status.HTTP_200_OK:
-                logger.info("FastAPI service is available.")
-                return True
-        except Exception as e:
-            logger.debug("FastAPI service not yet available: %s", e)
-
-        # Wait
-        await asyncio.sleep(1)
-
-        # Timeout expired
-        if asyncio.get_event_loop().time() - start > timeout:
-            logger.error("FastAPI service did not become available in time.")
-            return False
-
-
 @pytest.fixture(scope="session")
 def docker_services(
     get_free_port: int,
@@ -626,220 +433,6 @@ async def auth_integration_client(
         yield client
 
 
-async def add_cloud_credentials(
-    auth_client: AsyncClient,
-    provider: OpenLabsProvider,
-    credentials_payload: dict[str, Any],
-) -> bool:
-    """Add cloud credentials to the authenticated client's account.
-
-    Args:
-    ----
-        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
-        provider (OpenLabsProvider): A valid OpenLabs cloud provider to configure credentials for.
-        credentials_payload (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
-
-    Returns:
-    -------
-        bool: True if cloud credentials successfully store. False otherwise.
-
-    """
-    base_route = get_api_base_route(version=1)
-
-    if not credentials_payload:
-        logger.error("Failed to add cloud credentials. Payload empty!")
-        return False
-
-    # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to add cloud credentials. Provided client is not authenticated!"
-        )
-        return False
-
-    # Submit credentials
-    provider_url = provider.value.lower()
-    response = await auth_client.post(
-        f"{base_route}/users/me/secrets/{provider_url}", json=credentials_payload
-    )
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to add cloud credentials. Error: %s", response.json()["detail"]
-        )
-        return False
-
-    return True
-
-
-async def add_blueprint_range(
-    auth_client: AsyncClient, blueprint_range: dict[str, Any]
-) -> BlueprintRangeHeaderSchema | None:
-    """Add a range blueprint to the application.
-
-    Args:
-    ----
-        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
-        blueprint_range (dict[str, Any]): Dictionary representation of a BlueprintRangeCreateSchema.
-
-    Returns:
-    -------
-        BlueprintRangeHeaderSchema: Header info of saved blueprint range.
-
-    """
-    base_route = get_api_base_route(version=1)
-
-    if not blueprint_range:
-        logger.error("Failed to add range blueprint! Blueprint empty!")
-        return None
-
-    # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to add range blueprint. Provided client is not authenticated!"
-        )
-        return None
-
-    # Submit blueprint range
-    response = await auth_client.post(
-        f"{base_route}/blueprints/ranges", json=blueprint_range
-    )
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to add range blueprint. Error: %s", response.json()["detail"]
-        )
-        return None
-
-    return BlueprintRangeHeaderSchema.model_validate(response.json())
-
-
-async def deploy_range(
-    auth_client: AsyncClient,
-    blueprint_id: int,
-    base_name: str = "Test Range",
-    description: str = "Test range. Auto generated for testing.",
-    region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-) -> DeployedRangeHeaderSchema | None:
-    """Deploy a range from an existing blueprint range.
-
-    Args:
-    ----
-        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
-        blueprint_id (int): ID of the blueprint range to deploy.
-        base_name (str): String to include in the name. Extra information will be included to make it more identifiable.
-        description (str): Description for deployed range.
-        region (OpenLabsRegion): Cloud region to deploy range into.
-
-    Returns:
-    -------
-        DeployedRangeHeaderSchema: Header info of the deployed range if successfully deployed. None otherwise.
-
-    """
-    base_route = get_api_base_route(version=1)
-
-    # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to deploy range. Provided client is not authenticated!")
-        return None
-
-    # Fetch blueprint to aid in building descriptive name
-    response = await auth_client.get(f"{base_route}/blueprints/ranges/{blueprint_id}")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to deploy range. Could not fetch range blueprint! Error: %s",
-            response.json()["detail"],
-        )
-        return None
-    blueprint_range = response.json()
-
-    # Deploy range
-    deploy_payload = {
-        "name": f"Test-({base_name})-{blueprint_range["provider"]}-Range-from-({blueprint_range["name"]} ({blueprint_range["id"]}))",
-        "description": f"{description} This range was auto generated by testing utility functions.",
-        "blueprint_id": blueprint_id,
-        "region": region.value,
-    }
-    response = await auth_client.post(
-        f"{base_route}/ranges/deploy",
-        json=deploy_payload,
-        timeout=None,  # TODO: remove when ARQ jobs implemented
-    )
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to deploy range due to error while deploying. Ensure that all resources were successfully cleaned up! Error: %s",
-            response.json()["detail"],
-        )
-        return None
-
-    return DeployedRangeHeaderSchema.model_validate(response.json())
-
-
-async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
-    """Deploy a range from an existing blueprint range.
-
-    Args:
-    ----
-        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
-        range_id (int): ID of the deployed range.
-
-    Returns:
-    -------
-        bool: True if range successfully destroyed. False otherwise.
-
-    """
-    base_route = get_api_base_route(version=1)
-
-    # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to destroy range. Provided client is not authenticated!")
-        return False
-
-    # Destroy range
-    response = await auth_client.delete(
-        f"{base_route}/ranges/{range_id}",
-        timeout=None,  # TODO: remove when ARQ jobs implemented
-    )
-
-    return response.status_code == status.HTTP_200_OK
-
-
-async def get_range(
-    auth_client: AsyncClient, range_id: int
-) -> DeployedRangeSchema | None:
-    """Get a deployed range's information.
-
-    Args:
-    ----
-        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
-        range_id (int): ID of the deployed range.
-
-    Returns:
-    -------
-        DeployedRangeSchema: The deployed range information if found. None otherwise.
-
-    """
-    base_route = get_api_base_route(version=1)
-
-    # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to destroy range. Provided client is not authenticated!")
-        return None
-
-    # Get range
-    response = await auth_client.get(f"{base_route}/ranges/{range_id}")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to get deployed range. Error: %s", response.json()["detail"]
-        )
-        return None
-
-    return DeployedRangeSchema.model_validate(response.json())
-
-
 @pytest.fixture(scope="session")
 def load_test_env_file() -> bool:
     """Load .env.tests file.
@@ -849,127 +442,9 @@ def load_test_env_file() -> bool:
         bool: If at least one environment variable was set. False otherwise.
 
     """
-    return load_dotenv(".env.tests")
-
-
-async def deploy_managed_range(
-    client: AsyncClient,
-    provider: OpenLabsProvider,
-    cloud_credentials_payload: dict[str, Any],
-    blueprint_range: BlueprintRangeCreateSchema,
-) -> dict[str, Any]:
-    """Deploy a single range and returns a dictionary with its data and auth info.
-
-    **Note:** Do not use this to deploy a range with the API manually/in tests. This
-    is used by fixtures only for automatic test range deployments.
-    """
-    # Create new user for this deployment
-    _, email, password, _ = await register_user(client)
-    await login_user(client, email=email, password=password)
-
-    # Configure and create blueprint
-    blueprint_range.provider = provider
-    blueprint_payload = blueprint_range.model_dump(mode="json")
-    await add_cloud_credentials(client, provider, cloud_credentials_payload)
-    blueprint_header = await add_blueprint_range(client, blueprint_payload)
-    if not blueprint_header:
-        pytest.fail(f"Failed to create range blueprint: {blueprint_payload['name']}")
-
-    # Deploy the range
-    deployed_range_header = await deploy_range(client, blueprint_header.id)
-    if not deployed_range_header:
-        pytest.fail(f"Failed to deploy range blueprint: {blueprint_payload['name']}")
-
-    # Get full deployed range info
-    deployed_range = await get_range(client, deployed_range_header.id)
-    if not deployed_range:
-        pytest.fail(
-            f"Failed to get deployed info for range: {deployed_range_header.name}"
-        )
-
-    # Return all info needed for the test and for teardown
-    return {
-        "range_id": deployed_range_header.id,
-        "email": email,
-        "password": password,
-        "deployed_range": deployed_range,
-    }
-
-
-async def destroy_managed_range(
-    client: AsyncClient,
-    email: str,
-    password: str,
-    range_id: int,
-    provider: OpenLabsProvider,
-) -> None:
-    """Destroy a single range.
-
-    **Note:** Do not use this to destroy a range manually with the API. This is
-    used by fixtures only for automatic test range destroys.
-    """
-    try:
-        # Log back in to the dedicated user to destroy the range
-        if await login_user(client, email=email, password=password):
-            if not await destroy_range(client, range_id):
-                logger.critical(
-                    "Destroy failed for range %s in %s! Likely dangling resources left behind.",
-                    range_id,
-                    provider.value.upper(),
-                )
-        else:
-            logger.critical("Destroy failed! Could not log in as user %s.", email)
-    except Exception as e:
-        logger.critical(
-            "Destroy failed for range %s! Exception: %s", range_id, e, exc_info=True
-        )
-
-
-def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None:
-    """Get the configured test cloud credentials for the provider.
-
-    Args:
-    ----
-        provider (OpenLabsProvider): Supported OpenLabs cloud provider.
-
-    Returns:
-    -------
-        dict[str, str]: Filled in cloud credential payload if ENV vars set. None otherwise.
-
-    """
-    credentials: dict[str, str | None]
-
-    # Select provider configuration
-    if provider == OpenLabsProvider.AWS:
-        credentials = {
-            "aws_access_key": os.environ.get("INTEGRATION_TEST_AWS_ACCESS_KEY"),
-            "aws_secret_key": os.environ.get("INTEGRATION_TEST_AWS_SECRET_KEY"),
-        }
-    else:
-        logger.error(
-            "Provider '%s' is not configured for integration tests.",
-            provider.value.upper(),
-        )
-        return None
-
-    validated_credentials = {
-        key: value for key, value in credentials.items() if value is not None
-    }
-
-    if len(validated_credentials) < len(credentials):
-        logger.warning("Credentials for %s are not set.", provider.value.upper())
-        return None
-
-    return validated_credentials
-
-
-@asynccontextmanager
-async def isolated_integration_client(
-    base_url: str,
-) -> AsyncGenerator[AsyncClient, None]:
-    """Provide a single, isolated client to the docker compose API."""
-    async with AsyncClient(base_url=base_url) as client:
-        yield client
+    test_env_file = ".env.tests"
+    logger.info("Attempting to load test ENV file: %s", test_env_file)
+    return load_dotenv(test_env_file)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -995,7 +470,7 @@ async def parallel_deployed_ranges_for_provider(
 
             async def create_and_setup(
                 key: str, blueprint_dict: dict[str, Any]
-            ) -> dict:
+            ) -> dict[str, Any]:
                 """Create a client and run the setup task."""
                 client = await client_stack.enter_async_context(
                     isolated_integration_client(docker_compose_api_url)
@@ -1365,80 +840,3 @@ def mock_retrieve_deployed_range_success(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(
         "src.app.api.v1.ranges.get_deployed_range", mock_get_range_success
     )
-
-
-def remove_key_recursively(
-    data_structure: dict[Any, Any] | list[Any], key_to_remove: str
-) -> None:
-    """Recursively removes all instances of a specific key from a nested data structure (dictionaries and lists of dictionaries).
-
-    The function modifies the 'data_structure' in-place.
-
-    Args:
-    ----
-        data_structure: The dictionary or list to process. This could be
-                        your main nested dictionary.
-        key_to_remove: The string key to search for and remove from
-                       any dictionaries found within the structure.
-
-    Returns:
-    -------
-        None
-
-    """
-    if isinstance(data_structure, dict):
-        for key in list(data_structure.keys()):
-            if key == key_to_remove:
-                del data_structure[key]
-            else:
-                remove_key_recursively(data_structure[key], key_to_remove)
-    elif isinstance(data_structure, list):
-        for item in data_structure:
-            remove_key_recursively(item, key_to_remove)
-
-
-def add_key_recursively(
-    data_structure: dict[Any, Any] | list[Any],
-    key_to_add: str,
-    value_generator: Callable[[], Any],
-) -> None:
-    """Recursively adds a specific key with a generated value to all dictionaries within a nested data structure (dictionaries and lists of dictionaries).
-
-    The function modifies the 'data_structure' in-place.
-
-    Args:
-    ----
-        data_structure: The dictionary or list to process.
-        key_to_add: The string key to add to any dictionaries found within the structure.
-        value_generator: A function that will be called to generate the value for the new key each time it's added.
-
-    Returns:
-    -------
-        None
-
-    """
-    if isinstance(data_structure, dict):
-        data_structure[key_to_add] = value_generator()
-        for key in data_structure:
-            # Avoid adding the key to the value we just added if it's also a dict
-            if key != key_to_add or not isinstance(data_structure[key], dict):
-                add_key_recursively(data_structure[key], key_to_add, value_generator)
-    elif isinstance(data_structure, list):
-        for item in data_structure:
-            add_key_recursively(item, key_to_add, value_generator)
-
-
-def generate_random_int(lower_bound: int = 1, upper_bound: int = 100) -> int:
-    """Generate random ints `lower_bound` <= int <= `upper_bound`.
-
-    Args:
-    ----
-        lower_bound (int): Lower bound of random ints generated.
-        upper_bound (int): Upper bound of random ints generated.
-
-    Returns:
-    -------
-        int: Randomly generated `lower_bound` <= int <= `upper_bound`.
-
-    """
-    return random.randint(lower_bound, upper_bound)  # noqa: S311

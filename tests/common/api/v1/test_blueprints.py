@@ -7,6 +7,7 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
+from tests.api_test_utils import authenticate_client
 from tests.common.api.v1.config import (
     API_CLIENT_PARAMS,
     AUTH_API_CLIENT_PARAMS,
@@ -20,10 +21,7 @@ from tests.common.api.v1.config import (
     valid_blueprint_vpc_create_payload,
     valid_blueprint_vpc_multi_create_payload,
 )
-from tests.conftest import (
-    authenticate_client,
-    remove_key_recursively,
-)
+from tests.test_utils import remove_key_recursively
 
 
 @pytest.mark.asyncio(loop_scope="session")

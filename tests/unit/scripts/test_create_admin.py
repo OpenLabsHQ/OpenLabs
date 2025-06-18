@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.core.config import settings
 from src.scripts.create_admin import initialize_admin_user
 from src.scripts.health_check import wait_for_api_ready
-from tests.conftest import login_user
+from tests.api_test_utils import login_user
 
 pytestmark = pytest.mark.unit
 
