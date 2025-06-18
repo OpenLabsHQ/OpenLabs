@@ -747,30 +747,6 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def mock_is_range_owner_false(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the is_range_owner function to return false."""
-
-    async def mock_is_range_owner(
-        db: AsyncSession, range_id: int, user_id: uuid.UUID
-    ) -> bool:
-        return False
-
-    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
-
-
-@pytest.fixture
-def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the is_range_owner function to return false."""
-
-    async def mock_is_range_owner(
-        db: AsyncSession, range_id: int, user_id: int
-    ) -> bool:
-        return True
-
-    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
-
-
-@pytest.fixture
 def mock_create_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the create_deployed_range crud function to return nothing to force the error when adding to the ranges table."""
 
