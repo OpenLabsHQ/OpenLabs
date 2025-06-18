@@ -1,7 +1,7 @@
 import pytest
 
 from src.app.schemas.range_schemas import DeployedRangeSchema
-from tests.integration.api.v1.config import ONE_ALL_DEPLOYED_RANGE_PARAMS
+from tests.integration.api.v1.config import PROVIDER_DEPLOYED_RANGE_PARAMS
 
 pytestmark = pytest.mark.integration
 
@@ -9,7 +9,7 @@ pytestmark = pytest.mark.integration
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "one_all_deployed_range",
-    ONE_ALL_DEPLOYED_RANGE_PARAMS,
+    PROVIDER_DEPLOYED_RANGE_PARAMS,
     indirect=True,
 )
 async def test_aws_one_all_deployed_range(

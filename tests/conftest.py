@@ -982,6 +982,29 @@ def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None
     return validated_credentials
 
 
+@asynccontextmanager
+async def deploy_test_range(
+    integration_client: AsyncClient,
+    provider: OpenLabsProvider,
+    blueprint_payload: dict[str, Any],
+) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
+    """Core logic for deploying a range."""
+    test_cloud_credentials = get_provider_test_creds(provider)
+    if not test_cloud_credentials:
+        pytest.skip(f"Credentials for {provider.value.upper()} are not set.")
+
+    blueprint_range = BlueprintRangeCreateSchema.model_validate(blueprint_payload)
+
+    # All the duplicated logic now lives here, in one place.
+    async with managed_deployed_range(
+        integration_client=integration_client,
+        provider=provider,
+        cloud_credentials_payload=test_cloud_credentials,
+        blueprint_range=blueprint_range,
+    ) as deployed_range_data:
+        yield deployed_range_data
+
+
 @pytest_asyncio.fixture(scope="session")
 async def one_all_deployed_range(
     request: pytest.FixtureRequest,
@@ -1000,24 +1023,13 @@ async def one_all_deployed_range(
         str: Password of user that owns the deployed range.
 
     """
-    # Get the provider from the test's parameter
     provider: OpenLabsProvider = request.param
-
-    test_cloud_credentials = get_provider_test_creds(provider)
-    if not test_cloud_credentials:
-        pytest.skip(f"Credentials for {provider.value.upper()} are not set.")
-
-    # Create blueprint range
-    blueprint_dict = copy.deepcopy(valid_blueprint_range_create_payload)
-    blueprint_range = BlueprintRangeCreateSchema.model_validate(blueprint_dict)
-
-    async with managed_deployed_range(
+    async with deploy_test_range(
         integration_client=integration_client,
         provider=provider,
-        cloud_credentials_payload=test_cloud_credentials,
-        blueprint_range=blueprint_range,
-    ) as deployed_range_data:
-        yield deployed_range_data
+        blueprint_payload=copy.deepcopy(valid_blueprint_range_create_payload),
+    ) as (range_info, email, password):
+        yield range_info, email, password
 
 
 @pytest.fixture
