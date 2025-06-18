@@ -480,8 +480,7 @@ def create_test_output_dir() -> str:
     return test_output_dir
 
 
-@pytest.fixture(scope="session")
-def rotate_docker_compose_test_log_files(create_test_output_dir: str) -> None:
+def rotate_docker_compose_test_log_files(test_output_dir: str) -> None:
     """Rotate and cleanup docker_compose_test_*.log files."""
     logs_to_keep = 5
     log_prefix = "docker_compose_test_"
@@ -491,7 +490,7 @@ def rotate_docker_compose_test_log_files(create_test_output_dir: str) -> None:
     )
 
     try:
-        log_dir = Path(create_test_output_dir)
+        log_dir = Path(test_output_dir)
         log_files = sorted(
             log_dir.glob(f"{log_prefix}*.log"), reverse=True
         )  # Logs named with YYYY-MM-DD_HH-MM-SS format
@@ -542,7 +541,6 @@ async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
 def docker_services(
     get_free_port: int,
     create_test_output_dir: str,
-    rotate_docker_compose_test_log_files: None,
 ) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
     ip_var_name = "API_IP_ADDR"
@@ -587,6 +585,9 @@ def docker_services(
                 f.write(stderr)
 
             logger.info("Container logs saved to: %s", log_path)
+
+            # Rotate and clear old logs
+            rotate_docker_compose_test_log_files(create_test_output_dir)
 
     del os.environ[ip_var_name]
     del os.environ[port_var_name]
