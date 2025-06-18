@@ -7,7 +7,7 @@ import shutil
 import socket
 import sys
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Generator
@@ -51,6 +51,7 @@ from tests.unit.api.v1.config import (
     base_user_login_payload,
     base_user_register_payload,
     valid_blueprint_range_create_payload,
+    valid_blueprint_range_multi_create_payload,
     valid_deployed_range_data,
     valid_deployed_range_header_data,
 )
@@ -595,36 +596,32 @@ def docker_services(
 
 
 @pytest_asyncio.fixture(scope="session")
-async def integration_client(
-    docker_services: DockerCompose,
-    get_free_port: int,
-) -> AsyncGenerator[AsyncClient, None]:
-    """Create async client that connects to live FastAPI docker compose container."""
+async def docker_compose_api_url(
+    docker_services: DockerCompose, get_free_port: int
+) -> str:
+    """Spin up the Docker environment, waits for the API to be live, and returns the base URL of the running service."""
     base_url = f"http://127.127.127.127:{get_free_port}"
-
-    # Wait for docker compose and container to start
     await wait_for_fastapi_service(
         f"{base_url}{get_api_base_route(version=1)}", timeout=60
     )
+    return base_url
 
-    async with AsyncClient(base_url=base_url) as client:
+
+@pytest_asyncio.fixture(scope="session")
+async def integration_client(
+    docker_compose_api_url: str,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create a shared async client that connects to live FastAPI docker compose container."""
+    async with AsyncClient(base_url=docker_compose_api_url) as client:
         yield client
 
 
 @pytest_asyncio.fixture(scope="session")
 async def auth_integration_client(
-    docker_services: DockerCompose,
-    get_free_port: int,
+    docker_compose_api_url: str,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Create authenticated async client to live FastAPI docker compose container."""
-    base_url = f"http://127.127.127.127:{get_free_port}"
-
-    # Wait for docker compose and container to start
-    await wait_for_fastapi_service(
-        f"{base_url}{get_api_base_route(version=1)}", timeout=60
-    )
-
-    async with AsyncClient(base_url=base_url) as client:
+    """Create a shared authenticated async client to live FastAPI docker compose container."""
+    async with AsyncClient(base_url=docker_compose_api_url) as client:
         assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
 
@@ -855,93 +852,71 @@ def load_test_env_file() -> bool:
     return load_dotenv(".env.tests")
 
 
-@asynccontextmanager
-async def managed_deployed_range(
-    integration_client: AsyncClient,
+async def setup_managed_range(
+    client: AsyncClient,
     provider: OpenLabsProvider,
     cloud_credentials_payload: dict[str, Any],
     blueprint_range: BlueprintRangeCreateSchema,
-) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
-    """Deploy a range for testing with automatic cleanup.
-
-    Args:
-    ----
-        integration_client (AsyncClient): Any authenticated httpx client. Normally, the integration clients. NOT THE `integration_client` FIXTURE!
-        provider (OpenLabsProvider): A supported OpenLabs cloud provider.
-        cloud_credentials_payload (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
-        blueprint_range (BlueprintRangeCreateSchema): Blueprint range creation schema to save and deploy.
-
-    Returns:
-    -------
-        DeployedRangeSchema: Deployed range info.
-        str: Email of user that owns the deployed range.
-        str: Password of user that owns the deployed range.
-
+) -> dict[str, Any]:
     """
-    deployment_info: dict[str, Any] = {}
+    Sets up a single range and returns a dictionary with its data and auth info.
+    This replaces the 'try' block of the old context manager.
+    """
+    # Create new user for this deployment
+    _, email, password, _ = await register_user(client)
+    await login_user(client, email=email, password=password)
+
+    # Configure and create blueprint
+    blueprint_range.provider = provider
+    blueprint_payload = blueprint_range.model_dump(mode="json")
+    await add_cloud_credentials(client, provider, cloud_credentials_payload)
+    blueprint_header = await add_blueprint_range(client, blueprint_payload)
+    if not blueprint_header:
+        pytest.fail(f"Failed to create range blueprint: {blueprint_payload['name']}")
+
+    # Deploy the range
+    deployed_range_header = await deploy_range(client, blueprint_header.id)
+    if not deployed_range_header:
+        pytest.fail(f"Failed to deploy range blueprint: {blueprint_payload['name']}")
+
+    # Get full deployed range info
+    deployed_range = await get_range(client, deployed_range_header.id)
+    if not deployed_range:
+        pytest.fail(
+            f"Failed to get deployed info for range: {deployed_range_header.name}"
+        )
+
+    # Return all info needed for the test and for teardown
+    return {
+        "range_id": deployed_range_header.id,
+        "email": email,
+        "password": password,
+        "deployed_range": deployed_range,
+    }
+
+
+async def teardown_managed_range(
+    client: AsyncClient,
+    email: str,
+    password: str,
+    range_id: int,
+    provider: OpenLabsProvider,
+) -> None:
+    """
+    Tears down a single range.
+    This replaces the 'finally' block of the old context manager.
+    """
     try:
-        # Create new user
-        _, email, password, _ = await register_user(integration_client)
-        await login_user(integration_client, email=email, password=password)
-
-        # Configure blueprint to use requested provider
-        blueprint_range.provider = provider
-        blueprint_payload = blueprint_range.model_dump(mode="json")
-
-        # Deploy the range
-        await add_cloud_credentials(
-            integration_client, provider, cloud_credentials_payload
-        )
-        blueprint_header = await add_blueprint_range(
-            integration_client, blueprint_payload
-        )
-        if not blueprint_header:
-            msg = f"Failed to create range blueprint: {blueprint_payload["name"]} for deployment as an {provider.value} range test fixture!"
-            logger.error(msg)
-            pytest.fail(msg)
-
-        deployed_range_header = await deploy_range(
-            integration_client, blueprint_header.id
-        )
-        if not deployed_range_header:
-            msg = f"Failed to deploy range blueprint: {blueprint_payload["name"]} to provider: {provider.value} as a test fixture!"
-            logger.error(msg)
-            pytest.fail(msg)
-
-        deployed_range = await get_range(integration_client, deployed_range_header.id)
-        if not deployed_range:
-            msg = (
-                f"Failed to get deployed info for range: {deployed_range_header.name}!"
-            )
-            logger.error(msg)
-            pytest.fail(msg)
-
-        # Store details needed for cleanup
-        deployment_info = {
-            "range_id": deployed_range_header.id,
-            "provider": provider,
-            "email": email,
-            "password": password,
-        }
-
-        yield deployed_range, email, password
-
-    finally:
-        # TEARDOWN
-        if deployment_info:
-            # Log back in to destroy the range
-            await login_user(
-                integration_client,
-                email=deployment_info["email"],
-                password=deployment_info["password"],
-            )
-            destroyed = await destroy_range(
-                integration_client, deployment_info["range_id"]
-            )
-            if not destroyed:
-                msg = f"Failed to destroy range {deployment_info['range_id']}! Dangling test resources left in: {provider.value.upper()}!"
-                logger.critical(msg)
-                pytest.fail(msg, pytrace=False)
+        # Log back in to the dedicated user to destroy the range
+        if await login_user(client, email=email, password=password):
+            if not await destroy_range(client, range_id):
+                logger.critical(
+                    f"TEARDOWN FAILED for range {range_id} in {provider.value}!"
+                )
+        else:
+            logger.critical(f"TEARDOWN FAILED: Could not log in as user {email}.")
+    except Exception as e:
+        logger.critical(f"TEARDOWN EXCEPTION for range {range_id}: {e}", exc_info=True)
 
 
 def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None:
@@ -983,53 +958,147 @@ def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None
 
 
 @asynccontextmanager
-async def deploy_test_range(
-    integration_client: AsyncClient,
-    provider: OpenLabsProvider,
-    blueprint_payload: dict[str, Any],
-) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
-    """Core logic for deploying a range."""
-    test_cloud_credentials = get_provider_test_creds(provider)
-    if not test_cloud_credentials:
-        pytest.skip(f"Credentials for {provider.value.upper()} are not set.")
+async def isolated_integration_client(
+    base_url: str,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Provide a single, isolated client to the live API for one task."""
+    async with AsyncClient(base_url=base_url) as client:
+        yield client
 
-    blueprint_range = BlueprintRangeCreateSchema.model_validate(blueprint_payload)
 
-    # All the duplicated logic now lives here, in one place.
-    async with managed_deployed_range(
-        integration_client=integration_client,
-        provider=provider,
-        cloud_credentials_payload=test_cloud_credentials,
-        blueprint_range=blueprint_range,
-    ) as deployed_range_data:
-        yield deployed_range_data
+@pytest_asyncio.fixture(scope="session")
+async def parallel_deployed_ranges_for_provider(
+    request: pytest.FixtureRequest,
+    docker_compose_api_url: str,
+    load_test_env_file: bool,
+) -> AsyncGenerator[dict[str, tuple[DeployedRangeSchema, str, str]], None]:
+    """Deploys AND destroys all ranges for a provider in PARALLEL."""
+    provider: OpenLabsProvider = request.param
+    logger.info(
+        "Starting parallel deployment of ranges for provider: %s...",
+        provider.value.upper(),
+    )
+
+    teardown_details = []
+    # This stack now only manages the clients' lifecycles
+    async with AsyncExitStack() as client_stack:
+        try:
+            blueprint_map = {
+                "one_all": valid_blueprint_range_create_payload,
+                "multi": valid_blueprint_range_multi_create_payload,
+            }
+
+            async def create_and_setup(key: str, payload: dict) -> dict:
+                """Helper to create a client and run the setup task."""
+                client = await client_stack.enter_async_context(
+                    isolated_integration_client(docker_compose_api_url)
+                )
+                creds = get_provider_test_creds(provider)
+                if not creds:
+                    pytest.skip(f"Credentials for {provider.value.upper()} not set.")
+
+                setup_info = await setup_managed_range(
+                    client=client,
+                    provider=provider,
+                    cloud_credentials_payload=creds,
+                    blueprint_range=BlueprintRangeCreateSchema.model_validate(
+                        copy.deepcopy(payload)
+                    ),
+                )
+                # Add the live client to the info needed for teardown
+                setup_info["client"] = client
+                return setup_info
+
+            # --- SETUP (in parallel) ---
+            setup_tasks = {
+                key: create_and_setup(key, payload)
+                for key, payload in blueprint_map.items()
+            }
+            results = await asyncio.gather(
+                *setup_tasks.values(), return_exceptions=True
+            )
+
+            # Check for setup errors
+            deployed_data_for_yield: dict[str, tuple[DeployedRangeSchema, str, str]] = (
+                {}
+            )
+            has_errors = False
+            for key, result in zip(setup_tasks.keys(), results, strict=True):
+                if isinstance(result, BaseException):
+                    logger.critical(
+                        "SETUP FAILED for '%s': %s", key, result, exc_info=result
+                    )
+                    has_errors = True
+                else:
+                    logger.info(
+                        "Successfully deployed '%s' range for '%s'.",
+                        key,
+                        provider.value.upper(),
+                    )
+                    # Prepare the data for the test (the tuple)
+                    deployed_data_for_yield[key] = (
+                        result["deployed_range"],
+                        result["email"],
+                        result["password"],
+                    )
+                    # Store the full dictionary for teardown
+                    teardown_details.append(result)
+
+            if has_errors:
+                pytest.fail(
+                    f"One or more ranges failed to deploy for provider {provider.value.upper()}."
+                )
+
+            yield deployed_data_for_yield
+
+        finally:
+            if teardown_details:
+                logger.info(
+                    "Starting parallel teardown of all test ranges for provider: %s...",
+                    provider.value.upper(),
+                )
+                teardown_tasks = [
+                    teardown_managed_range(
+                        client=info["client"],
+                        email=info["email"],
+                        password=info["password"],
+                        range_id=info["range_id"],
+                        provider=provider,
+                    )
+                    for info in teardown_details
+                ]
+                teardown_results = await asyncio.gather(
+                    *teardown_tasks, return_exceptions=True
+                )
+
+                for result in teardown_results:
+                    if isinstance(result, BaseException):
+                        # Log any errors during teardown but don't fail the test run
+                        logger.error(
+                            "Error during parallel teardown: %s",
+                            result,
+                            exc_info=result,
+                        )
 
 
 @pytest_asyncio.fixture(scope="session")
 async def one_all_deployed_range(
-    request: pytest.FixtureRequest,
-    integration_client: AsyncClient,
-    load_test_env_file: bool,
-) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
-    """Deploys a 'one-all' range to a specific cloud provider.
+    parallel_deployed_ranges_for_provider: dict[
+        str, tuple[DeployedRangeSchema, str, str]
+    ],
+) -> tuple[DeployedRangeSchema, str, str]:
+    """Get the deployed 'one-all' range for the currently tested provider."""
+    return parallel_deployed_ranges_for_provider["one_all"]
 
-    The provider is determined by the indirect parameter from the test
-    (e.g., "aws", "gcp") via `request.param`.
 
-    Returns
-    -------
-        DeployedRangeSchema: Deployed range info.
-        str: Email of user that owns the deployed range.
-        str: Password of user that owns the deployed range.
-
-    """
-    provider: OpenLabsProvider = request.param
-    async with deploy_test_range(
-        integration_client=integration_client,
-        provider=provider,
-        blueprint_payload=copy.deepcopy(valid_blueprint_range_create_payload),
-    ) as (range_info, email, password):
-        yield range_info, email, password
+@pytest_asyncio.fixture(scope="session")
+async def multi_deployed_range(
+    parallel_deployed_ranges_for_provider: dict[
+        str, tuple[DeployedRangeSchema, str, str]
+    ],
+) -> tuple[DeployedRangeSchema, str, str]:
+    """Get the deployed 'multi-vpc' range for the currently tested provider."""
+    return parallel_deployed_ranges_for_provider["multi"]
 
 
 @pytest.fixture
