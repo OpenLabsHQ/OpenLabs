@@ -1,9 +1,11 @@
 import pytest
 
+from src.app.enums.providers import OpenLabsProvider
+
 ONE_ALL_DEPLOYED_RANGE_PARAMS = [
     pytest.param(
-        "aws",
+        OpenLabsProvider.AWS,
         marks=[pytest.mark.deploy, pytest.mark.aws],
-        id="AWS",
+        id=OpenLabsProvider.AWS.value.upper(),
     )
 ]

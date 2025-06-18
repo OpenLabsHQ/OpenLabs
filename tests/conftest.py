@@ -939,16 +939,54 @@ async def managed_deployed_range(
                 integration_client, deployment_info["range_id"]
             )
             if not destroyed:
-                msg = f"Failed to destroy range {deployment_info['range_id']}! Dangling test resources left in: {provider.value.capitalize()}!"
+                msg = f"Failed to destroy range {deployment_info['range_id']}! Dangling test resources left in: {provider.value.upper()}!"
                 logger.critical(msg)
                 pytest.fail(msg, pytrace=False)
+
+
+def get_provider_test_creds(provider: OpenLabsProvider) -> dict[str, str] | None:
+    """Get the configured test cloud credentials for the provider.
+
+    Args:
+    ----
+        provider (OpenLabsProvider): Supported OpenLabs cloud provider.
+
+    Returns:
+    -------
+        dict[str, str]: Filled in cloud credential payload if ENV vars set. None otherwise.
+
+    """
+    credentials: dict[str, str | None]
+
+    # Select provider configuration
+    if provider == OpenLabsProvider.AWS:
+        credentials = {
+            "aws_access_key": os.environ.get("INTEGRATION_TEST_AWS_ACCESS_KEY"),
+            "aws_secret_key": os.environ.get("INTEGRATION_TEST_AWS_SECRET_KEY"),
+        }
+    else:
+        logger.error(
+            "Provider '%s' is not configured for integration tests.",
+            provider.value.upper(),
+        )
+        return None
+
+    validated_credentials = {
+        key: value for key, value in credentials.items() if value is not None
+    }
+
+    if len(validated_credentials) < len(credentials):
+        logger.warning("Credentials for %s are not set.", provider.value.upper())
+        return None
+
+    return validated_credentials
 
 
 @pytest_asyncio.fixture(scope="session")
 async def one_all_deployed_range(
     request: pytest.FixtureRequest,
     integration_client: AsyncClient,
-    load_test_env_file: bool,  # Assuming this fixture is still needed
+    load_test_env_file: bool,
 ) -> AsyncGenerator[tuple[DeployedRangeSchema, str, str], None]:
     """Deploys a 'one-all' range to a specific cloud provider.
 
@@ -962,32 +1000,12 @@ async def one_all_deployed_range(
         str: Password of user that owns the deployed range.
 
     """
-    # Get the provider name from the test's parameter
-    provider_name = request.param
-    provider: OpenLabsProvider
-    credentials: dict[str, str | None]
+    # Get the provider from the test's parameter
+    provider: OpenLabsProvider = request.param
 
-    try:
-        provider = OpenLabsProvider(provider_name)
-    except Exception:
-        msg = f"Provider '{provider_name}' is not a valid provider."
-        logger.error(msg)
-        pytest.fail(msg)
-
-    # Select provider configuration
-    if provider == OpenLabsProvider.AWS:
-        credentials = {
-            "aws_access_key": os.environ.get("INTEGRATION_TEST_AWS_ACCESS_KEY"),
-            "aws_secret_key": os.environ.get("INTEGRATION_TEST_AWS_SECRET_KEY"),
-        }
-    else:
-        msg = f"Provider '{provider_name}' is not configured for integration tests."
-        logger.error(msg)
-        pytest.fail(msg)
-
-    # Skip if credentials for the selected provider are not set
-    if not all(credentials.values()):
-        pytest.skip(f"Credentials for {provider.value.capitalize()} are not set.")
+    test_cloud_credentials = get_provider_test_creds(provider)
+    if not test_cloud_credentials:
+        pytest.skip(f"Credentials for {provider.value.upper()} are not set.")
 
     # Create blueprint range
     blueprint_dict = copy.deepcopy(valid_blueprint_range_create_payload)
@@ -996,7 +1014,7 @@ async def one_all_deployed_range(
     async with managed_deployed_range(
         integration_client=integration_client,
         provider=provider,
-        cloud_credentials_payload=credentials,
+        cloud_credentials_payload=test_cloud_credentials,
         blueprint_range=blueprint_range,
     ) as deployed_range_data:
         yield deployed_range_data
