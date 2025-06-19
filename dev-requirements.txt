@@ -19,3 +19,5 @@ pytest-mock>=3.14.0
 
 # Deploy tests
 python-dotenv>=1.1.0
+paramiko>=3.5.1
+types-paramiko>=3.5.0
