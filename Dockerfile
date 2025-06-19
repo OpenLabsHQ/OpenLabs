@@ -1,4 +1,4 @@
-# ========= Stage 1: Builder Image =========
+# ========= Builder Image =========
 # Base setup stage
 FROM python:3.12-slim AS builder
 
@@ -45,14 +45,23 @@ EXPOSE 80
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
  CMD ["python", "-m", "src.scripts.health_check"]
 
-# ========= Stage 2: Dev Image =========
-# Adds development dependencies
-FROM builder AS dev
+
+# ========= Debug Image =========
+# Adds debug capabilities
+FROM builder as debug
+
+RUN pip install --no-cache-dir debugpy
+
+
+# ========= Test Image =========
+# Adds test dependencies
+FROM debug AS test
 
 COPY tests /code/tests
 
 COPY ./dev-requirements.txt /code/dev-requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
+
 
 # ========= Prod Image =========
 # Extra prod goodies

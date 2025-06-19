@@ -1,7 +1,7 @@
 services:
   fastapi:
     build:
-      target: dev
+      target: test
     command: >
       uvicorn tests.integration.main_test:app --host 0.0.0.0 --port 80 --workers 4
     volumes:
