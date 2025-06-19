@@ -83,17 +83,6 @@ class AWSStack(AbstractBaseStack):
             tags={"Name": "JumpBoxVPC"},
         )
 
-        # # Function to derive a subnet CIDR from the VPC CIDR
-        # def modify_cidr(vpc_cidr: str, new_third_octet: int) -> str:
-        #     ip_part, prefix = vpc_cidr.split("/")
-        #     octets = ip_part.split(".")
-        #     octets[2] = str(new_third_octet)  # Change the third octet
-        #     octets[3] = "0"  # Explicitly set the fourth octet to 0
-        #     return f"{'.'.join(octets)}/24"  # Convert back to CIDR
-
-        # # Generate the new subnet CIDR with third octet = 99
-        # public_subnet_cidr = modify_cidr(str(jumpbox_vpc.cidr_block), 99)
-
         # Step 3: Create public subnet for jumpbox
         jumpbox_public_subnet = Subnet(
             self,
