@@ -48,7 +48,7 @@ HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
 
 # ========= Debug Image =========
 # Adds debug capabilities
-FROM builder as debug
+FROM builder AS debug
 
 RUN pip install --no-cache-dir debugpy
 
