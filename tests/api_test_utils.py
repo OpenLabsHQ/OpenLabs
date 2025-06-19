@@ -12,6 +12,7 @@ from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.range_schemas import (
     BlueprintRangeHeaderSchema,
     DeployedRangeHeaderSchema,
+    DeployedRangeKeySchema,
     DeployedRangeSchema,
 )
 from src.app.utils.api_utils import get_api_base_route
@@ -194,6 +195,29 @@ async def authenticate_client(
     return await login_user(client, email, password)
 
 
+async def is_logged_in(client: AsyncClient) -> bool:
+    """Check whether an httpx client is authenticated to the API.
+
+    Args:
+    ----
+        client (AsyncClient): Any httpx client.
+
+    Returns:
+    -------
+        bool: True if client is currently logged in. False otherwise.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    # Verify we are logged in
+    response = await client.get(f"{base_route}/users/me")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error("Client is not logged in!")
+        return False
+
+    return True
+
+
 async def add_cloud_credentials(
     auth_client: AsyncClient,
     provider: OpenLabsProvider,
@@ -219,10 +243,10 @@ async def add_cloud_credentials(
         return False
 
     # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
         logger.error(
-            "Failed to add cloud credentials. Provided client is not authenticated!"
+            "Failed to add cloud credentials. Provided client is not logged in!"
         )
         return False
 
@@ -262,11 +286,9 @@ async def add_blueprint_range(
         return None
 
     # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error(
-            "Failed to add range blueprint. Provided client is not authenticated!"
-        )
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error("Failed to add range blueprint. Provided client is not logged in!")
         return None
 
     # Submit blueprint range
@@ -307,8 +329,8 @@ async def deploy_range(
     base_route = get_api_base_route(version=1)
 
     # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
         logger.error("Failed to deploy range. Provided client is not authenticated!")
         return None
 
@@ -360,8 +382,8 @@ async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
     base_route = get_api_base_route(version=1)
 
     # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
         logger.error("Failed to destroy range. Provided client is not authenticated!")
         return False
 
@@ -370,8 +392,15 @@ async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
         f"{base_route}/ranges/{range_id}",
         timeout=None,  # TODO: remove when ARQ jobs implemented
     )
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to destroy range ID: %s. Error: %s",
+            range_id,
+            response.json()["detail"],
+        )
+        return False
 
-    return response.status_code == status.HTTP_200_OK
+    return True
 
 
 async def get_range(
@@ -392,9 +421,11 @@ async def get_range(
     base_route = get_api_base_route(version=1)
 
     # Verify we are logged in
-    response = await auth_client.get(f"{base_route}/users/me")
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to destroy range. Provided client is not authenticated!")
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error(
+            "Failed to get deployed range. Provided client is not authenticated!"
+        )
         return None
 
     # Get range
@@ -406,3 +437,39 @@ async def get_range(
         return None
 
     return DeployedRangeSchema.model_validate(response.json())
+
+
+async def get_range_key(auth_client: AsyncClient, range_id: int) -> str | None:
+    """Get a deployed range's jumpbox key.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
+        range_id (int): ID of the deployed range.
+
+    Returns:
+    -------
+        str: The range's private key.
+
+    """
+    # Verify we are logged in
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error("Failed to destroy range. Provided client is not authenticated!")
+        return None
+
+    base_route = get_api_base_route(version=1)
+
+    # Get range key
+    response = await auth_client.get(f"{base_route}/ranges/{range_id}/key")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to get deployed range key. Error: %s", response.json()["detail"]
+        )
+        return None
+
+    key_response = DeployedRangeKeySchema.model_validate(response.json())
+    unformatted_key = key_response.range_private_key
+
+    # Format key
+    return unformatted_key.replace("\\n", "\n")
