@@ -111,6 +111,9 @@ pytest -m "integration and not deploy"
 # Live deploy tests (requires .env.tests)
 pytest -m deploy
 
+# Configure cloud provider keys
+cp .env.tests.example .env.tests
+
 # Provider specific tests
 pytest -m aws
 ```
