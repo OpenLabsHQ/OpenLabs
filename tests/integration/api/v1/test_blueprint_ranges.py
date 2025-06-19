@@ -16,7 +16,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_admin_can_view_all_blueprints(
+async def test_blueprint_ranges_admin_can_view_all(
     auth_integration_client: AsyncClient,
     integration_client: AsyncClient,
 ) -> None:
