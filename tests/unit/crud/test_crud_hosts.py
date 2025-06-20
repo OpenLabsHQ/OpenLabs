@@ -290,7 +290,7 @@ async def test_create_blueprint_host_standalone(
     # Test that the subnet_id doesn't change since it's standalone
     dummy_host.subnet_id = subnet_id
 
-    assert await create_blueprint_host(dummy_db, dummy_host, user_id, subnet_id=None)  # type: ignore
+    assert await create_blueprint_host(dummy_db, dummy_host, user_id, subnet_id=None)
     assert dummy_host.subnet_id == subnet_id
 
     # Check we make it to the end
