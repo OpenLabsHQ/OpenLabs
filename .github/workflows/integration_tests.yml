@@ -44,4 +44,4 @@ jobs:
       # Run Tests
       - name: Run Tests
         run: |
-          pytest --no-cov tests/integration/
+          pytest -m "integration and not deploy" --no-cov 
