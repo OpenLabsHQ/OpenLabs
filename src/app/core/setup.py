@@ -91,6 +91,6 @@ def create_application(
     app = FastAPI(lifespan=lifespan, **kwargs)
     app.include_router(router)
 
-    add_yaml_middleware_to_router(app, router_path="/api/v1/templates")
+    add_yaml_middleware_to_router(app, router_path="/api/v1/blueprints")
 
     return app
