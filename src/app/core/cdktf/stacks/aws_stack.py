@@ -77,7 +77,7 @@ class AWSStack(AbstractBaseStack):
         jumpbox_vpc = Vpc(
             self,
             f"{range_name}-JumpBoxVPC",
-            cidr_block="10.255.0.0/16",  # TODO: Dynamically create a cidr block that does not exist with any of the vpc cidr blocks in the blueprint
+            cidr_block="10.255.0.0/16",
             enable_dns_support=True,
             enable_dns_hostnames=True,
             tags={"Name": "JumpBoxVPC"},
@@ -178,7 +178,7 @@ class AWSStack(AbstractBaseStack):
             tags={"Name": "RangePublicRouteTable"},
         )
 
-        igw_route = Route(
+        igw_route = Route(  # noqa: F841
             self,
             f"{range_name}-RangePublicInternetRoute",
             route_table_id=jumpbox_route_table.id,
@@ -186,7 +186,7 @@ class AWSStack(AbstractBaseStack):
             gateway_id=igw.id,
         )
 
-        public_rt_assoc = RouteTableAssociation(
+        public_rt_assoc = RouteTableAssociation(  # noqa: F841
             self,
             f"{range_name}-RangePublicRouteAssociation",
             subnet_id=jumpbox_public_subnet.id,
@@ -212,14 +212,14 @@ class AWSStack(AbstractBaseStack):
             vpc_id=jumpbox_vpc.id,
             tags={"Name": "RangePrivateRouteTable"},
         )
-        nat_route = Route(
+        nat_route = Route(  # noqa: F841
             self,
             f"{range_name}-RangePrivateNatRoute",
             route_table_id=nat_route_table.id,
             destination_cidr_block="0.0.0.0/0",  # Allow internet access
             nat_gateway_id=nat_gateway.id,  # Route through NAT Gateway
         )
-        private_rt_assoc = RouteTableAssociation(
+        private_rt_assoc = RouteTableAssociation(  # noqa: F841
             self,
             f"{range_name}-RangePrivateRouteAssociation",
             subnet_id=jumpbox_vpc_private_subnet.id,
@@ -257,7 +257,7 @@ class AWSStack(AbstractBaseStack):
         # Step 13: Add Routing to the Transit Gateway
         # Any traffic destined for the internet will route through the transit gateway to the jumpbox private subnet
         # From there the traffic will use the NAT routing table to route to the NAT gateway to access the internet
-        tgw_internet_route = Ec2TransitGatewayRoute(
+        tgw_internet_route = Ec2TransitGatewayRoute(  # noqa: F841
             self,
             f"{range_name}-TgwInternetRoute",
             destination_cidr_block="0.0.0.0/0",
@@ -377,7 +377,7 @@ class AWSStack(AbstractBaseStack):
                     )
 
             # Step 17: Attach  VPC to Transit Gateway
-            private_vpc_tgw_attachment = Ec2TransitGatewayVpcAttachment(
+            private_vpc_tgw_attachment = Ec2TransitGatewayVpcAttachment(  # noqa: F841
                 self,
                 f"{range_name}-{vpc.name}-PrivateVpcTgwAttachment",
                 subnet_ids=[
@@ -398,7 +398,7 @@ class AWSStack(AbstractBaseStack):
                 tags={"Name": f"{vpc.name}-private-route-table"},
             )
             # Default route for range VPC to Transit Gateway
-            tgw_route = Route(
+            tgw_route = Route(  # noqa: F841
                 self,
                 f"{range_name}-{vpc.name}-PrivateTgwRoute",
                 route_table_id=new_vpc_private_route_table.id,

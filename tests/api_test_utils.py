@@ -354,7 +354,7 @@ async def deploy_range(
     response = await auth_client.post(
         f"{base_route}/ranges/deploy",
         json=deploy_payload,
-        timeout=None,  # TODO: remove when ARQ jobs implemented
+        timeout=None,
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(
@@ -390,7 +390,7 @@ async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
     # Destroy range
     response = await auth_client.delete(
         f"{base_route}/ranges/{range_id}",
-        timeout=None,  # TODO: remove when ARQ jobs implemented
+        timeout=None,
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(

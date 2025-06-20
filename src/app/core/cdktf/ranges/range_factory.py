@@ -20,7 +20,7 @@ class RangeFactory:
     }
 
     @classmethod
-    def create_range(
+    def create_range(  # noqa: PLR0913
         cls,
         name: str,
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
@@ -41,6 +41,7 @@ class RangeFactory:
             range_obj (BlueprintRangeSchema | DeployedRangeSchema): The range object used to manipulate provider resources.
             region (OpenLabsRegion): Supported cloud region.
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform.
+            description (str | None): Description of the range.
             state_file (dict[str, Any]): The statefile of the deployed resources.
 
         Returns:

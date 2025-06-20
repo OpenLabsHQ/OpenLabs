@@ -42,7 +42,7 @@ class AbstractBaseRange(ABC):
     _is_synthesized: bool
     _is_deployed: bool
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         name: str,
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
@@ -274,7 +274,9 @@ class AbstractBaseRange(ABC):
             logger.exception("Error during destroy: %s", e)
             return False
 
-    def _parse_terraform_outputs(self) -> DeployedRangeCreateSchema | None:
+    def _parse_terraform_outputs(  # noqa: PLR0911
+        self,
+    ) -> DeployedRangeCreateSchema | None:
         """Parse Terraform output variables into a deployed range object.
 
         Internal class function should not be called externally.
@@ -350,7 +352,7 @@ class AbstractBaseRange(ABC):
                     return None
                 current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
 
-                for y, subnet in enumerate(vpc.subnets):
+                for y, subnet in enumerate(vpc.subnets):  # type: ignore
                     current_subnet = current_vpc["subnets"][y]
                     subnet_key = next(
                         (

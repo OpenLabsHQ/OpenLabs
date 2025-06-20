@@ -2,6 +2,7 @@ import atexit
 import os
 import signal
 import sys
+from typing import Any, Never
 
 if "COVERAGE_PROCESS_START" in os.environ:
     try:
@@ -26,8 +27,8 @@ if "COVERAGE_PROCESS_START" in os.environ:
         sys.exit(1)
 
 
-def shutdown_handler(signum, frame):
-    """A simple handler that triggers a graceful exit."""
+def shutdown_handler(signum: Any, frame: Any) -> Never:  # type: ignore # noqa: ANN401
+    """Trigger a graceful exit."""
     print(f"[Coverage] Shutdown signal received in process {os.getpid()}. Exiting.")
     sys.exit(0)
 
@@ -35,4 +36,4 @@ def shutdown_handler(signum, frame):
 signal.signal(signal.SIGTERM, shutdown_handler)
 signal.signal(signal.SIGINT, shutdown_handler)
 
-from src.app.main import app
+from src.app.main import app  # noqa: F401
