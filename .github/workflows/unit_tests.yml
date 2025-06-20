@@ -38,4 +38,4 @@ jobs:
       # Run Tests
       - name: Run Tests
         run: |
-          pytest tests/unit/
+          pytest -m unit
