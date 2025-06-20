@@ -44,7 +44,7 @@ jobs:
           pip install -r dev-requirements.txt
 
       # Run Tests
-      - name: Run Tests
+      - name: Run AWS Tests
         env:
           INTEGRATION_TEST_AWS_ACCESS_KEY: ${{ secrets.INTEGRATION_TEST_AWS_ACCESS_KEY }}
           INTEGRATION_TEST_AWS_SECRET_KEY: ${{ secrets.INTEGRATION_TEST_AWS_SECRET_KEY }}

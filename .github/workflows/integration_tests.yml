@@ -42,6 +42,6 @@ jobs:
           pip install -r dev-requirements.txt
 
       # Run Tests
-      - name: Run Tests
+      - name: Run Integration Tests
         run: |
           pytest -m "integration and not deploy" --no-cov 
