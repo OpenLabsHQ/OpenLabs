@@ -27,7 +27,7 @@ if "COVERAGE_PROCESS_START" in os.environ:
         sys.exit(1)
 
 
-def shutdown_handler(signum: Any, frame: Any) -> Never:  # type: ignore # noqa: ANN401
+def shutdown_handler(signum: Any, frame: Any) -> Never:  # noqa: ANN401
     """Trigger a graceful exit."""
     print(f"[Coverage] Shutdown signal received in process {os.getpid()}. Exiting.")
     sys.exit(0)

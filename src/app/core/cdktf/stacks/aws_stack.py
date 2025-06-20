@@ -406,11 +406,11 @@ class AWSStack(AbstractBaseStack):
                 transit_gateway_id=tgw.id,
             )
             # Associate VPC subnets with Route Table to route traffic to the TGW
-            for i, subnet in enumerate(current_vpc_subnets):
+            for i, created_subnet in enumerate(current_vpc_subnets):
                 RouteTableAssociation(
                     self,
                     f"{range_name}-{vpc.name}-PrivateSubnetRouteTableAssociation_{i+1}",
-                    subnet_id=subnet.id,
+                    subnet_id=str(created_subnet.id),
                     route_table_id=new_vpc_private_route_table.id,
                 )
 

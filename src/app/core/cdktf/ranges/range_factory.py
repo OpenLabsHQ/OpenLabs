@@ -56,6 +56,10 @@ class RangeFactory:
             logger.error(msg)
             raise ValueError(msg)
 
+        if not description:
+            logger.info("Range has no description, defaulting to empty string.")
+            description = ""
+
         return range_class(
             name=name,
             range_obj=range_obj,

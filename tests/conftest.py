@@ -552,7 +552,7 @@ async def parallel_deployed_ranges_for_provider(
                     *destroy_tasks, return_exceptions=True
                 )
 
-                for result in destroy_results:
+                for result in destroy_results:  # type: ignore
                     if isinstance(result, BaseException):
                         # Log any errors during teardown but don't fail the test run
                         logger.error(
@@ -589,7 +589,7 @@ def api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only used for unauthenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)
+    return request.getfixturevalue(request.param)  # type: ignore
 
 
 @pytest.fixture
@@ -599,7 +599,7 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only use for authenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)
+    return request.getfixturevalue(request.param)  # type: ignore
 
 
 @pytest.fixture
@@ -749,7 +749,9 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_create_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the create_deployed_range crud function to return nothing to force the error when adding to the ranges table."""
 
-    async def mock_create_range_in_db_failure(*args: dict, **kwargs: dict) -> None:
+    async def mock_create_range_in_db_failure(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> None:
         return None
 
     monkeypatch.setattr(
@@ -762,7 +764,7 @@ def mock_create_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the create_deployed_range crud function to return fake range to simulate success."""
 
     async def mock_create_range_in_db_success(
-        *args: dict, **kwargs: dict
+        *args: dict[str, Any], **kwargs: dict[str, Any]
     ) -> DeployedRangeHeaderSchema:
         return DeployedRangeHeaderSchema.model_validate(
             valid_deployed_range_header_data, from_attributes=True
@@ -777,7 +779,9 @@ def mock_create_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_delete_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
 
-    async def mock_delete_range(*args: dict, **kwargs: dict) -> None:
+    async def mock_delete_range(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> None:
         return None
 
     monkeypatch.setattr(
@@ -790,7 +794,7 @@ def mock_delete_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the delete_deployed_range crud function to return mock header data to simulate a successful delete."""
 
     async def mock_delete_range_in_db_success(
-        *args: dict, **kwargs: dict
+        *args: dict[str, Any], **kwargs: dict[str, Any]
     ) -> DeployedRangeHeaderSchema:
         return DeployedRangeHeaderSchema.model_validate(
             valid_deployed_range_header_data, from_attributes=True
@@ -806,7 +810,7 @@ def mock_retrieve_deployed_range_success(monkeypatch: pytest.MonkeyPatch) -> Non
     """Simulate successfully retrieving a deployed range from the database."""
 
     async def mock_get_range_success(
-        *args: dict, **kwargs: dict
+        *args: dict[str, Any], **kwargs: dict[str, Any]
     ) -> DeployedRangeSchema:
         return DeployedRangeSchema.model_validate(
             valid_deployed_range_data, from_attributes=True
