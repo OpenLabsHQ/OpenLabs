@@ -38,6 +38,7 @@ def generate_rsa_key_pair() -> Tuple[str, str]:
 
     return private_b64, public_b64
 
+
 # Range RSA Key Generation
 def generate_range_rsa_key_pair() -> Tuple[str, str]:
     """Generate an rsa key pair and return base64 encoded strings."""
@@ -65,6 +66,7 @@ def generate_range_rsa_key_pair() -> Tuple[str, str]:
     public_key_str = public_pem.decode("utf-8")
 
     return private_key_str, public_key_str
+
 
 # Master Key Generation using Argon2
 def generate_master_key(

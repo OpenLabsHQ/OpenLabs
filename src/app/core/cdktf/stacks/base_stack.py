@@ -61,7 +61,6 @@ class AbstractBaseStack(TerraformStack):
         """Uniquely generated range name created by the Terraform stack."""
         return self.range_name
 
-
     def build_resources(
         self,
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
