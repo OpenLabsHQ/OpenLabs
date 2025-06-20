@@ -151,7 +151,7 @@ All tests are located in `tests/` with each subdirectory mirroring `src/app/`:
 To debug with the docker compose:
 
 ```bash
-docker compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 The app will only be started once you run the debugger in VScode using the `Python: Remote Attach to OpenLabs API` profile.
