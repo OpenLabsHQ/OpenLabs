@@ -5,7 +5,7 @@ FROM python:3.12-slim AS builder
 WORKDIR /code
 
 RUN apt-get update && apt-get install -y git curl \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && apt-get install -y gnupg software-properties-common \
     && apt-get install -y wget \
