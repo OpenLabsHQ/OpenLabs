@@ -137,7 +137,8 @@ def synthesize_factory() -> (
     Callable[[type[AbstractBaseStack], BlueprintRangeSchema, str, OpenLabsRegion], str]
 ):
     """Get factory to generate CDKTF synthesis for different stack classes."""
-    from cdktf import Testing
+    # Import here to avoid CDKTF long loading phase
+    from cdktf import Testing  # noqa: PLC0415
 
     def _synthesize(
         stack_cls: type[AbstractBaseStack],
@@ -247,7 +248,9 @@ def client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
     """Create app for client fixture."""
-    from src.app.main import app
+    # Required import here to get a seperate copy
+    # of the main app
+    from src.app.main import app  # noqa: PLC0415
 
     app.dependency_overrides[async_get_db] = db_override
 
@@ -259,7 +262,9 @@ def auth_client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
     """Create app for auth_client fixture."""
-    from src.app.main import app
+    # Required import here to get a seperate copy
+    # of the main app
+    from src.app.main import app  # noqa: PLC0415
 
     app.dependency_overrides[async_get_db] = db_override
 

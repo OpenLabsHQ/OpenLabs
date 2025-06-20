@@ -162,14 +162,14 @@ class AbstractBaseRange(ABC):
         try:
             initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
+            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
 
             # Terraform apply
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
             logger.info("Deploying selected range: %s", self.name)
             self._is_deployed = True  # To allow for clean up if apply fails
-            subprocess.run(  # noqa: S603
+            subprocess.run(
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
                 env=env,
@@ -252,8 +252,8 @@ class AbstractBaseRange(ABC):
                 "Tearing down selected range: %s",
                 self.name,
             )
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
-            subprocess.run(  # noqa: S603
+            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
+            subprocess.run(
                 ["terraform", "destroy", "--auto-approve"],  # noqa: S607
                 check=True,
                 env=env,
@@ -294,7 +294,7 @@ class AbstractBaseRange(ABC):
         os.chdir(state_file_path.parent)
 
         try:
-            result = subprocess.run(  # noqa: S603
+            result = subprocess.run(
                 ["terraform", "output", "-json"],  # noqa: S607
                 check=True,
                 capture_output=True,
