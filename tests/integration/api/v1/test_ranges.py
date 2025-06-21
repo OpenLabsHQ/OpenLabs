@@ -9,8 +9,8 @@ from src.app.schemas.range_schemas import DeployedRangeSchema
 from tests.api_test_utils import get_range, get_range_key, login_user
 from tests.deploy_test_utils import (
     RangeType,
-    test_provider_id,
-    test_range_id,
+    provider_test_id,
+    range_test_id,
 )
 from tests.integration.api.v1.config import PROVIDER_RANGE_PARAMS, RANGE_TYPE_PARAMS
 
@@ -22,9 +22,9 @@ pytestmark = pytest.mark.integration
     "provider_deployed_ranges_for_provider",
     PROVIDER_RANGE_PARAMS,
     indirect=True,
-    ids=test_provider_id,
+    ids=provider_test_id,
 )
-@pytest.mark.parametrize("range_type", RANGE_TYPE_PARAMS, ids=test_range_id)
+@pytest.mark.parametrize("range_type", RANGE_TYPE_PARAMS, ids=range_test_id)
 class TestRange:
     """Test suite for /ranges endpoints using integration client and live cloud infrastructure."""
 

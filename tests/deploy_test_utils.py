@@ -151,7 +151,7 @@ async def isolated_integration_client(
         yield client
 
 
-def test_provider_id(provider: OpenLabsProvider) -> str | None:
+def provider_test_id(provider: OpenLabsProvider) -> str | None:
     """Generate test IDs for OpenLabs providers.
 
     Args:
@@ -172,7 +172,7 @@ def test_provider_id(provider: OpenLabsProvider) -> str | None:
     return None
 
 
-def test_range_id(range_type: RangeType) -> str | None:
+def range_test_id(range_type: RangeType) -> str | None:
     """Generate test IDs for tested range types.
 
     Args:
