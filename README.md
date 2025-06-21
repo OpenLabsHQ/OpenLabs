@@ -108,10 +108,7 @@ pytest -m unit
 # Integration tests (no deployments)
 pytest -m "integration and not deploy"
 
-# Live deploy tests (requires .env.tests)
-pytest -m deploy
-
-# Configure cloud provider keys
+# Configure provider credentials
 cp .env.tests.example .env.tests
 
 # Provider specific tests
@@ -165,6 +162,7 @@ The app will only be started once you run the debugger in VScode using the `Pyth
 * `mypy.yml` - Performs static type checking with MyPy.
 * `unit_tests.yml` - Runs all unit tests.
 * `integration_tests.yml` Runs integration tests that do **not** deploy live infrastructure.
+* `aws_tests.yml` - Run all AWS specific tests including live deploy tests.
 
 ### Release Management
 
