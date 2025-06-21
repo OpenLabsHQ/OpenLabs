@@ -47,6 +47,7 @@ from tests.api_test_utils import (
     wait_for_fastapi_service,
 )
 from tests.deploy_test_utils import (
+    RangeType,
     deploy_managed_range,
     destroy_managed_range,
     get_provider_test_creds,
@@ -452,12 +453,12 @@ def load_test_env_file() -> bool:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def parallel_deployed_ranges_for_provider(
+async def provider_deployed_ranges_for_provider(
     request: pytest.FixtureRequest,
     docker_compose_api_url: str,
     load_test_env_file: bool,
-) -> AsyncGenerator[dict[str, tuple[DeployedRangeSchema, str, str]], None]:
-    """Deploys AND destroys all ranges for a provider in PARALLEL."""
+) -> AsyncGenerator[dict[RangeType, tuple[DeployedRangeSchema, str, str]], None]:
+    """Deploys and destroys all ranges for a provider in parallel."""
     provider: OpenLabsProvider = request.param
     logger.info(
         "Starting parallel deployment of ranges for provider: %s...",
@@ -468,12 +469,13 @@ async def parallel_deployed_ranges_for_provider(
     async with AsyncExitStack() as client_stack:
         try:
             blueprint_map = {
-                "one_all": valid_blueprint_range_create_payload,
-                "multi": valid_blueprint_range_multi_create_payload,
+                # Skipped until ARQ jobs implemented to avoid race conditions
+                # RangeType.ONE_ALL: valid_blueprint_range_create_payload,
+                RangeType.MULTI: valid_blueprint_range_multi_create_payload,
             }
 
             async def create_and_setup(
-                key: str, blueprint_dict: dict[str, Any]
+                key: RangeType, blueprint_dict: dict[str, Any]
             ) -> dict[str, Any]:
                 """Create a client and run the setup task."""
                 client = await client_stack.enter_async_context(
@@ -505,20 +507,23 @@ async def parallel_deployed_ranges_for_provider(
             )
 
             # Check for deploy errors
-            deployed_data_for_yield: dict[str, tuple[DeployedRangeSchema, str, str]] = (
-                {}
-            )
+            deployed_data_for_yield: dict[
+                RangeType, tuple[DeployedRangeSchema, str, str]
+            ] = {}
             has_errors = False
             for key, result in zip(deploy_tasks.keys(), results, strict=True):
                 if isinstance(result, BaseException):
                     logger.critical(
-                        "Deploy failed for '%s': %s", key, result, exc_info=result
+                        "Deploy failed for '%s': %s",
+                        key.value.upper(),
+                        result,
+                        exc_info=result,
                     )
                     has_errors = True
                 else:
                     logger.info(
                         "Successfully deployed '%s' range for '%s'.",
-                        key,
+                        key.value.upper(),
                         provider.value.upper(),
                     )
                     # Prepare the data for the test (the tuple)
@@ -565,26 +570,6 @@ async def parallel_deployed_ranges_for_provider(
                             result,
                             exc_info=result,
                         )
-
-
-@pytest_asyncio.fixture(scope="session")
-async def one_all_deployed_range(
-    parallel_deployed_ranges_for_provider: dict[
-        str, tuple[DeployedRangeSchema, str, str]
-    ],
-) -> tuple[DeployedRangeSchema, str, str]:
-    """Get the deployed 'one-all' range for the currently tested provider."""
-    return parallel_deployed_ranges_for_provider["one_all"]
-
-
-@pytest_asyncio.fixture(scope="session")
-async def multi_deployed_range(
-    parallel_deployed_ranges_for_provider: dict[
-        str, tuple[DeployedRangeSchema, str, str]
-    ],
-) -> tuple[DeployedRangeSchema, str, str]:
-    """Get the deployed 'multi-vpc' range for the currently tested provider."""
-    return parallel_deployed_ranges_for_provider["multi"]
 
 
 @pytest.fixture

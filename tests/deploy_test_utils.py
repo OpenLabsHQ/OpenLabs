@@ -1,6 +1,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from enum import Enum
 from typing import Any, AsyncGenerator
 
 import pytest
@@ -21,6 +22,13 @@ from tests.api_test_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class RangeType(Enum):
+    """Types of deployed ranges used for testing."""
+
+    ONE_ALL = "one_all"
+    MULTI = "multi"
 
 
 async def deploy_managed_range(
@@ -141,3 +149,45 @@ async def isolated_integration_client(
     """Provide a single, isolated client to the docker compose API."""
     async with AsyncClient(base_url=base_url) as client:
         yield client
+
+
+def test_provider_id(provider: OpenLabsProvider) -> str | None:
+    """Generate test IDs for OpenLabs providers.
+
+    Args:
+    ----
+        provider (OpenLabsProvider): Provider to generate test ID for.
+
+    Returns:
+    -------
+        str: Test ID for provider.
+
+    """
+    if isinstance(provider, OpenLabsProvider):
+        return provider.value.upper()
+    logger.error(
+        "Failed to generate provider test ID! Expected 'OpenLabsProvider', recieved: %s",
+        type(provider),
+    )
+    return None
+
+
+def test_range_id(range_type: RangeType) -> str | None:
+    """Generate test IDs for tested range types.
+
+    Args:
+    ----
+        range_type (RangeType): Tested range type to generate ID for.
+
+    Returns:
+    -------
+        str: Test ID for range type.
+
+    """
+    if isinstance(range_type, RangeType):
+        return range_type.value.upper()
+    logger.error(
+        "Failed to generate range type test ID! Expected 'RangeType', recieved: %s",
+        type(range_type),
+    )
+    return None
