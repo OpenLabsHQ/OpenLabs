@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -53,3 +54,10 @@ async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
         finally:
             # Session closed automatically by async with
             pass
+
+
+@asynccontextmanager
+async def managed_async_get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Yield a managed async Postgres session."""
+    async for db in async_get_db():
+        yield db

@@ -11,24 +11,39 @@ services:
     networks:
       - fastapi_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # Create admin user after app has started
-  init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: fastapi_init
+  redis:
+    image: redis:alpine
+    container_name: redis_queue_openlabs
     env_file:
       - .env
-    command: ["python", "-m", "src.scripts.create_admin"]
+    command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD}"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - fastapi_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_QUEUE_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      target: worker
+      context: .
+      dockerfile: Dockerfile
+    container_name: arq_worker_openlabs
+    env_file:
+      - .env
     depends_on:
-      fastapi:
-        condition: service_healthy
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - fastapi_network
@@ -37,7 +52,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: fastapi_app
+    container_name: fastapi_app_openlabs
     env_file:
       - .env
     ports:
@@ -45,13 +60,29 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    logging:
-      driver: "local"
+      redis:
+        condition: service_healthy
     networks:
       - fastapi_network
 
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_init_openlabs
+    env_file:
+      - .env
+    command: ["python", "-m", "src.scripts.create_admin"]
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+    restart: on-failure
+
 volumes:
   postgres_data:
+  redis-data:
 
 networks:
   fastapi_network:

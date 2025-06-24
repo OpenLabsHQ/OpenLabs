@@ -1,14 +1,16 @@
+import asyncio
 import json
 import logging
 import os
 import shutil
-import subprocess
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import aiofiles
+import aiofiles.os as aio_os
 from cdktf import App
 
 from ....enums.range_states import RangeState
@@ -28,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
+
+    # Mutex for terraform init calls
+    _init_lock = asyncio.Lock()
 
     name: str
     range_obj: BlueprintRangeSchema | DeployedRangeSchema
@@ -103,7 +108,7 @@ class AbstractBaseRange(ABC):
         """
         pass
 
-    def synthesize(self) -> bool:
+    async def synthesize(self) -> bool:
         """Abstract method to synthesize terraform configuration.
 
         Returns:
@@ -111,11 +116,7 @@ class AbstractBaseRange(ABC):
 
         """
         try:
-            logger.info(
-                "Synthesizing selected range: %s from blueprint: %s",
-                self.name,
-                self.range_obj.name,
-            )
+            logger.info("Synthesizing selected range: %s", self.name)
 
             # Create CDKTF app
             app = App(outdir=settings.CDKTF_DIR)
@@ -132,9 +133,9 @@ class AbstractBaseRange(ABC):
             )
 
             # Synthesize Terraform files
-            app.synth()
+            await asyncio.to_thread(app.synth)
             logger.info(
-                "Range: %s synthesized successfully as: %s",
+                "Range: %s synthesized successfully as stack: %s",
                 self.name,
                 self.stack_name,
             )
@@ -143,16 +144,95 @@ class AbstractBaseRange(ABC):
             return True
         except Exception as e:
             logger.error(
-                "Error during synthesis of stack: %s. Error: %s", self.stack_name, e
+                "Error during synthesis of range: %s with stack: %s. Error: %s",
+                self.name,
+                self.stack_name,
+                e,
             )
             return False
 
-    def deploy(self) -> DeployedRangeCreateSchema | None:
+    async def _async_run_command(
+        self, command: list[str], with_creds: bool = False
+    ) -> tuple[str, str, int | None]:
+        """Run a command asynchronously in the synth directory.
+
+        Args:
+        ----
+            command (list[str]): Command to run in a list format.
+            with_creds (bool): Include cloud credentials in execution environment.
+
+        Returns:
+        -------
+            str: Standard output.
+            str: Standard error.
+            int | None: Return code of command if available.
+
+        """
+        synth_dir = self.get_synth_dir()
+        if not await aio_os.path.exists(synth_dir):
+            msg = f"Synthesis directory does not exist: {synth_dir}"
+            raise FileNotFoundError(msg)
+
+        env = os.environ.copy()
+        if with_creds:
+            env.update(self.get_cred_env_vars())
+
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=synth_dir,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, stderr_bytes = await process.communicate()
+        stdout, stderr = stdout_bytes.decode().strip(), stderr_bytes.decode().strip()
+
+        if stdout:
+            logger.info(
+                "Command `cd %s && %s` stdout:\n%s",
+                synth_dir,
+                " ".join(command),
+                stdout,
+            )
+        if stderr:
+            logger.warning(
+                "Command `cd %s && %s` stderr:\n%s",
+                synth_dir,
+                " ".join(command),
+                stderr,
+            )
+
+        return stdout, stderr, process.returncode
+
+    async def _init(self) -> bool:
+        """Run `terraform init` programatically.
+
+        Returns
+        -------
+            bool: True if successfully initialized. False otherwise.
+
+        """
+        async with AbstractBaseRange._init_lock:
+            logger.info("Acquired lock for terraform init.")
+            init_command = ["terraform", "init"]
+            _, _, return_code = await self._async_run_command(
+                init_command, with_creds=False
+            )
+
+            if return_code != 0:
+                logger.error("Terraform init failed.")
+                return False
+
+            logger.info("Terraform init completed successfully.")
+
+            return True
+
+    async def deploy(self) -> DeployedRangeCreateSchema | None:
         """Run `terraform deploy --auto-approve` programmatically.
 
         Returns
         -------
-            DeployedRangeCreateSchema: True if successfully deployed range. False otherwise.
+            DeployedRangeCreateSchema: The deployed range creation schema to add to the database.
 
         """
         if not self.is_synthesized():
@@ -160,65 +240,67 @@ class AbstractBaseRange(ABC):
             return None
 
         try:
-            initial_dir = os.getcwd()
-            os.chdir(self.get_synth_dir())
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
+            # Terraform init
+            init_success = await self._init()
+            if not init_success:
+                msg = "Terraform init failed."
+                raise RuntimeError(msg)
 
             # Terraform apply
-            env = os.environ.copy()
-            env.update(self.get_cred_env_vars())
             logger.info("Deploying selected range: %s", self.name)
-            self._is_deployed = True  # To allow for clean up if apply fails
-            subprocess.run(
-                ["terraform", "apply", "--auto-approve"],  # noqa: S607
-                check=True,
-                env=env,
+
+            # Resources are deployed continously during apply command
+            self._is_deployed = True
+
+            apply_command = ["terraform", "apply", "--auto-approve"]
+            _, _, return_code = await self._async_run_command(
+                apply_command, with_creds=True
             )
 
+            if return_code != 0:
+                msg = "Terraform apply failed."
+                raise RuntimeError(msg)
+
             # Load state
-            state_file_path = self.get_state_file_path()
-            if state_file_path.exists():
-                with open(state_file_path, "r", encoding="utf-8") as file:
-                    self.state_file = json.loads(file.read())
+            if await aio_os.path.exists(self.get_state_file_path()):
+                async with aiofiles.open(
+                    self.get_state_file_path(), "r", encoding="utf-8"
+                ) as f:
+                    content = await f.read()
+                    self.state_file = json.loads(content)
             else:
-                msg = f"State file was not created during deployment. Expected path: {state_file_path}"
+                msg = f"State file was not created during deployment. Expected path: {self.get_state_file_path()}"
                 raise FileNotFoundError(msg)
 
             # Parse output variables
-            deployed_range = self._parse_terraform_outputs()
+            deployed_range = await self._parse_terraform_outputs()
             if not deployed_range:
                 msg = "Failed to parse terraform outputs!"
                 raise RuntimeError(msg)
-
-            logger.info("Successfully deployed range: %s", self.name)
-        except subprocess.CalledProcessError as e:
-            logger.exception("Terraform command failed: %s", e)
-            if not self.destroy():
-                logger.error("Failed to cleanup after deployment failure.")
-            return None
         except Exception as e:
             logger.exception("Error during deployment: %s", e)
-            if not self.destroy():
-                logger.error("Failed to cleanup after deployment failure.")
+            if self.is_deployed():
+                destroy_success = await self.destroy()
+                if not destroy_success:
+                    logger.critical(
+                        "Failed to cleanup after deployment failure of range: %s",
+                        self.name,
+                    )
             return None
+        finally:
+            # Delete files made during deployment
+            await self.cleanup_synth()
 
-        # Delete files made during deployment
-        os.chdir(initial_dir)
-        self.cleanup_synth()
+        logger.info("Successfully deployed range: %s", self.name)
 
         return deployed_range
 
-    def destroy(self) -> bool:
+    async def destroy(self) -> bool:
         """Destroy terraform infrastructure.
 
-        Args:
-        ----
-            stack_dir (str): Output directory.
-            stack_name (str): Name of stack used to deploy the range (format: <range name>-<range id>) to tear down the range.
-
-        Returns:
+        Returns
         -------
-            None
+            bool: True if destroy was successful. False otherwise.
 
         """
         if not self.is_deployed():
@@ -230,82 +312,86 @@ class AbstractBaseRange(ABC):
             return False
 
         try:
-            # Change to directory with `cdk.tf.json`
-            initial_dir = os.getcwd()
-            os.chdir(self.get_synth_dir())
-
             # Try to create the state file
-            if not self.create_state_file():
+            created_state_file = await self.create_state_file()
+            if not created_state_file:
                 logger.info(
                     "State file not saved! Unable to create a new one in the filesystem."
                 )
 
             # Check for an existing state file to be used for destroying
-            if not self.get_state_file_path().exists():
+            if not await aio_os.path.exists(self.get_state_file_path()):
                 msg = f"Unable to destroy range: {self.name} missing state file!"
                 raise FileNotFoundError(msg)
 
-            # Run Terraform commands
-            env = os.environ.copy()
-            env.update(self.get_cred_env_vars())
+            # Terraform init
+            init_success = await self._init()
+            if not init_success:
+                msg = "Terraform init failed."
+                raise RuntimeError(msg)
+
+            # Terraform destroy
             logger.info(
                 "Tearing down selected range: %s",
                 self.name,
             )
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
-            subprocess.run(
-                ["terraform", "destroy", "--auto-approve"],  # noqa: S607
-                check=True,
-                env=env,
+            destroy_command = ["terraform", "destroy", "--auto-approve"]
+            _, _, return_code = await self._async_run_command(
+                destroy_command, with_creds=True
             )
 
-            os.chdir(initial_dir)
+            if return_code != 0:
+                msg = "Terraform destroy failed"
+                raise RuntimeError(msg)
 
-            # Delete synth files
-            self.cleanup_synth()
             self._is_deployed = False
 
             logger.info("Successfully destroyed range: %s", self.name)
             return True
-        except subprocess.CalledProcessError as e:
-            logger.exception("Terraform command failed: %s", e)
-            return False
         except Exception as e:
             logger.exception("Error during destroy: %s", e)
             return False
+        finally:
+            # Delete synth files
+            await self.cleanup_synth()
 
-    def _parse_terraform_outputs(  # noqa: PLR0911
+    async def _parse_terraform_outputs(  # noqa: PLR0911
         self,
     ) -> DeployedRangeCreateSchema | None:
         """Parse Terraform output variables into a deployed range object.
 
         Internal class function should not be called externally.
 
+        Returns
+        -------
+            DeployedRangeCreateSchema: The terraform deploy output rendered as a desployed range pydantic schema.
+
         """
-        state_file_path = self.get_state_file_path()
-        if not state_file_path.exists():
+        if not await aio_os.path.exists(self.get_state_file_path()):
             logger.error(
-                "Failed to find state file at: %s when attempting to parse Terraform outputs.",
-                state_file_path,
+                "Failed to find state file at: %s when attempting to parse terraform outputs.",
+                self.get_state_file_path(),
             )
             return None
 
-        # Change to directory with state file
-        os.chdir(state_file_path.parent)
-
         try:
-            result = subprocess.run(
-                ["terraform", "output", "-json"],  # noqa: S607
-                check=True,
-                capture_output=True,
-                text=True,
+            output_command = ["terraform", "output", "-json"]
+            stdout, _, return_code = await self._async_run_command(
+                output_command, with_creds=False
             )
-        except subprocess.CalledProcessError as e:
+
+            if return_code != 0:
+                msg = "Terraform output failed"
+                raise RuntimeError(msg)
+
+            logger.info("Terraform output completed successfully.")
+
+        except Exception as e:
             logger.exception("Failed to parse Terraform outputs: %s", e)
             return None
 
         # Parse Terraform Output variables
-        raw_outputs = json.loads(result.stdout)
+        raw_outputs = json.loads(stdout)
         dumped_schema = self.range_obj.model_dump()
 
         try:
@@ -455,7 +541,7 @@ class AbstractBaseRange(ABC):
         """Get CDKTF state file path."""
         return self.get_synth_dir() / f"terraform.{self.stack_name}.tfstate"
 
-    def create_state_file(self) -> bool:
+    async def create_state_file(self) -> bool:
         """Create state file with contents.
 
         Range must have been deployed or have a state file passed on object creation.
@@ -470,17 +556,19 @@ class AbstractBaseRange(ABC):
             logger.warning(msg)
             return False
 
-        with open(self.get_state_file_path(), mode="w") as file:
-            json.dump(self.state_file, file, indent=4)
+        json_string = json.dumps(self.state_file, indent=4)
+
+        async with aiofiles.open(self.get_state_file_path(), mode="w") as file:
+            await file.write(json_string)
 
         msg = f"Successfully created state file: {self.get_state_file_path()} "
         logger.info(msg)
         return True
 
-    def cleanup_synth(self) -> bool:
+    async def cleanup_synth(self) -> bool:
         """Delete Terraform files generated by CDKTF synthesis."""
         try:
-            shutil.rmtree(self.get_synth_dir())
+            await asyncio.to_thread(shutil.rmtree, self.get_synth_dir())
             self._is_synthesized = False
             return True
         except Exception as e:
