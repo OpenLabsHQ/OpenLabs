@@ -7,6 +7,7 @@ import uvloop
 from arq.worker import Worker
 
 from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_range
+from src.app.enums.range_states import RangeState
 
 from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import managed_async_get_db
@@ -278,5 +279,8 @@ async def destroy_range(
         user_email,
         user_id,
     )
+
+    # Set range to off since it's destroyed
+    deleted_from_db.state = RangeState.OFF
 
     return deleted_from_db.model_dump(mode="json")
