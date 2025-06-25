@@ -20,7 +20,7 @@ pytestmark = [pytest.mark.unit, pytest.mark.aws]
 
 
 @pytest.fixture(scope="module")
-def aws_one_all_synthesis(
+async def aws_one_all_synthesis(
     range_factory: Callable[
         [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
         AbstractBaseRange,
@@ -30,7 +30,7 @@ def aws_one_all_synthesis(
     # Call the factory with the desired stack, stack name, and region.
     range_obj = range_factory(AWSRange, one_all_blueprint, OpenLabsRegion.US_EAST_1)
 
-    successful_synthesize = range_obj.synthesize()
+    successful_synthesize = await range_obj.synthesize()
     if not successful_synthesize:
         pytest.fail("Failed to synthesize test range object!")
 
@@ -166,7 +166,7 @@ def test_aws_range_get_cred_env_vars(aws_range: AWSRange) -> None:
     assert cred_vars["AWS_SECRET_ACCESS_KEY"] == fake_secret_key
 
 
-def test_aws_range_synthesize_exception(
+async def test_aws_range_synthesize_exception(
     aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that aws range synthesize() returns False on exception."""
@@ -181,7 +181,7 @@ def test_aws_range_synthesize_exception(
     )
 
     # Calling synthesize() should now catch the exception and return False.
-    result = aws_range.synthesize()
+    result = await aws_range.synthesize()
     assert result is False
 
 
@@ -190,20 +190,20 @@ def test_aws_range_not_synthesized_state_on_init(aws_range: AWSRange) -> None:
     assert not aws_range.is_synthesized()
 
 
-def test_aws_range_sythesized_state_after_synth(aws_range: AWSRange) -> None:
+async def test_aws_range_sythesized_state_after_synth(aws_range: AWSRange) -> None:
     """Test that aws range objects synthesized state variable is truth after synth() call."""
-    assert aws_range.synthesize()
+    assert await aws_range.synthesize()
     assert aws_range.is_synthesized()
 
 
-def test_aws_range_no_destroy_not_synthesized(aws_range: AWSRange) -> None:
+async def test_aws_range_no_destroy_not_synthesized(aws_range: AWSRange) -> None:
     """Test that aws range.destroy() returns false when range object not synthesized yet."""
-    assert not aws_range.destroy()
+    assert not await aws_range.destroy()
 
 
-def test_aws_range_no_deploy_not_synthesized(aws_range: AWSRange) -> None:
+async def test_aws_range_no_deploy_not_synthesized(aws_range: AWSRange) -> None:
     """Test that the aws range.deploy() returns false when range object not synthesized yet."""
-    assert not aws_range.deploy()
+    assert not await aws_range.deploy()
 
 
 def test_aws_range_not_deployed_state_when_no_state_file_init(
@@ -235,18 +235,18 @@ def test_aws_range_get_state_file_path(aws_range: AWSRange) -> None:
     assert aws_range.get_state_file_path() == correct_path
 
 
-def test_aws_range_create_state_file_no_content(aws_range: AWSRange) -> None:
+async def test_aws_range_create_state_file_no_content(aws_range: AWSRange) -> None:
     """Test that the aws range create_state_file() returns false when no state_file content available."""
-    assert not aws_range.create_state_file()
+    assert not await aws_range.create_state_file()
 
 
-def test_aws_range_create_state_file(aws_range: AWSRange) -> None:
+async def test_aws_range_create_state_file(aws_range: AWSRange) -> None:
     """Test that the aws range create_state_file() creates a correct state file."""
     test_state_file = {"test": "Test content"}
     aws_range.state_file = test_state_file
 
-    assert aws_range.synthesize()
-    assert aws_range.create_state_file()
+    assert await aws_range.synthesize()
+    assert await aws_range.create_state_file()
 
     # Test correct content
     state_file_content = ""
@@ -259,13 +259,13 @@ def test_aws_range_create_state_file(aws_range: AWSRange) -> None:
     assert loaded_state_file_content == test_state_file
 
 
-def test_aws_range_cleanup_synth(aws_range: AWSRange) -> None:
+async def test_aws_range_cleanup_synth(aws_range: AWSRange) -> None:
     """Test that aws range cleanup_synth() works after synthesis."""
-    assert aws_range.synthesize(), "Failed to synthesize AWS range object!"
-    assert aws_range.cleanup_synth()
+    assert await aws_range.synthesize(), "Failed to synthesize AWS range object!"
+    assert await aws_range.cleanup_synth()
 
 
-def test_aws_range_cleanup_synth_exception(
+async def test_aws_range_cleanup_synth_exception(
     aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that aws range cleanup_synth() returns False on exception."""
@@ -279,5 +279,5 @@ def test_aws_range_cleanup_synth_exception(
     monkeypatch.setattr(shutil, "rmtree", fake_rmtree)
 
     # Call the cleanup_synth method; it should catch the exception and return False.
-    result = aws_range.cleanup_synth()
+    result = await aws_range.cleanup_synth()
     assert result is False

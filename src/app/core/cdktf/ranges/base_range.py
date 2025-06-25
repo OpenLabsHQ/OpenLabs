@@ -31,9 +31,6 @@ logger = logging.getLogger(__name__)
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
-    # Mutex for terraform init calls
-    _init_lock = asyncio.Lock()
-
     name: str
     range_obj: BlueprintRangeSchema | DeployedRangeSchema
     state_file: dict[str, Any] | None  # Terraform state
@@ -42,6 +39,9 @@ class AbstractBaseRange(ABC):
     secrets: SecretSchema
     deployed_range_name: str
     description: str
+
+    # Mutex for terraform init calls
+    _init_lock = asyncio.Lock()
 
     # State variables
     _is_synthesized: bool
@@ -380,7 +380,7 @@ class AbstractBaseRange(ABC):
                 output_command, with_creds=False
             )
 
-            if return_code != 0:
+            if return_code != 0 or not stdout:
                 msg = "Terraform output failed"
                 raise RuntimeError(msg)
 
