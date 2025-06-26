@@ -1,7 +1,9 @@
+import asyncio
 import json
 import logging
 import os
 import shutil
+import uuid
 from pathlib import Path
 from typing import Callable
 from unittest.mock import AsyncMock, MagicMock
@@ -104,6 +106,29 @@ def mock_destroy_success(aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch) -
     # Patch synth cleanup
     mock_cleanup = AsyncMock(return_value=True)
     monkeypatch.setattr(aws_range, "cleanup_synth", mock_cleanup)
+
+
+@pytest.fixture(scope="function")
+def mock_async_run_command_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch over all functions in ._async_run_command() function so that it returns successfully."""
+    # Mock checking synth dir
+    mock_aio_os_path_exists = AsyncMock(return_value=True)
+    monkeypatch.setattr(aio_os_mock_target.path, "exists", mock_aio_os_path_exists)
+
+    # Patch subprocess execution
+    mock_process = AsyncMock(spec=asyncio.subprocess.Process)
+    mock_process.communicate.return_value = (b"Mock stdout", b"Mock stderr")
+    mock_process.returncode = 0
+
+    mock_subprocess_exec = AsyncMock(spec=asyncio, return_value=mock_process)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_subprocess_exec)
+
+
+@pytest.fixture(scope="function")
+def mock_init_success(aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch over all functions in ._init() function so that it returns successfully."""
+    mock_run_command = AsyncMock(return_value=("Mock stdout", "Mock stderr", 0))
+    monkeypatch.setattr(aws_range, "_async_run_command", mock_run_command)
 
 
 async def test_base_range_synthesize_exception(
@@ -616,7 +641,7 @@ async def test_base_range_parse_terraform_outputs_keyerror(
     )
 
 
-async def test_parse_terraform_outputs_generic_exception(
+async def test_base_range_parse_terraform_outputs_generic_exception(
     aws_range: AWSRange,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -649,3 +674,103 @@ async def test_parse_terraform_outputs_generic_exception(
         and record.exc_info is not None
         for record in caplog.records
     )
+
+
+async def test_base_range_async_run_command_no_synth_dir(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_async_run_command_success: None,
+) -> None:
+    """Test that the async run command helper raises a FileNotFound exception when synth dir doesn't exist."""
+    # Mock checking synth dir
+    mock_aio_os_path_exists = AsyncMock(return_value=False)
+    monkeypatch.setattr(aio_os_mock_target.path, "exists", mock_aio_os_path_exists)
+
+    with pytest.raises(FileNotFoundError):
+        await aws_range._async_run_command(["ls"])
+
+
+async def test_base_range_async_run_command_no_credentials(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_async_run_command_success: None,
+) -> None:
+    """Test that we do not add range/cloud credentials to the environment variables when with_creds=False."""
+    mock_cred_vars = MagicMock()
+    monkeypatch.setattr(aws_range, "get_cred_env_vars", mock_cred_vars)
+
+    assert await aws_range._async_run_command(["ls"], with_creds=False)
+    mock_cred_vars.assert_not_called()
+
+    # Ensure that no creds are passed by default
+    assert await aws_range._async_run_command(["ls"])
+    mock_cred_vars.assert_not_called()
+
+
+async def test_base_range_async_run_command_with_credentials(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_async_run_command_success: None,
+) -> None:
+    """Test that we do add range/cloud credentials to the environment variables when with_creds=True."""
+    mock_cred_vars = MagicMock()
+    monkeypatch.setattr(aws_range, "get_cred_env_vars", mock_cred_vars)
+
+    assert await aws_range._async_run_command(["ls"], with_creds=True)
+    mock_cred_vars.assert_called_once()
+
+
+async def test_base_range_async_run_command_output_logging(
+    aws_range: AWSRange,
+    mock_async_run_command_success: None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that we log output as INFO logs and errors as WARNING logs."""
+    # Tack on a uuid to ensure the return values
+    # are acutally being logged properly
+    unique_uuid = uuid.uuid4()
+    test_stdout = f"Mock stdout {unique_uuid}"
+    test_stderr = f"Mock stderr {unique_uuid}"
+
+    # Patch subprocess execution
+    mock_process = AsyncMock(spec=asyncio.subprocess.Process)
+    mock_process.communicate.return_value = (test_stdout.encode(), test_stderr.encode())
+    mock_process.returncode = 0
+
+    mock_subprocess_exec = AsyncMock(spec=asyncio, return_value=mock_process)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", mock_subprocess_exec)
+
+    assert await aws_range._async_run_command(["ls"])
+
+    # INFO for stdout
+    assert any(
+        test_stdout.lower() in record.message.lower()
+        for record in caplog.records
+        if record.levelno == logging.INFO
+    )
+
+    # WARNING for stderr
+    assert any(
+        test_stderr.lower() in record.message.lower()
+        for record in caplog.records
+        if record.levelno == logging.WARNING
+    )
+
+
+async def test_base_range_init_success(
+    aws_range: AWSRange, mock_init_success: None
+) -> None:
+    """Test _init() returns true when the terraform init command completes successfully."""
+    assert await aws_range._init()
+
+
+async def test_base_range_init_failed(
+    aws_range: AWSRange, mock_init_success: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that _init() returns false when the terraform init command fails."""
+    # Return not 0
+    mock_run_command = AsyncMock(return_value=("Mock stdout", "Mock stderr", 1))
+    monkeypatch.setattr(aws_range, "_async_run_command", mock_run_command)
+
+    assert not await aws_range._init()

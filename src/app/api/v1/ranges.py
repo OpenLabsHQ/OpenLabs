@@ -410,7 +410,7 @@ async def delete_range_endpoint(
     if not job:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed queue up deployment job!",
+            detail="Failed queue up destroy job!",
         )
 
     return Job.model_validate(job, from_attributes=True)

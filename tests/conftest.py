@@ -5,12 +5,15 @@ import os
 import shutil
 import socket
 import sys
+import uuid
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable, Generator
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
+from arq.connections import ArqRedis
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -672,7 +675,7 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+async def mock_create_range_not_deployable(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return false to trigger specific error."""
     blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
     add_key_recursively(blueprint_schema_json, "id", generate_random_int)
@@ -704,7 +707,7 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
+async def mock_create_range_deployable(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return true."""
     blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
     add_key_recursively(blueprint_schema_json, "id", generate_random_int)
@@ -733,6 +736,29 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
             None,  # No state file
         ),
     )
+
+
+@pytest.fixture
+def mock_redis_queue_pool_successful_job_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch the queue.pool object to ensure it passes as a real Redis connection and queues a fake job."""
+    fake_redis = AsyncMock(spec=ArqRedis)
+
+    class FakeJob:
+        job_id: str = str(uuid.uuid4()).replace("-", "")
+
+    fake_redis.enqueue_job.return_value = FakeJob()
+
+    monkeypatch.setattr("src.app.api.v1.ranges.queue.pool", fake_redis)
+
+
+@pytest.fixture
+def mock_redis_queue_pool_failed_job_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch the queue.pool object to ensure it passes as a real Redis connection and but fails to queue a job."""
+    fake_redis = AsyncMock(spec=ArqRedis)
+
+    fake_redis.enqueue_job.return_value = None
+
+    monkeypatch.setattr("src.app.api.v1.ranges.queue.pool", fake_redis)
 
 
 @pytest.fixture
