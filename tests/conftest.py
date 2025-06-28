@@ -8,8 +8,8 @@ import sys
 import uuid
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Callable, Generator
-from unittest.mock import AsyncMock
+from typing import Any, AsyncGenerator, Callable, Generator, Iterator
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -17,6 +17,7 @@ from arq.connections import ArqRedis
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from pytest_mock import MockerFixture
 from sqlalchemy import NullPool, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
@@ -39,6 +40,7 @@ from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeCreateSchema,
     BlueprintRangeSchema,
+    DeployedRangeCreateSchema,
     DeployedRangeHeaderSchema,
     DeployedRangeSchema,
 )
@@ -56,13 +58,8 @@ from tests.deploy_test_utils import (
     get_provider_test_creds,
     isolated_integration_client,
 )
-from tests.test_utils import (
-    add_key_recursively,
-    generate_random_int,
-    rotate_docker_compose_test_log_files,
-)
+from tests.test_utils import rotate_docker_compose_test_log_files
 from tests.unit.api.v1.config import (
-    valid_blueprint_range_create_payload,
     valid_blueprint_range_multi_create_payload,
     valid_deployed_range_data,
     valid_deployed_range_header_data,
@@ -644,98 +641,83 @@ def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.fixture
-async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the synthesize function call to return false to trigger specific error."""
-    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
-    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
-    blueprint_schema = BlueprintRangeSchema.model_validate(
-        blueprint_schema_json, from_attributes=True
-    )
-    monkeypatch.setattr(
-        RangeFactory,
-        "create_range",
-        lambda *args, **kwargs: type(
-            "MockRange",
-            (AbstractBaseRange,),
-            {
-                "get_provider_stack_class": lambda self: None,
-                "has_secrets": lambda self: True,
-                "get_cred_env_vars": lambda self: {},
-                "synthesize": lambda self: False,
-            },
-        )(
-            "test-range",
-            blueprint_schema,
-            OpenLabsRegion.US_EAST_1,
-            SecretSchema(),
-            "Test range description.",
-            None,  # No state file
-        ),
-    )
+def mock_range_factory(
+    mocker: MockerFixture,
+) -> Iterator[Callable[..., MagicMock]]:
+    """Provide a factory function to create and patch a customizable AbstractBaseRange mock.
 
+    This fixture patches `RangeFactory.create_range` to return a `MagicMock`
+    that is configured based on the arguments passed to the factory function.
 
-@pytest.fixture
-async def mock_create_range_not_deployable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the deploy function call to return false to trigger specific error."""
-    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
-    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
-    blueprint_schema = BlueprintRangeSchema.model_validate(
-        blueprint_schema_json, from_attributes=True
-    )
-    monkeypatch.setattr(
-        RangeFactory,
-        "create_range",
-        lambda *args, **kwargs: type(
-            "MockRange",
-            (AbstractBaseRange,),
-            {
-                "get_provider_stack_class": lambda self: None,
-                "has_secrets": lambda self: True,
-                "get_cred_env_vars": lambda self: {},
-                "synthesize": lambda self: True,
-                "deploy": lambda self: False,
-            },
-        )(
-            "test-range",
-            blueprint_schema,
-            OpenLabsRegion.US_EAST_1,
-            SecretSchema(),
-            "Test range description",
-            None,  # No state file
-        ),
-    )
+    Yields:
+        Callable[..., MagicMock]: A function to create and patch the mock.
 
+    """
 
-@pytest.fixture
-async def mock_create_range_deployable(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the deploy function call to return true."""
-    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
-    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
-    blueprint_schema = BlueprintRangeSchema.model_validate(
-        blueprint_schema_json, from_attributes=True
-    )
-    monkeypatch.setattr(
-        RangeFactory,
-        "create_range",
-        lambda *args, **kwargs: type(
-            "MockRange",
-            (AbstractBaseRange,),
-            {
-                "get_provider_stack_class": lambda self: None,
-                "has_secrets": lambda self: True,
-                "get_cred_env_vars": lambda self: {},
-                "synthesize": lambda self: True,
-                "deploy": lambda self: True,
-            },
-        )(
-            "test-range",
-            blueprint_schema,
-            OpenLabsRegion.US_EAST_1,
-            SecretSchema(),
-            "Test range description.",
-            None,  # No state file
-        ),
-    )
+    def _create_and_patch(  # noqa: D417, PLR0913
+        # Arguments as specified in the user's original request
+        has_secrets: bool = True,
+        synthesize: bool = True,
+        destroy: bool = True,
+        deploy: DeployedRangeCreateSchema | None = None,
+        get_provider_stack_class: type[AbstractBaseStack] | None = None,
+        get_cred_env_vars: dict[str, Any] | None = None,
+    ) -> MagicMock:
+        """Patch RangeFactory.create_range and configures the mock's behavior.
+
+        Args:
+            (all): Arguments to configure the mock's methods and properties.
+
+        Returns:
+            MagicMock: The configured mock object.
+
+        """
+        deployed_create_schema = DeployedRangeCreateSchema.model_validate(
+            valid_deployed_range_data
+        )
+
+        if deploy is None:
+            deploy = deployed_create_schema
+
+        if get_provider_stack_class is None:
+
+            class FakeStack(AbstractBaseStack):
+                def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+                    pass
+
+                def build_resources(
+                    self, *args: Any, **kwargs: Any  # noqa: ANN401
+                ) -> None:
+                    return None
+
+            # Set the default value
+            get_provider_stack_class = FakeStack
+
+        # Fake class to appease unittest mocking
+        class _RangeSpec(AbstractBaseRange):
+            name: str = ""
+
+        # Fail tests that call non-existent methods/attributes
+        mock_range = MagicMock(
+            spec_set=_RangeSpec, name="Mocked Range Factory Range Object"
+        )
+
+        # Configure mock methods based on args
+        mock_range.has_secrets.return_value = has_secrets
+        mock_range.synthesize.return_value = synthesize
+        mock_range.deploy.return_value = deploy
+        mock_range.destroy.return_value = destroy
+        mock_range.get_cred_env_vars.return_value = (
+            get_cred_env_vars if get_cred_env_vars is not None else {}
+        )
+        mock_range.get_provider_stack_class.return_value = get_provider_stack_class
+
+        # Patch factory method to return mock
+        mocker.patch.object(RangeFactory, "create_range", return_value=mock_range)
+
+        return mock_range
+
+    yield _create_and_patch
 
 
 @pytest.fixture

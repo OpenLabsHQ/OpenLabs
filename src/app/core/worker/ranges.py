@@ -140,9 +140,15 @@ async def deploy_range(
 
             successful_destroy = await range_to_deploy.destroy()
             if not successful_destroy:
-                msg = f"Auto clean up failed! Failed to destroy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id}) for user: {user_email} ({user_id})"
-                logger.critical(msg)
-                raise RuntimeError(msg)
+                # Don't raise an exception to prevent masking
+                logger.critical(
+                    "Auto clean up failed! Failed to destroy range: %s from blueprint: %s (%s) for user: %s (%s)",
+                    range_to_deploy.name,
+                    blueprint_range.name,
+                    blueprint_range.id,
+                    user_email,
+                    user_id,
+                )
 
             logger.info(
                 "Finished auto clean up of deployed range: %s for user %s (%s)!",

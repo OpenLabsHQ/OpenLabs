@@ -11,6 +11,7 @@ from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.range_schemas import (
     BlueprintRangeHeaderSchema,
+    BlueprintRangeSchema,
     DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
     DeployedRangeSchema,
@@ -302,6 +303,44 @@ async def add_blueprint_range(
         return None
 
     return BlueprintRangeHeaderSchema.model_validate(response.json())
+
+
+async def get_blueprint_range(
+    auth_client: AsyncClient, blueprint_id: int
+) -> BlueprintRangeSchema | None:
+    """Get a blueprint range.
+
+    Args:
+    ----
+        auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
+        blueprint_id (int): ID of the blueprint range to retrieve.
+
+    Returns:
+    -------
+        BlueprintRangeSchema: Info of saved blueprint range.
+
+    """
+    base_route = get_api_base_route(version=1)
+
+    if not blueprint_id:
+        logger.error("Failed to get range blueprint! Blueprint ID is empty!")
+        return None
+
+    # Verify we are logged in
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error("Failed to get range blueprint. Provided client is not logged in!")
+        return None
+
+    # Submit blueprint range
+    response = await auth_client.get(f"{base_route}/blueprints/ranges/{blueprint_id}")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to get range blueprint. Error: %s", response.json()["detail"]
+        )
+        return None
+
+    return BlueprintRangeSchema.model_validate(response.json())
 
 
 async def deploy_range(

@@ -1,6 +1,7 @@
 import copy
 import random
-from unittest.mock import AsyncMock
+from typing import Callable
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import status
@@ -78,10 +79,13 @@ async def test_deploy_range_no_redis_connection(
 async def test_deploy_range_deploy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_create_range_deployable: None,
+    mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_successful_job_queue: None,
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID."""
+    # Mock range object
+    mock_range_factory()
+
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
@@ -105,10 +109,13 @@ async def test_deploy_range_deploy_success(
 async def test_deploy_range_queue_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_create_range_deployable: None,
+    mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_failed_job_queue: None,
 ) -> None:
     """Test to deploy a range returns a 500 when we fail to queue the deploy job."""
+    # Mock range object
+    mock_range_factory()
+
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
@@ -186,9 +193,12 @@ async def test_destroy_range_no_redis_connection(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
-    mock_create_range_deployable: None,
+    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test to destroy a range but fail because we are not connected to Redis."""
+    # Mock range object
+    mock_range_factory()
+
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )
@@ -200,10 +210,13 @@ async def test_deploy_range_destroy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
-    mock_create_range_deployable: None,
+    mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_successful_job_queue: None,
 ) -> None:
     """Test to destroy a range successfully with a returned the associated job ID."""
+    # Mock range object
+    mock_range_factory()
+
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )
@@ -215,10 +228,12 @@ async def test_destroy_range_queue_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
-    mock_create_range_deployable: None,
+    mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_failed_job_queue: None,
 ) -> None:
     """Test to destroy a range returns a 500 when we fail to queue the destroy job."""
+    # Mock range object
+
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )
