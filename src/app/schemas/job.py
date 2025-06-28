@@ -6,14 +6,9 @@ from pydantic import BaseModel, Field
 
 
 class Job(BaseModel):
-    """Remote task executed as an ARQ job."""
+    """ARQ job and it's related status information."""
 
     job_id: str = Field(..., description="ID of the job.")
-
-
-class JobInfo(BaseModel):
-    """Remote task information."""
-
     function: str = Field(..., description="Name of the function executed.")
     job_try: int | None = Field(
         default=None, ge=0, description="Number of times task has been attempted."
