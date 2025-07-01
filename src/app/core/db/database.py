@@ -33,16 +33,8 @@ async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as db:
         try:
             yield db
-
-            try:
-                await db.commit()
-                logger.debug("Database transaction committed successfully.")
-            except Exception as commit_exc:
-                logger.exception(
-                    "Database commit failed. Rolling back. Exception: %s", commit_exc
-                )
-                await db.rollback()
-                raise commit_exc
+            await db.commit()
+            logger.debug("Transaction commited to database.")
         except Exception as e:
             logger.debug(
                 "Execution failed during database session. Rolling back transaction. Error: %s",
@@ -50,6 +42,3 @@ async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
             )
             await db.rollback()
             raise e
-        finally:
-            # Session closed automatically by async with
-            pass
