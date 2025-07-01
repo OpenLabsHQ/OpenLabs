@@ -9,7 +9,7 @@ pytestmark = pytest.mark.unit
 
 
 def test_abstract_stack_creation_not_implemented_error() -> None:
-    """Ensure that instantiating the AbstractBaseStack raises NontImplementedError."""
+    """Ensure that instantiating the AbstractBaseStack raises NotImplementedError."""
     with pytest.raises(NotImplementedError):
         AbstractBaseStack(
             scope=App(),
