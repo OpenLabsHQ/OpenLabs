@@ -4,19 +4,19 @@ import logging
 from typing import Any
 
 import uvloop
-from arq.worker import Worker
 
 from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_range
 from src.app.enums.range_states import RangeState
+from src.app.schemas.user_schema import UserID
 
 from ...core.cdktf.ranges.range_factory import RangeFactory
-from ...core.db.database import managed_async_get_db
-from ...crud.crud_users import get_decrypted_secrets, get_user
+from ...crud.crud_users import get_decrypted_secrets, get_user_by_id
 from ...schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ..db.database import get_db_session_context
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -24,21 +24,21 @@ logger = logging.getLogger(__name__)
 
 
 async def deploy_range(
-    ctx: Worker,
-    user_email: str,
+    ctx: dict[str, Any],
     enc_key: str,
     deploy_request_dump: dict[str, Any],
     blueprint_range_dump: dict[str, Any],
+    user_id: int,
 ) -> dict[str, Any]:
     """Deploy range for a user.
 
     Args:
     ----
-        ctx (Worker): ARQ worker context. Automatically provided by ARQ.
-        user_email (str): Email of user who initiated the deploy request.
+        ctx (dict[str, Any]): ARQ worker context. Automatically provided by ARQ.
         enc_key (str): Base64 encoded master key for user.
         deploy_request_dump (dict[str, Any]): DeployRangeSchema dumped with pydantic's `model_dump(mode='json')`.
         blueprint_range_dump (dict[str, Any]): BlueprintRangeSchema dumped with pydantic's `model_dump(mode='json')`.
+        user_id (int): User associated with the deploy request.
 
     Returns:
     -------
@@ -56,11 +56,11 @@ async def deploy_range(
         blueprint_range.provider.value.upper(),
     )
 
-    async with managed_async_get_db() as db:
+    async with get_db_session_context() as db:
         # Fetch user info
-        user = await get_user(db, user_email)
+        user = await get_user_by_id(db, UserID(id=user_id))
         if not user:
-            msg = f"Unable to deploy range! User: {user_email} not found in database."
+            msg = f"Unable to deploy range! User: {user_id} not found in database."
             logger.error(msg)
             raise ValueError(msg)
 
@@ -79,6 +79,7 @@ async def deploy_range(
             raise RuntimeError(msg)
 
         user_id = user.id
+        user_email = user.email
 
     range_to_deploy = RangeFactory.create_range(
         name=deploy_request.name,
@@ -111,14 +112,13 @@ async def deploy_range(
     cleanup_required = False
 
     try:
-        async with managed_async_get_db() as db:
+        async with get_db_session_context() as db:
             try:
                 deployed_range_header = await create_deployed_range(
                     db, created_range, user_id=user.id
                 )
             except Exception as e:
                 cleanup_required = True
-                await db.rollback()
                 logger.exception(
                     "Failed to save range: %s to database on behalf of user: %s (%s)! Exception: %s",
                     range_to_deploy.name,
@@ -169,19 +169,19 @@ async def deploy_range(
 
 
 async def destroy_range(
-    ctx: Worker,
-    user_email: str,
+    ctx: dict[str, Any],
     enc_key: str,
     deployed_range_dump: dict[str, Any],
+    user_id: int,
 ) -> dict[str, Any]:
     """Destroy range for a user.
 
     Args:
     ----
-        ctx (Worker): ARQ worker context. Automatically provided by ARQ.
-        user_email (str): Email of user who initiated the deploy request.
+        ctx (JobBaseContextSchema): ARQ worker context. Automatically provided by ARQ.
         enc_key (str): Base64 encoded master key for user.
         deployed_range_dump (dict[str, Any]): DeployedRangeSchema dumped with pydantic's `model_dump(mode='json')`.
+        user_id (int): User associated with the destroy request.
 
     Returns:
     -------
@@ -197,11 +197,11 @@ async def destroy_range(
         deployed_range.provider.value.upper(),
     )
 
-    async with managed_async_get_db() as db:
+    async with get_db_session_context() as db:
         # Fetch user info
-        user = await get_user(db, user_email)
+        user = await get_user_by_id(db, UserID(id=user_id))
         if not user:
-            msg = f"Unable to destroy range! User: {user_email} not found in database."
+            msg = f"Unable to destroy range! User: {user_id} not found in database."
             logger.error(msg)
             raise ValueError(msg)
 
@@ -238,24 +238,24 @@ async def destroy_range(
         # have an account in a state where they
         # don't have credentials to destroy their
         # own deployed ranges.
-        msg = f"No credentials found for provider: {deployed_range.provider.value.upper()} for user: {user_email} ({user_id})"
+        msg = f"No credentials found for provider: {deployed_range.provider.value.upper()} for user: {user_id}"
         logger.critical(msg)
         raise RuntimeError(msg)
 
     # Destroy range
     successful_synth = await range_to_destroy.synthesize()
     if not successful_synth:
-        msg = f"Failed to synthesize range: {range_to_destroy.name} for user: {user_email} ({user_id})"
+        msg = f"Failed to synthesize range: {range_to_destroy.name} for user: {user_id}"
         logger.error(msg)
         raise RuntimeError(msg)
 
     successful_destroy = await range_to_destroy.destroy()
     if not successful_destroy:
-        msg = f"Failed to deploy range: {range_to_destroy.name} for user: {user_email} ({user_id})"
+        msg = f"Failed to deploy range: {range_to_destroy.name} for user: {user_id}"
         logger.error(msg)
         raise RuntimeError(msg)
 
-    async with managed_async_get_db() as db:
+    async with get_db_session_context() as db:
         # Delete range from database
         try:
             deleted_from_db = await delete_deployed_range(
@@ -265,12 +265,9 @@ async def destroy_range(
                 msg = "Failed to delete destroyed range from DB!"
                 raise RuntimeError(msg)
         except Exception as e:
-            await db.rollback()
-
             logger.exception(
-                "Failed to delete range: %s from database on behalf of user: %s (%s)! Exception: %s",
+                "Failed to delete range: %s from database on behalf of user: %s! Exception: %s",
                 range_to_destroy.name,
-                user_email,
                 user_id,
                 e,
             )
@@ -279,10 +276,9 @@ async def destroy_range(
             raise e
 
     logger.info(
-        "Successfully destroyed range: %s (%s) for user: %s (%s).",
+        "Successfully destroyed range: %s (%s) for user: %s.",
         deleted_from_db.name,
         deleted_from_db.id,
-        user_email,
         user_id,
     )
 

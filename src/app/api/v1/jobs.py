@@ -1,60 +1,106 @@
 import logging
 
-import arq.jobs as arq_job
-from fastapi import APIRouter, HTTPException, status
-from redis.asyncio import Redis
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from ...core.utils import queue
-from ...schemas.job import JobInfo
+from ...core.auth.auth import get_current_user
+from ...core.db.database import async_get_db
+from ...crud.crud_jobs import get_job, get_jobs
+from ...enums.job_status import OpenLabsJobStatus
+from ...models.user_model import UserModel
+from ...schemas.job_schemas import JobSchema
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
+@router.get("")
+async def get_all_jobs_endpoint(
+    job_status: OpenLabsJobStatus | None = Query(  # noqa: B008
+        default=None, description="Job status filter."
+    ),
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+) -> list[JobSchema]:
+    """Get all owned jobs.
+
+    Args:
+    ----
+        job_status (OpenLabsJobStatus | None): Filter results by status.
+        db (AsyncSession): Async database connection.
+        current_user (UserModel): Currently authenticated user.
+
+    Returns:
+    -------
+        list[JobSchema]: Information about, including status and results, of the requested job.
+
+    """
+    jobs = await get_jobs(db, current_user.id, current_user.is_admin, status=job_status)
+    if not jobs:
+        logger.info(
+            "No jobs found for user: %s (%s).",
+            current_user.email,
+            current_user.id,
+        )
+        status_text = f" {job_status.value}" if job_status else ""
+        msg = (
+            f"No{status_text} jobs found!"
+            if current_user.is_admin
+            else f"Unable to find any{status_text} jobs that you own!"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=msg,
+        )
+
+    logger.info(
+        "Sucessfully retrieved %s jobs for user: %s (%s).",
+        len(jobs),
+        current_user.email,
+        current_user.id,
+    )
+
+    return jobs
+
+
 @router.get("/{job_id}")
-async def get_job_info(job_id: str) -> JobInfo:
-    """Return both status and job meta information for the requested job, including the result if available.
+async def get_job_endpoint(
+    job_id: int,
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+) -> JobSchema:
+    """Get job information, including the results if available.
 
     Args:
     ----
         job_id (str): ID of the job.
+        db (AsyncSession): Async database connection.
+        current_user (UserModel): Currently authenticated user.
 
     Returns:
     -------
-        JobInfo: Information about, including status, of the requested job.
+        JobSchema: Information about, including status and results, of the requested job.
 
     """
-    if not isinstance(queue.pool, Redis):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to connect to the task queue!",
+    job = await get_job(db, job_id, current_user.id, current_user.is_admin)
+    if not job:
+        logger.info(
+            "Failed to retrieve job: %s for user: %s (%s).",
+            job_id,
+            current_user.email,
+            current_user.id,
         )
-
-    job = arq_job.Job(job_id, queue.pool)
-
-    # Fetches result as well if available
-    job_info = await job.info()
-
-    if not job_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Could not find job with ID: {job_id}",
+            detail=f"Job with ID: {job_id} not found or you don't have access to it!",
         )
 
-    # Convert the ARQ JobDef or JobResult object to a dictionary for modification.
-    job_data = dict(vars(job_info))
+    logger.info(
+        "Successfully retrieved job: %s for user: %s (%s).",
+        job.id,
+        current_user.email,
+        current_user.id,
+    )
 
-    # Add the status, which is not part of the info() result.
-    job_data["status"] = await job.status()
-
-    # If job fails the result is a Python exception object
-    # so we need to convert it to string to make it
-    # serializable
-    if not getattr(job_info, "success", True):
-        if job_info.result:
-            job_data["result"] = str(job_info.result)
-        else:
-            job_data["result"] = "Job failed without returning a specific exception."
-
-    return JobInfo.model_validate(job_data)
+    return job

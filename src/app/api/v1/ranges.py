@@ -5,12 +5,11 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from src.app.schemas.job import Job
-
 from ...core.auth.auth import get_current_user
 from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import async_get_db
 from ...core.utils import queue
+from ...crud.crud_jobs import create_job
 from ...crud.crud_ranges import (
     get_blueprint_range,
     get_deployed_range,
@@ -19,12 +18,14 @@ from ...crud.crud_ranges import (
 )
 from ...crud.crud_users import get_decrypted_secrets
 from ...models.user_model import UserModel
+from ...schemas.job_schemas import JobSchema
 from ...schemas.range_schemas import (
     DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ...utils.job_utils import build_job_create_schema
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ async def deploy_range_from_blueprint_endpoint(
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
-) -> Job:
+) -> JobSchema:
     """Deploy range blueprints.
 
     Args:
@@ -258,7 +259,7 @@ async def deploy_range_from_blueprint_endpoint(
 
     if not range_to_deploy.has_secrets():
         logger.info(
-            "Failed to deploy range: %s. User: %s (%s) does not have credentials for provider: %s.",
+            "Failed to queue deploy request for range: %s. User: %s (%s) does not have credentials for provider: %s.",
             deploy_request.name,
             current_user.email,
             current_user.id,
@@ -271,6 +272,12 @@ async def deploy_range_from_blueprint_endpoint(
 
     # Queue deployment job
     if not isinstance(queue.pool, Redis):
+        logger.critical(
+            "Failed to connect to the Redis task queue while processing deploy request for range: %s on belhalf of: %s (%s).",
+            range_to_deploy.name,
+            current_user.name,
+            current_user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to connect to task queue!",
@@ -278,19 +285,66 @@ async def deploy_range_from_blueprint_endpoint(
 
     job = await queue.pool.enqueue_job(
         "deploy_range",
-        current_user.email,
         enc_key,
         deploy_request.model_dump(mode="json"),
         blueprint_range.model_dump(mode="json"),
+        user_id=current_user.id,
     )
 
     if not job:
+        logger.error(
+            "Failed to queue up deploy request for range: %s on belhalf of: %s (%s).",
+            range_to_deploy.name,
+            current_user.name,
+            current_user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed queue up deployment job!",
+            detail="Failed queue up destroy job!",
         )
 
-    return Job.model_validate(job, from_attributes=True)
+    job_to_add = await build_job_create_schema(job.job_id, queue.pool)
+    if not job_to_add:
+        logger.error(
+            "Failed to build job schema for deploy request of range: %s on belhalf of: %s (%s).",
+            range_to_deploy.name,
+            current_user.name,
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save deploy job!",
+        )
+
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        created_job = await create_job(db, job_to_add, current_user.id)
+    except Exception as e:
+        logger.error(
+            "Failed to save ARQ job: %s to database on behalf of user: %s (%s)!",
+            job.job_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save deploy job to the database!",
+        ) from e
+
+    logger.info(
+        "Successfully processed deploy request for range: %s and created job: %s on belhalf of user: %s (%s).",
+        range_to_deploy.name,
+        created_job.id,
+        current_user_email,
+        current_user_id,
+    )
+
+    return created_job
 
 
 @router.delete("/{range_id}")
@@ -299,7 +353,7 @@ async def delete_range_endpoint(
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
-) -> Job:
+) -> JobSchema:
     """Destroy a deployed range.
 
     Args:
@@ -311,7 +365,7 @@ async def delete_range_endpoint(
 
     Returns:
     -------
-        Job: Job ID of deploy task.
+        JobSchema: Job information.
 
     """
     # Check if we have the encryption key needed to decrypt secrets
@@ -330,7 +384,6 @@ async def delete_range_endpoint(
     try:
         master_key = base64.b64decode(enc_key)
     except Exception as e:
-        # Less common and might point to underlying issue
         logger.warning(
             "Failed to decode encryption key for user: %s (%s).",
             current_user.email,
@@ -381,7 +434,7 @@ async def delete_range_endpoint(
 
     if not range_to_destroy.has_secrets():
         logger.info(
-            "Failed to destroy range: %s (%s). User: %s (%s) does not have credentials for provider: %s.",
+            "Failed to queue destroy request for range: %s (%s). User: %s (%s) does not have credentials for provider: %s.",
             deployed_range.name,
             deployed_range.id,
             current_user.email,
@@ -395,6 +448,13 @@ async def delete_range_endpoint(
 
     # Queue deployment job
     if not isinstance(queue.pool, Redis):
+        logger.critical(
+            "Failed to connect to the Redis task queue while processing destroy request for range: %s (%s) on belhalf of: %s (%s).",
+            deployed_range.name,
+            deployed_range.id,
+            current_user.name,
+            current_user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to connect to task queue!",
@@ -402,15 +462,65 @@ async def delete_range_endpoint(
 
     job = await queue.pool.enqueue_job(
         "destroy_range",
-        current_user.email,
         enc_key,
         deployed_range.model_dump(mode="json"),
+        user_id=current_user.id,
     )
 
     if not job:
+        logger.error(
+            "Failed to queue up destroy request for range: %s (%s) on belhalf of: %s (%s).",
+            deployed_range.name,
+            deployed_range.id,
+            current_user.name,
+            current_user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed queue up destroy job!",
         )
 
-    return Job.model_validate(job, from_attributes=True)
+    job_to_add = await build_job_create_schema(job.job_id, queue.pool)
+    if not job_to_add:
+        logger.error(
+            "Failed to build job schema for destroy request of range: %s (%s) on belhalf of: %s (%s).",
+            deployed_range.name,
+            deployed_range.id,
+            current_user.name,
+            current_user.id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save destroy job!",
+        )
+
+    # Pre-fetch/save data for logging incase of a database error
+    current_user_email = current_user.email
+    current_user_id = current_user.id
+
+    try:
+        created_job = await create_job(db, job_to_add, current_user.id)
+    except Exception as e:
+        logger.error(
+            "Failed to save ARQ job: %s to database on behalf of user: %s (%s)!",
+            job.job_id,
+            current_user_email,
+            current_user_id,
+        )
+
+        # Notify user
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save destroy job to the database!",
+        ) from e
+
+    logger.info(
+        "Successfully processed destroy request for range: %s (%s) and created job: %s on belhalf of user: %s (%s).",
+        deployed_range.name,
+        deployed_range.id,
+        created_job.id,
+        current_user_email,
+        current_user_id,
+    )
+
+    return created_job

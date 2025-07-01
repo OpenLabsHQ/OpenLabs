@@ -98,6 +98,22 @@ class UserCreateSchema(UserCreateBaseSchema, UserID):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserAuthorizationSchema(UserID):
+    """Schema that holds the minimum number of attributes to properly determine access to resources."""
+
+    # id -- Provided by UserID
+    # This is here strictly for logging
+    email: str = Field(
+        ...,
+        description="Email of user",
+        min_length=3,
+        examples=["adam@ufsit.club", "alex@christy.com", "naresh@panch.al"],
+    )
+    is_admin: bool = Field(..., description="Whether user is an app admin.")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserInfoResponseSchema(BaseModel):
     """User information response object for user page on OpenLabs Frontend."""
 
