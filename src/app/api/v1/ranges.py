@@ -170,7 +170,7 @@ async def get_deployed_range_key_endpoint(
     return range_private_key
 
 
-@router.post("/deploy")
+@router.post("/deploy", status_code=status.HTTP_202_ACCEPTED)
 async def deploy_range_from_blueprint_endpoint(
     deploy_request: DeployRangeSchema,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
@@ -347,7 +347,7 @@ async def deploy_range_from_blueprint_endpoint(
     return created_job
 
 
-@router.delete("/{range_id}")
+@router.delete("/{range_id}", status_code=status.HTTP_202_ACCEPTED)
 async def delete_range_endpoint(
     range_id: int,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
