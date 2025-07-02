@@ -1,14 +1,17 @@
 import copy
 import random
+import uuid
 from typing import Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from arq import ArqRedis
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.models.user_model import UserModel
+from src.app.schemas.job_schemas import JobCreateSchema, JobSchema
 from src.app.schemas.range_schemas import (
     DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
@@ -18,6 +21,7 @@ from tests.api_test_utils import authenticate_client
 
 from .config import (
     BASE_ROUTE,
+    complete_job_payload,
     valid_blueprint_range_create_payload,
     valid_deployed_range_data,
     valid_range_deploy_payload,
@@ -25,6 +29,80 @@ from .config import (
 )
 
 pytestmark = pytest.mark.unit
+
+
+@pytest.fixture
+def range_api_v1_endpoints_path() -> str:
+    """Get the dot path to the v1 API endpoints for ranges."""
+    return "src.app.api.v1.ranges"
+
+
+@pytest.fixture
+def mock_redis_queue_pool_no_connection(
+    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+) -> None:
+    """Patch the queue.pool object to be None to simulate no connection te Redis."""
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", None)
+
+
+@pytest.fixture
+def mock_redis_queue_pool_successful_job_queue(
+    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+) -> None:
+    """Patch the queue.pool object to ensure it passes as a real Redis connection and queues a fake job."""
+    fake_redis = AsyncMock(spec=ArqRedis)
+
+    class FakeJob:
+        job_id: str = str(uuid.uuid4()).replace("-", "")
+
+    fake_redis.enqueue_job.return_value = FakeJob()
+
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", fake_redis)
+
+
+@pytest.fixture
+def mock_redis_queue_pool_failed_job_queue(
+    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+) -> None:
+    """Patch the queue.pool object to ensure it passes as a real Redis connection and but fails to queue a job."""
+    fake_redis = AsyncMock(spec=ArqRedis)
+
+    fake_redis.enqueue_job.return_value = None
+
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", fake_redis)
+
+
+@pytest.fixture
+def mock_successful_fetch_job_info(
+    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+) -> None:
+    """Patch over the redis job info retrieval utlity function to return a valid job schema."""
+    # Mock return value
+    mock_job_schema = JobCreateSchema.model_validate(complete_job_payload)
+
+    # Mock function
+    mock_get_info_from_redis = AsyncMock()
+    mock_get_info_from_redis.return_value = mock_job_schema
+
+    monkeypatch.setattr(
+        f"{range_api_v1_endpoints_path}.get_job_from_redis", mock_get_info_from_redis
+    )
+
+
+@pytest.fixture
+def mock_successful_job_add_to_db(
+    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+) -> None:
+    """Patch over the job creation crud function to simulate successfully adding the job to the database."""
+    mock_created_job = JobSchema.model_validate(complete_job_payload)
+
+    # Mock function
+    mock_crud_create_job = AsyncMock()
+    mock_crud_create_job.return_value = mock_created_job
+
+    monkeypatch.setattr(
+        f"{range_api_v1_endpoints_path}.create_job", mock_crud_create_job
+    )
 
 
 async def test_deploy_without_valid_secrets(
@@ -54,6 +132,7 @@ async def test_deploy_without_valid_secrets(
 async def test_deploy_range_no_redis_connection(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
+    mock_redis_queue_pool_no_connection: None,
 ) -> None:
     """Test to deploy a range but fail because we are not connected to Redis."""
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
@@ -76,11 +155,13 @@ async def test_deploy_range_no_redis_connection(
     assert "connect" in response.json()["detail"].lower()
 
 
-async def test_deploy_range_deploy_success(
+async def test_deploy_range_deploy_success(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_successful_job_queue: None,
+    mock_successful_fetch_job_info: None,
+    mock_successful_job_add_to_db: None,
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID."""
     # Mock range object
@@ -102,8 +183,9 @@ async def test_deploy_range_deploy_success(
         f"{BASE_ROUTE}/ranges/deploy",
         json=blueprint_deploy_payload,
     )
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["job_id"]
+    assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
+    assert response.json()["id"]  # OpenLabs job ID
+    assert response.json()["arq_job_id"]
 
 
 async def test_deploy_range_queue_failure(
@@ -193,6 +275,7 @@ async def test_destroy_range_no_redis_connection(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
+    mock_redis_queue_pool_no_connection: None,
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test to destroy a range but fail because we are not connected to Redis."""
@@ -206,12 +289,14 @@ async def test_destroy_range_no_redis_connection(
     assert "connect" in response.json()["detail"].lower()
 
 
-async def test_deploy_range_destroy_success(
+async def test_deploy_range_destroy_success(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
     mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_successful_job_queue: None,
+    mock_successful_fetch_job_info: None,
+    mock_successful_job_add_to_db: None,
 ) -> None:
     """Test to destroy a range successfully with a returned the associated job ID."""
     # Mock range object
@@ -220,8 +305,9 @@ async def test_deploy_range_destroy_success(
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["job_id"]
+    assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
+    assert response.json()["id"]  # OpenLabs job ID
+    assert response.json()["arq_job_id"]
 
 
 async def test_destroy_range_queue_failure(

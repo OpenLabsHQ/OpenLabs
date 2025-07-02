@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion

@@ -131,23 +131,6 @@ class JobCommonSchema(BaseModel):
 
         return self
 
-
-class JobCreateSchema(JobCommonSchema):
-    """Schema for inserting ARQ jobs into the database.
-
-    Lacks database ID attribute.
-    """
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class JobSchema(JobCommonSchema):
-    """Schema with database ID attribute for ARQ jobs."""
-
-    id: int = Field(..., description="Job unique identifier.")
-
-    model_config = ConfigDict(from_attributes=True)
-
     def mark_as_in_progress(self, start_time: datetime, job_try: int) -> Self:
         """Return a new Job instance marked as in progress."""
         if self.status != OpenLabsJobStatus.QUEUED:
@@ -204,3 +187,20 @@ class JobSchema(JobCommonSchema):
         )
 
         return self.model_validate(update_data)
+
+
+class JobCreateSchema(JobCommonSchema):
+    """Schema for inserting ARQ jobs into the database.
+
+    Lacks database ID attribute.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class JobSchema(JobCommonSchema):
+    """Schema with database ID attribute for ARQ jobs."""
+
+    id: int = Field(..., description="Job unique identifier.")
+
+    model_config = ConfigDict(from_attributes=True)

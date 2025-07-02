@@ -55,7 +55,7 @@ def arq_to_openlabs_job_status(
     return status_map.get(arq_status, OpenLabsJobStatus.NOT_FOUND)
 
 
-async def build_job_create_schema(
+async def get_job_from_redis(
     arq_job_id: str,
     redis: ArqRedis,
 ) -> JobCreateSchema | None:

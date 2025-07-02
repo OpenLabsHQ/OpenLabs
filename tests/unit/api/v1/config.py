@@ -3,6 +3,7 @@ import random
 from datetime import datetime, timezone
 from typing import Any
 
+from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion
@@ -320,3 +321,34 @@ azure_secrets_payload = {
     "azure_tenant_id": "00000000-0000-0000-0000-000000000000",
     "azure_subscription_id": "00000000-0000-0000-0000-000000000000",
 }
+# ==============================
+#         Job Payloads
+# ==============================
+
+complete_job_payload = {
+    "arq_job_id": "e8ce953f4f6c4a7c884a9afe8112d31f",
+    "job_name": "deploy_range",
+    "job_try": 1,
+    "enqueue_time": "2025-07-02T10:22:42.407000Z",
+    "start_time": "2025-07-02T10:22:42.814805Z",
+    "finish_time": "2025-07-02T10:24:49.224000Z",
+    "status": "complete",
+    "result": {
+        "id": 1,
+        "vnc": False,
+        "vpn": False,
+        "date": "2025-07-02T10:24:49.169656Z",
+        "name": "Test-ARQ-Range-v1",
+        "state": "on",
+        "region": "us_east_1",
+        "provider": "aws",
+        "description": "This is my test range.",
+    },
+    "error_message": None,
+    "id": 1,
+}
+
+failed_job_payload = copy.deepcopy(complete_job_payload)
+failed_job_payload["result"] = None
+failed_job_payload["status"] = str(OpenLabsJobStatus.FAILED.value)
+failed_job_payload["error_message"] = "Mock error message."

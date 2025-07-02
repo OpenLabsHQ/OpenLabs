@@ -1,14 +1,12 @@
 import base64
 import copy
 import logging
-from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable
+from typing import Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from arq.worker import Worker
 from pytest_mock import MockerFixture
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.core.worker.ranges import deploy_range, destroy_range
 from src.app.models.user_model import UserModel
@@ -72,13 +70,13 @@ def mock_worker_deploy_range_success(
 ) -> None:
     """Patch over all non-range object external dependencies to ensure the deploy function returns as if successful."""
     # Patch database connection
-    mocker.patch(f"{worker_ranges_path}.managed_async_get_db")
+    mocker.patch(f"{worker_ranges_path}.get_db_session_context")
 
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
     mock_user.id = 1
     mock_user.email = "test@example.com"
-    mocker.patch(f"{worker_ranges_path}.get_user", return_value=mock_user)
+    mocker.patch(f"{worker_ranges_path}.get_user_by_id", return_value=mock_user)
 
     # Mock secrets calls
     mock_secrets = AsyncMock(spec=SecretSchema)
@@ -87,9 +85,14 @@ def mock_worker_deploy_range_success(
     )
 
     # Patch create range calls
-    mock_range_header = AsyncMock(spec=DeployedRangeHeaderSchema)
-    mock_range_header.model_dump.return_value = {"data": "Fake header data"}
-    mocker.patch(f"{worker_ranges_path}.create_deployed_range", mock_range_header)
+    mock_create_deployed_range = AsyncMock()
+    fake_range_header = DeployedRangeHeaderSchema.model_validate(
+        valid_deployed_range_data
+    )
+    mock_create_deployed_range.return_value = fake_range_header
+    mocker.patch(
+        f"{worker_ranges_path}.create_deployed_range", mock_create_deployed_range
+    )
 
 
 @pytest.fixture
@@ -99,13 +102,13 @@ def mock_worker_destroy_range_success(
 ) -> None:
     """Patch over all non-range object external dependencies to ensure the delete function returns as if successful."""
     # Patch database connection
-    mocker.patch(f"{worker_ranges_path}.managed_async_get_db")
+    mocker.patch(f"{worker_ranges_path}.get_db_session_context")
 
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
     mock_user.id = 1
     mock_user.email = "test@example.com"
-    mocker.patch(f"{worker_ranges_path}.get_user", return_value=mock_user)
+    mocker.patch(f"{worker_ranges_path}.get_user_by_id", return_value=mock_user)
 
     # Mock secrets calls
     mock_secrets = AsyncMock(spec=SecretSchema)
@@ -114,9 +117,14 @@ def mock_worker_destroy_range_success(
     )
 
     # Patch create range calls
-    mock_range_header = AsyncMock(spec=DeployedRangeHeaderSchema)
-    mock_range_header.model_dump.return_value = {"data": "Fake header data"}
-    mocker.patch(f"{worker_ranges_path}.delete_deployed_range", mock_range_header)
+    mock_delete_deployed_range = AsyncMock()
+    fake_range_header = DeployedRangeHeaderSchema.model_validate(
+        valid_deployed_range_data
+    )
+    mock_delete_deployed_range.return_value = fake_range_header
+    mocker.patch(
+        f"{worker_ranges_path}.delete_deployed_range", mock_delete_deployed_range
+    )
 
 
 async def test_worker_deploy_range_success(
@@ -127,16 +135,14 @@ async def test_worker_deploy_range_success(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the deploy_range worker function returns data when it succeeds."""
-    email = "nobody@him.com"
-
     mock_range_factory()
 
     assert await deploy_range(
         mock_arq_ctx,
-        email,
         mock_enc_key,
         deploy_request_dump=valid_range_deploy_payload,
         blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+        user_id=1,
     )
 
 
@@ -148,15 +154,13 @@ async def test_worker_destroy_range_success(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the destroy_range worker function returns data when it succeeds."""
-    email = "nobody@him.com"
-
     mock_range_factory()
 
     assert await destroy_range(
         mock_arq_ctx,
-        email,
         mock_enc_key,
         deployed_range_dump=deployed_range.model_dump(mode="json"),
+        user_id=1,
     )
 
 
@@ -169,18 +173,18 @@ async def test_worker_deploy_range_no_user(  # noqa: PLR0913
     worker_ranges_path: str,
 ) -> None:
     """Test that the deploy_range worker function raises a ValueError when the user who requested deployment doesn't exist in the database."""
-    email = "nobody@him.com"
+    user_id = 1
 
     # Force no user found
-    mocker.patch(f"{worker_ranges_path}.get_user", return_value=None)
+    mocker.patch(f"{worker_ranges_path}.get_user_by_id", return_value=None)
 
-    with pytest.raises(ValueError, match=f"{email} not found"):
+    with pytest.raises(ValueError, match=f"{user_id} not found"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=user_id,
         )
 
 
@@ -193,17 +197,17 @@ async def test_worker_destroy_range_no_user(  # noqa: PLR0913
     mocker: MockerFixture,
 ) -> None:
     """Test that the destroy_range worker function raises a ValueError when the user who requests destruction doesn't exist in the database."""
-    email = "nobody@him.com"
+    user_id = 1
 
     # Force no user found
-    mocker.patch(f"{worker_ranges_path}.get_user", return_value=None)
+    mocker.patch(f"{worker_ranges_path}.get_user_by_id", return_value=None)
 
-    with pytest.raises(ValueError, match=f"{email} not found"):
+    with pytest.raises(ValueError, match=f"{user_id} not found"):
         assert await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=user_id,
         )
 
 
@@ -213,15 +217,13 @@ async def test_worker_deploy_range_invalid_enc_key(
     blueprint_range: BlueprintRangeSchema,
 ) -> None:
     """Test that the deploy_range worker function raises a RuntimeError when it can't decode the user's encoded master key."""
-    email = "nobody@him.com"
-
     with pytest.raises(RuntimeError, match="encryption key"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             enc_key="hi",
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -231,14 +233,12 @@ async def test_worker_destroy_range_invalid_enc_key(
     deployed_range: DeployedRangeSchema,
 ) -> None:
     """Test that the destroy_range worker function raises a RuntimeError when it can't decode the user's encoded master key."""
-    email = "nobody@him.com"
-
     with pytest.raises(RuntimeError, match="encryption key"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             enc_key="hi",
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -251,18 +251,16 @@ async def test_worker_deploy_range_no_decrypted_secrets(  # noqa: PLR0913
     worker_ranges_path: str,
 ) -> None:
     """Test that the deploy_range worker function raises a RuntimeError when it can't fetch decrypted cloud secrets."""
-    email = "nobody@him.com"
-
     # Force no decrypted secrets found
     mocker.patch(f"{worker_ranges_path}.get_decrypted_secrets", return_value=None)
 
     with pytest.raises(RuntimeError, match="decrypt"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -275,17 +273,15 @@ async def test_worker_destroy_range_no_decrypted_secrets(  # noqa: PLR0913
     worker_ranges_path: str,
 ) -> None:
     """Test that the destroy_range worker function raises a RuntimeError when it can't fetch decrypted cloud secrets."""
-    email = "nobody@him.com"
-
     # Force no decrypted secrets found
     mocker.patch(f"{worker_ranges_path}.get_decrypted_secrets", return_value=None)
 
     with pytest.raises(RuntimeError, match="decrypt"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -302,17 +298,15 @@ async def test_worker_deploy_range_invalid_range_secrets(
     correct values are stored/populated to be able to deploy to the provider specified in
     it's range object (Blueprint, etc.).
     """
-    email = "nobody@him.com"
-
     mock_range_factory(has_secrets=False)
 
     with pytest.raises(RuntimeError, match="credentials"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -329,16 +323,14 @@ async def test_worker_destroy_range_invalid_range_secrets(
     correct values are stored/populated to be able to destroy infrastructure hosted on the
     provider specified in it's range object (Deployed, etc.).
     """
-    email = "nobody@him.com"
-
     mock_range_factory(has_secrets=False)
 
     with pytest.raises(RuntimeError, match="credentials"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -350,17 +342,15 @@ async def test_worker_deploy_range_failed_synthesis(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the deploy_range worker function returns raises a RuntimeError when it can't synthesize the range."""
-    email = "nobody@him.com"
-
     mock_range_factory(synthesize=False)
 
     with pytest.raises(RuntimeError, match="synthesize"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -372,16 +362,14 @@ async def test_worker_destroy_range_failed_synthesis(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the destroy_range worker function returns raises a RuntimeError when it can't synthesize the range."""
-    email = "nobody@him.com"
-
     mock_range_factory(synthesize=False)
 
     with pytest.raises(RuntimeError, match="synthesize"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -393,18 +381,16 @@ async def test_worker_deploy_range_failed_deploy(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the deploy_range worker function returns raises a RuntimeError when it can't deploy the range."""
-    email = "nobody@him.com"
-
     # Dummy falsey value to trigger error
     mock_range_factory(deploy=False)
 
     with pytest.raises(RuntimeError, match="deploy"):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -416,16 +402,14 @@ async def test_worker_deploy_range_failed_destroy(
     mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the destroy_range worker function returns raises a RuntimeError when it can't destroy the range."""
-    email = "nobody@him.com"
-
     mock_range_factory(destroy=False)
 
     with pytest.raises(RuntimeError, match="deploy"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
 
 
@@ -440,20 +424,6 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that the deploy range function rolls back, attempts to clean up dangling resources, and logs any failed clean up attempts."""
-    email = "nobody@him.com"
-
-    # Patch database connection
-    mock_db_session = AsyncMock(spec=AsyncSession)
-
-    @asynccontextmanager
-    async def fake_managed_async_get_db() -> AsyncGenerator[Any, AsyncMock]:
-        yield mock_db_session
-
-    # 3. Patch the original context manager with your fake one.
-    mocker.patch(
-        f"{worker_ranges_path}.managed_async_get_db", new=fake_managed_async_get_db
-    )
-
     # Patch create range calls to fail
     fake_error_msg = "Mock DB error!"
     mocker.patch(
@@ -467,14 +437,11 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
     with pytest.raises(RuntimeError, match=fake_error_msg):
         await deploy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deploy_request_dump=valid_range_deploy_payload,
             blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
         )
-
-    # Check that db state is corrected
-    mock_db_session.rollback.assert_awaited_once()
 
     # Check we auto destroy the range
     mock_range.destroy.assert_awaited_once()
@@ -499,20 +466,6 @@ async def test_worker_destroy_range_db_failure(  # noqa: PLR0913
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that the destroy range function rolls back the database transaction fails."""
-    email = "nobody@him.com"
-
-    # Patch database connection
-    mock_db_session = AsyncMock(spec=AsyncSession)
-
-    @asynccontextmanager
-    async def fake_managed_async_get_db() -> AsyncGenerator[Any, AsyncMock]:
-        yield mock_db_session
-
-    # 3. Patch the original context manager with your fake one.
-    mocker.patch(
-        f"{worker_ranges_path}.managed_async_get_db", new=fake_managed_async_get_db
-    )
-
     # Patch delete range calls to fail
     mocker.patch(
         f"{worker_ranges_path}.delete_deployed_range",
@@ -524,13 +477,10 @@ async def test_worker_destroy_range_db_failure(  # noqa: PLR0913
     with pytest.raises(RuntimeError, match="delete"):
         await destroy_range(
             mock_arq_ctx,
-            email,
             mock_enc_key,
             deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
         )
-
-    # Check that db state is corrected
-    mock_db_session.rollback.assert_awaited_once()
 
     # Ensure that we log the failed destroy
     except_log_keywords = "delete range"

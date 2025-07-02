@@ -5,15 +5,13 @@ import os
 import shutil
 import socket
 import sys
-import uuid
 from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable, Generator, Iterator
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
-from arq.connections import ArqRedis
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -718,29 +716,6 @@ def mock_range_factory(
         return mock_range
 
     yield _create_and_patch
-
-
-@pytest.fixture
-def mock_redis_queue_pool_successful_job_queue(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch the queue.pool object to ensure it passes as a real Redis connection and queues a fake job."""
-    fake_redis = AsyncMock(spec=ArqRedis)
-
-    class FakeJob:
-        job_id: str = str(uuid.uuid4()).replace("-", "")
-
-    fake_redis.enqueue_job.return_value = FakeJob()
-
-    monkeypatch.setattr("src.app.api.v1.ranges.queue.pool", fake_redis)
-
-
-@pytest.fixture
-def mock_redis_queue_pool_failed_job_queue(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch the queue.pool object to ensure it passes as a real Redis connection and but fails to queue a job."""
-    fake_redis = AsyncMock(spec=ArqRedis)
-
-    fake_redis.enqueue_job.return_value = None
-
-    monkeypatch.setattr("src.app.api.v1.ranges.queue.pool", fake_redis)
 
 
 @pytest.fixture

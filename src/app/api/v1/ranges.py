@@ -25,7 +25,7 @@ from ...schemas.range_schemas import (
     DeployedRangeSchema,
     DeployRangeSchema,
 )
-from ...utils.job_utils import build_job_create_schema
+from ...utils.job_utils import get_job_from_redis
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +303,7 @@ async def deploy_range_from_blueprint_endpoint(
             detail="Failed queue up destroy job!",
         )
 
-    job_to_add = await build_job_create_schema(job.job_id, queue.pool)
+    job_to_add = await get_job_from_redis(job.job_id, queue.pool)
     if not job_to_add:
         logger.error(
             "Failed to build job schema for deploy request of range: %s on belhalf of: %s (%s).",
@@ -480,7 +480,7 @@ async def delete_range_endpoint(
             detail="Failed queue up destroy job!",
         )
 
-    job_to_add = await build_job_create_schema(job.job_id, queue.pool)
+    job_to_add = await get_job_from_redis(job.job_id, queue.pool)
     if not job_to_add:
         logger.error(
             "Failed to build job schema for destroy request of range: %s (%s) on belhalf of: %s (%s).",
