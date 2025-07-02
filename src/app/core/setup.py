@@ -33,7 +33,8 @@ async def create_redis_queue_pool() -> None:
 
 async def close_redis_queue_pool() -> None:
     """Close Redis queue pool."""
-    await queue.pool.aclose()  # type: ignore
+    if queue.pool:
+        await queue.pool.aclose()
 
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
