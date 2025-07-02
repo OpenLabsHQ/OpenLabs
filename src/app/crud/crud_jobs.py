@@ -1,7 +1,6 @@
 import logging
-from datetime import datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -226,81 +225,3 @@ async def _arq_update_job(
         raise
 
     return job_model
-
-
-async def _arq_get_finished_jobs_older_than(
-    db: AsyncSession, older_than: datetime
-) -> list[JobModel]:
-    """Get all finished jobs older than a specified datetime.
-
-    Args:
-    ----
-        db (AsyncSession): The asynchronous database session.
-        older_than (datetime): The cutoff datetime. All jobs that finished before this time will be returned. This MUST be a timezone-aware datetime object set to UTC.
-
-    Returns:
-    -------
-        list[JobModel]: A list of JobModel instances matching the criteria.
-
-    Raises:
-    ------
-        ValueError: If `older_than` is not a timezone-aware datetime set to UTC.
-
-    """
-    # Ensure datetime has same timezone as database timestamps
-    if older_than.tzinfo is None or older_than.tzinfo != timezone.utc:
-        msg = "The 'older_than' datetime must be timezone-aware and in UTC."
-        raise ValueError(msg)
-
-    logger.info("Querying for finished jobs older than %s...", older_than)
-
-    # Less than means before (older than) cut off
-    # older_than = March 1 --> all jobs before (less than) March 1 returned
-    #
-    # NOTE: This explicitly does not handle jobs stuck in middle states
-    # that are old, so we can handle those differently as they will contain
-    # clues to underlying bugs in the job system.
-    stmt = select(JobModel).where(
-        JobModel.finish_time.is_not(None), JobModel.finish_time < older_than
-    )
-
-    result = await db.execute(stmt)
-    jobs = result.scalars().all()
-
-    logger.info("Found %d finished jobs older than %s.", len(jobs), older_than)
-    return list(jobs)
-
-
-async def _arq_delete_jobs(db: AsyncSession, jobs: list[JobModel]) -> int:
-    """Delete a list of job from the database.
-
-    Args:
-    ----
-        db (AsyncSession): The asynchronous database session.
-        jobs (list[JobModel]): The list of JobModel objects to delete.
-
-    Returns:
-    -------
-        int: The number of jobs successfully marked for deletion.
-
-    """
-    if not jobs:
-        return 0
-
-    job_ids = [job.id for job in jobs]
-    logger.info("Deleting %d jobs by ID: %s", len(job_ids), job_ids)
-
-    try:
-        # Use a bulk delete for efficiency
-        stmt = delete(JobModel).where(JobModel.id.in_(job_ids))
-        result = await db.execute(stmt)
-        await db.flush()
-    except SQLAlchemyError as e:
-        logger.exception("Database error while deleting jobs. Exception: %s.", e)
-        raise
-    except Exception as e:
-        logger.exception("Unexpected error while deleting jobs. Exception: %s.", e)
-        raise
-
-    logger.info("Successfully marked %d jobs for deletion.", result.rowcount)
-    return result.rowcount
