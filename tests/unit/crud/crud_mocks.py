@@ -46,3 +46,9 @@ class DummyDeployedRange(Mock):
     """Dummy deployed range model for testing."""
 
     pass
+
+
+class DummyJob(Mock):
+    """Dummy job model for testing."""
+
+    pass
