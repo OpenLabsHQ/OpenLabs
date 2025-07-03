@@ -86,12 +86,24 @@ async def get_job_from_redis(
     if not definition:
         return None
 
+    # We include the in_progress status because in progress
+    # jobs always have a start_time which is only accesible
+    # with a result_info() call.
     result_info: JobResult | None = None
-    if arq_status == ArqJobStatus.complete:
-        # Only completed jobs will have a result
+    result_info_statuses = [ArqJobStatus.complete, ArqJobStatus.in_progress]
+    if arq_status in result_info_statuses:
         result_info = await job.result_info()
 
     status = arq_to_openlabs_job_status(arq_status, result_info)
+
+    job_result = None
+    error_message = None
+
+    if result_info:
+        if result_info.success is True:
+            job_result = result_info.result
+        elif arq_status == ArqJobStatus.complete and result_info.success is False:
+            error_message = str(result_info.result)
 
     job_data = {
         "arq_job_id": arq_job_id,
@@ -101,10 +113,8 @@ async def get_job_from_redis(
         "start_time": result_info.start_time if result_info else None,
         "finish_time": result_info.finish_time if result_info else None,
         "status": status,
-        "result": result_info.result if result_info and result_info.success else None,
-        "error_message": (
-            str(result_info.result) if result_info and not result_info.success else None
-        ),
+        "result": job_result,
+        "error_message": error_message,
     }
 
     return JobCreateSchema.model_validate(job_data)
