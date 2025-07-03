@@ -60,7 +60,10 @@ async def on_job_start(
             update_success = await _arq_update_job(db, job_update)
         except Exception as e:
             logger.exception(
-                "Error updating job: %s as %s", job_schema.id, job_schema.status.value
+                "Error updating job: %s (ARQ ID: %s) as %s",
+                job_update.id,
+                job_update.arq_job_id,
+                job_update.status.value,
             )
             # To ensure rollback
             raise e
@@ -68,16 +71,16 @@ async def on_job_start(
         if not update_success:
             logger.error(
                 "Failed to update job: %s and mark as %s",
-                job_schema.id,
-                job_schema.status.value,
+                job_update.id,
+                job_update.status.value,
             )
             return
 
     logger.info(
         "Marked job %s (ARQ ID: %s) as %s.",
-        job_schema.id,
-        job_schema.arq_job_id,
-        job_schema.status.value,
+        job_update.id,
+        job_update.arq_job_id,
+        job_update.status.value,
     )
 
 
@@ -127,7 +130,10 @@ async def after_job_end(
             update_success = await _arq_update_job(db, job_update)
         except Exception as e:
             logger.exception(
-                "Error updating job: %s as %s", job_schema.id, job_schema.status.value
+                "Error updating job: %s (ARQ ID: %s) as %s",
+                job_update.id,
+                job_update.arq_job_id,
+                job_update.status.value,
             )
             # To ensure rollback
             raise e
@@ -135,14 +141,14 @@ async def after_job_end(
         if not update_success:
             logger.error(
                 "Failed to update job: %s and mark as %s",
-                job_schema.id,
-                job_schema.status.value,
+                job_update.id,
+                job_update.status.value,
             )
             return
 
     logger.info(
         "Marked job %s (ARQ ID: %s) as %s.",
-        job_schema.id,
-        arq_job_id,
+        job_update.id,
+        job_update.arq_job_id,
         job_update.status.value,
     )

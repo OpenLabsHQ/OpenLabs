@@ -325,6 +325,32 @@ azure_secrets_payload = {
 #         Job Payloads
 # ==============================
 
+queued_job_payload = {
+    "arq_job_id": "e8ce953f4f6c4a7c884a9afe8112d31f",
+    "job_name": "deploy_range",
+    "job_try": None,
+    "enqueue_time": "2025-07-02T10:22:42.407000Z",
+    "start_time": None,
+    "finish_time": None,
+    "status": "queued",
+    "result": None,
+    "error_message": None,
+    "id": 1,
+}
+
+in_progress_job_payload = {
+    "arq_job_id": "e8ce953f4f6c4a7c884a9afe8112d31f",
+    "job_name": "deploy_range",
+    "job_try": 1,
+    "enqueue_time": "2025-07-02T10:22:42.407000Z",
+    "start_time": "2025-07-02T10:22:42.814805Z",
+    "finish_time": None,
+    "status": "in_progress",
+    "result": None,
+    "error_message": None,
+    "id": 1,
+}
+
 complete_job_payload = {
     "arq_job_id": "e8ce953f4f6c4a7c884a9afe8112d31f",
     "job_name": "deploy_range",
@@ -348,7 +374,12 @@ complete_job_payload = {
     "id": 1,
 }
 
+# Updates to completed job payload to
+# create a failed job payload
+failed_job_updates = {
+    "result": None,
+    "status": OpenLabsJobStatus.FAILED.value,
+    "error_message": "Mock error message.",
+}
 failed_job_payload = copy.deepcopy(complete_job_payload)
-failed_job_payload["result"] = None
-failed_job_payload["status"] = str(OpenLabsJobStatus.FAILED.value)
-failed_job_payload["error_message"] = "Mock error message."
+failed_job_payload.update(failed_job_updates)
