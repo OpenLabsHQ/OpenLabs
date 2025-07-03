@@ -5,15 +5,20 @@ import shutil
 import subprocess
 import uuid
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from cdktf import App
 
+from ....enums.range_states import RangeState
 from ....enums.regions import OpenLabsRegion
+from ....schemas.range_schemas import (
+    BlueprintRangeSchema,
+    DeployedRangeCreateSchema,
+    DeployedRangeSchema,
+)
 from ....schemas.secret_schema import SecretSchema
-from ....schemas.template_range_schema import TemplateRangeSchema
-from ....schemas.user_schema import UserID
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
@@ -24,36 +29,34 @@ logger = logging.getLogger(__name__)
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
-    id: uuid.UUID
     name: str
-    template: TemplateRangeSchema
+    range_obj: BlueprintRangeSchema | DeployedRangeSchema
     state_file: dict[str, Any] | None  # Terraform state
     region: OpenLabsRegion
     stack_name: str
-    owner_id: UserID
     secrets: SecretSchema
+    deployed_range_name: str
+    description: str
 
-    # State varibles
+    # State variables
     _is_synthesized: bool
     _is_deployed: bool
 
     def __init__(  # noqa: PLR0913
         self,
-        id: uuid.UUID,  # noqa: A002
         name: str,
-        template: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        owner_id: UserID,
         secrets: SecretSchema,
+        description: str,
         state_file: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
-        self.id = id
         self.name = name
-        self.template = template
+        self.range_obj = range_obj
         self.region = region
-        self.owner_id = owner_id
         self.secrets = secrets
+        self.description = description
         self.state_file = state_file
         if not self.state_file:
             self._is_deployed = False
@@ -61,8 +64,11 @@ class AbstractBaseRange(ABC):
             self._is_deployed = True
 
         # Initial values
-        self.stack_name = f"{self.template.name}-{self.id}"
+        self.unique_str = uuid.uuid4()
+        # Remove spaces to avoid CDKTF errors
+        self.stack_name = f"{self.range_obj.name.replace(' ', '')}-{self.unique_str}"
         self._is_synthesized = False
+        self.deployed_range_name = f"{self.name.replace(' ', '')}-{self.unique_str}"
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -106,7 +112,9 @@ class AbstractBaseRange(ABC):
         """
         try:
             logger.info(
-                "Synthesizing selected range: %s (%s)", self.template.name, self.id
+                "Synthesizing selected range: %s from blueprint: %s",
+                self.name,
+                self.range_obj.name,
             )
 
             # Create CDKTF app
@@ -116,19 +124,18 @@ class AbstractBaseRange(ABC):
             stack_class = self.get_provider_stack_class()
             stack_class(
                 scope=app,
-                template_range=self.template,
+                range_obj=self.range_obj,
                 cdktf_id=self.stack_name,
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
-                range_name=self.name,
+                range_name=self.deployed_range_name,
             )
 
             # Synthesize Terraform files
             app.synth()
             logger.info(
-                "Range: %s (%s) synthesized successfully as: %s",
-                self.template.name,
-                self.id,
+                "Range: %s synthesized successfully as: %s",
+                self.name,
                 self.stack_name,
             )
 
@@ -140,30 +147,29 @@ class AbstractBaseRange(ABC):
             )
             return False
 
-    def deploy(self) -> bool:
+    def deploy(self) -> DeployedRangeCreateSchema | None:
         """Run `terraform deploy --auto-approve` programmatically.
 
         Returns
         -------
-            bool: True if successfully deployed range. False otherwise.
+            DeployedRangeCreateSchema: True if successfully deployed range. False otherwise.
 
         """
         if not self.is_synthesized():
             logger.error("Range to destroy is not synthesized!")
-            return False
+            return None
 
         try:
             initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
+            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
 
             # Terraform apply
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
-            logger.info(
-                "Deploying selected range: %s (%s)", self.template.name, self.id
-            )
-            subprocess.run(  # noqa: S603
+            logger.info("Deploying selected range: %s", self.name)
+            self._is_deployed = True  # To allow for clean up if apply fails
+            subprocess.run(
                 ["terraform", "apply", "--auto-approve"],  # noqa: S607
                 check=True,
                 env=env,
@@ -175,27 +181,32 @@ class AbstractBaseRange(ABC):
                 with open(state_file_path, "r", encoding="utf-8") as file:
                     self.state_file = json.loads(file.read())
             else:
-                logger.error(
-                    "State file was not created during deployment. Expected path: %s",
-                    state_file_path,
-                )
-                return False
+                msg = f"State file was not created during deployment. Expected path: {state_file_path}"
+                raise FileNotFoundError(msg)
 
-            self._is_deployed = True
-            logger.info(
-                "Successfully deployed range: %s (%s)", self.template.name, self.id
-            )
+            # Parse output variables
+            deployed_range = self._parse_terraform_outputs()
+            if not deployed_range:
+                msg = "Failed to parse terraform outputs!"
+                raise RuntimeError(msg)
 
-            # Delete files made during deployment
-            os.chdir(initial_dir)
-            self.cleanup_synth()
-            return True
+            logger.info("Successfully deployed range: %s", self.name)
         except subprocess.CalledProcessError as e:
-            logger.error("Terraform command failed: %s", e)
-            return False
+            logger.exception("Terraform command failed: %s", e)
+            if not self.destroy():
+                logger.error("Failed to cleanup after deployment failure.")
+            return None
         except Exception as e:
-            logger.error("Error during deployment: %s", e)
-            return False
+            logger.exception("Error during deployment: %s", e)
+            if not self.destroy():
+                logger.error("Failed to cleanup after deployment failure.")
+            return None
+
+        # Delete files made during deployment
+        os.chdir(initial_dir)
+        self.cleanup_synth()
+
+        return deployed_range
 
     def destroy(self) -> bool:
         """Destroy terraform infrastructure.
@@ -222,18 +233,27 @@ class AbstractBaseRange(ABC):
             # Change to directory with `cdk.tf.json`
             initial_dir = os.getcwd()
             os.chdir(self.get_synth_dir())
+
+            # Try to create the state file
             if not self.create_state_file():
-                msg = f"Unable to destroy range: {self.template.name} ({self.id}) missing state file!"
-                raise ValueError(msg)
+                logger.info(
+                    "State file not saved! Unable to create a new one in the filesystem."
+                )
+
+            # Check for an existing state file to be used for destroying
+            if not self.get_state_file_path().exists():
+                msg = f"Unable to destroy range: {self.name} missing state file!"
+                raise FileNotFoundError(msg)
 
             # Run Terraform commands
             env = os.environ.copy()
             env.update(self.get_cred_env_vars())
             logger.info(
-                "Tearing down selected range: %s (%s)", self.template.name, self.id
+                "Tearing down selected range: %s",
+                self.name,
             )
-            subprocess.run(["terraform", "init"], check=True)  # noqa: S603, S607
-            subprocess.run(  # noqa: S603
+            subprocess.run(["terraform", "init"], check=True)  # noqa: S607
+            subprocess.run(
                 ["terraform", "destroy", "--auto-approve"],  # noqa: S607
                 check=True,
                 env=env,
@@ -245,16 +265,168 @@ class AbstractBaseRange(ABC):
             self.cleanup_synth()
             self._is_deployed = False
 
-            logger.info(
-                "Successfully destroyed range: %s (%s)", self.template.name, self.id
-            )
+            logger.info("Successfully destroyed range: %s", self.name)
             return True
         except subprocess.CalledProcessError as e:
-            logger.error("Terraform command failed: %s", e)
+            logger.exception("Terraform command failed: %s", e)
             return False
         except Exception as e:
-            logger.error("Error during destroy: %s", e)
+            logger.exception("Error during destroy: %s", e)
             return False
+
+    def _parse_terraform_outputs(  # noqa: PLR0911
+        self,
+    ) -> DeployedRangeCreateSchema | None:
+        """Parse Terraform output variables into a deployed range object.
+
+        Internal class function should not be called externally.
+
+        """
+        state_file_path = self.get_state_file_path()
+        if not state_file_path.exists():
+            logger.error(
+                "Failed to find state file at: %s when attempting to parse Terraform outputs.",
+                state_file_path,
+            )
+            return None
+
+        # Change to directory with state file
+        os.chdir(state_file_path.parent)
+
+        try:
+            result = subprocess.run(
+                ["terraform", "output", "-json"],  # noqa: S607
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.exception("Failed to parse Terraform outputs: %s", e)
+            return None
+
+        # Parse Terraform Output variables
+        raw_outputs = json.loads(result.stdout)
+        dumped_schema = self.range_obj.model_dump()
+
+        try:
+            # Range attributes
+            jumpbox_key = next(
+                (key for key in raw_outputs if key.endswith("-JumpboxInstanceId")),
+                None,
+            )
+            jumpbox_ip_key = next(
+                (key for key in raw_outputs if key.endswith("-JumpboxPublicIp")),
+                None,
+            )
+            private_key = next(
+                (key for key in raw_outputs if key.endswith("-private-key")),
+                None,
+            )
+
+            if not all([jumpbox_key, jumpbox_ip_key, private_key]):
+                logger.error(
+                    "Could not find required keys in Terraform output: %s",
+                    raw_outputs.keys(),
+                )
+                return None
+
+            dumped_schema["jumpbox_resource_id"] = raw_outputs[jumpbox_key]["value"]
+            dumped_schema["jumpbox_public_ip"] = raw_outputs[jumpbox_ip_key]["value"]
+            dumped_schema["range_private_key"] = raw_outputs[private_key]["value"]
+
+            for x, vpc in enumerate(self.range_obj.vpcs):
+                current_vpc = dumped_schema["vpcs"][x]
+                vpc_key = next(
+                    (
+                        key
+                        for key in raw_outputs
+                        if key.endswith(f"-{vpc.name}-resource-id")
+                    ),
+                    None,
+                )
+                if not vpc_key:
+                    logger.error(
+                        "Could not find VPC resource ID key for %s in Terraform output",
+                        vpc.name,
+                    )
+                    return None
+                current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
+
+                for y, subnet in enumerate(vpc.subnets):  # type: ignore
+                    current_subnet = current_vpc["subnets"][y]
+                    subnet_key = next(
+                        (
+                            key
+                            for key in raw_outputs
+                            if key.endswith(f"-{vpc.name}-{subnet.name}-resource-id")
+                        ),
+                        None,
+                    )
+                    if not subnet_key:
+                        logger.error(
+                            "Could not find subnet resource ID key for %s in %s in Terraform output",
+                            subnet.name,
+                            vpc.name,
+                        )
+                        return None
+                    current_subnet["resource_id"] = raw_outputs[subnet_key]["value"]
+
+                    for z, host in enumerate(subnet.hosts):
+                        current_host = current_subnet["hosts"][z]
+                        host_id_key = next(
+                            (
+                                key
+                                for key in raw_outputs
+                                if key.endswith(
+                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-resource-id"
+                                )
+                            ),
+                            None,
+                        )
+                        host_ip_key = next(
+                            (
+                                key
+                                for key in raw_outputs
+                                if key.endswith(
+                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-private-ip"
+                                )
+                            ),
+                            None,
+                        )
+
+                        if not host_id_key or not host_ip_key:
+                            logger.error(
+                                "Could not find host keys for %s in %s/%s in Terraform output",
+                                host.hostname,
+                                vpc.name,
+                                subnet.name,
+                            )
+                            return None
+
+                        current_host["resource_id"] = raw_outputs[host_id_key]["value"]
+                        current_host["ip_address"] = raw_outputs[host_ip_key]["value"]
+        except KeyError as e:
+            logger.exception(
+                "Failed to parse Terraform outputs. Missing key in output. Exception: %s",
+                e,
+            )
+            return None
+        except Exception as e:
+            logger.exception(
+                "Unknown error parsing Terraform outputs. Exception: %s", e
+            )
+            return None
+
+        # Add missing attributes
+        dumped_schema["name"] = self.name
+        dumped_schema["description"] = self.description
+        dumped_schema["date"] = datetime.now(tz=timezone.utc)
+        dumped_schema["readme"] = None
+        dumped_schema["state_file"] = self.get_state_file()
+        dumped_schema["state"] = RangeState.ON
+        dumped_schema["region"] = self.region
+
+        return DeployedRangeCreateSchema.model_validate(dumped_schema)
 
     def is_synthesized(self) -> bool:
         """Return if range is currently synthesized."""
@@ -294,7 +466,7 @@ class AbstractBaseRange(ABC):
 
         """
         if not self.state_file:
-            msg = f"Can't write state file none exists! Attempted on range: {self.id}"
+            msg = f"Can't write state file none exists! Attempted on range: {self.name}"
             logger.warning(msg)
             return False
 

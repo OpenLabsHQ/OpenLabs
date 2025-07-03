@@ -1,12 +1,10 @@
 import logging
-import uuid
 from typing import Any, ClassVar, Type
 
 from ....enums.providers import OpenLabsProvider
 from ....enums.regions import OpenLabsRegion
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....schemas.secret_schema import SecretSchema
-from ....schemas.template_range_schema import TemplateRangeSchema
-from ....schemas.user_schema import UserID
 from .aws_range import AWSRange
 from .base_range import AbstractBaseRange
 
@@ -24,45 +22,49 @@ class RangeFactory:
     @classmethod
     def create_range(  # noqa: PLR0913
         cls,
-        id: uuid.UUID,  # noqa: A002
         name: str,
-        template: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        owner_id: UserID,
         secrets: SecretSchema,
+        description: str | None,
         state_file: dict[str, Any] | None = None,
     ) -> AbstractBaseRange:
         """Create range object.
 
+        **Note:** This function accepts a creation schema as the OpenLabs resource ID is not required
+        for terraform.
+
         Args:
         ----
-            cls (RangeFactory class): The RangeFactory class.
-            id (uuid.UUID): The UUID for the deployed range object.
-            name (str): Name of the range to deploy
-            template (TemplateRangeSchema): The range template object.
+            cls (RangeFactory): The RangeFactory class.
+            name (str): Name of the range to deploy.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): The range object used to manipulate provider resources.
             region (OpenLabsRegion): Supported cloud region.
-            owner_id (UserID): The ID of the user deploying range.
-            secrets (SecretSchema): Cloud account secrets to use for deploying via terraform
-            state_file (dict[str, Any]): The statefile of the deployed resources
+            secrets (SecretSchema): Cloud account secrets to use for deploying via terraform.
+            description (str | None): Description of the range.
+            state_file (dict[str, Any]): The statefile of the deployed resources.
 
         Returns:
         -------
             AbstractBaseRange: Cdktf range object that can be deployed.
 
         """
-        range_class = cls._registry.get(template.provider)
+        range_class = cls._registry.get(range_obj.provider)
 
         if range_class is None:
-            msg = f"Failed to build range object. Non-existent provider given: {template.provider}"
+            msg = f"Failed to build range object. Non-existent provider given: {range_obj.provider}"
             logger.error(msg)
             raise ValueError(msg)
 
+        if not description:
+            logger.info("Range has no description, defaulting to empty string.")
+            description = ""
+
         return range_class(
-            id=id,
             name=name,
-            template=template,
+            range_obj=range_obj,
             region=region,
-            owner_id=owner_id,
             secrets=secrets,
+            description=description,
             state_file=state_file,
         )

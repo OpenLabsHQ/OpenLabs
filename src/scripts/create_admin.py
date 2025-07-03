@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def initialize_admin_user() -> None:
     """Create admin user if it doesn't exist assuming the DB is already set up."""
     # First wait for the API to be ready
-    api_ready = await wait_for_api_ready(max_retries=25, retry_interval=2)
+    api_ready = await wait_for_api_ready(max_retries=75, retry_interval=2)
     if not api_ready:
         logger.error("Could not connect to the API. Exiting.")
         sys.exit(1)

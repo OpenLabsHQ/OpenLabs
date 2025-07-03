@@ -1,59 +1,757 @@
-import uuid
+import logging
+import random
 from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
+from sqlalchemy.exc import SQLAlchemyError
 
-from src.app.crud.crud_ranges import delete_range, is_range_owner
-from src.app.schemas.range_schema import RangeID
+from src.app.crud.crud_ranges import (
+    build_blueprint_range_models,
+    build_deployed_range_models,
+    create_blueprint_range,
+    create_deployed_range,
+    delete_blueprint_range,
+    delete_deployed_range,
+    get_blueprint_range,
+    get_blueprint_range_headers,
+    get_deployed_range,
+    get_deployed_range_headers,
+    get_deployed_range_key,
+)
+from src.app.models.range_models import BlueprintRangeModel, DeployedRangeModel
+from src.app.schemas.range_schemas import (
+    BlueprintRangeCreateSchema,
+    BlueprintRangeHeaderSchema,
+    BlueprintRangeSchema,
+    DeployedRangeCreateSchema,
+    DeployedRangeHeaderSchema,
+    DeployedRangeSchema,
+)
+from tests.unit.api.v1.config import (
+    valid_blueprint_range_create_payload,
+    valid_deployed_range_data,
+)
 
-from .crud_mocks import DummyDB, DummyRangeModel
+from .crud_mocks import DummyBlueprintRange, DummyDB, DummyDeployedRange
+
+pytestmark = pytest.mark.unit
 
 
-async def test_delete_range_exception_return_false(
-    monkeypatch: pytest.MonkeyPatch,
+# ==================== Blueprints =====================
+
+
+@pytest.mark.parametrize(
+    "is_admin, expect_owner_filter",
+    [
+        (False, True),
+        (True, False),
+    ],
+)
+async def test_get_blueprint_vpc_headers_filters(
+    is_admin: bool,
+    expect_owner_filter: bool,
 ) -> None:
-    """Test that delete_range() returns False when an exception is raised internally."""
-    dummy_db = DummyDB()
-    dummy_range = DummyRangeModel()
-
-    # Force exception to be thrown
-    dummy_db.commit.side_effect = Exception("Forced exception for testing.")
-
-    # Ignoring type mismatches with testing mocks
-    result = await delete_range(dummy_db, dummy_range)  # type: ignore
-
-    assert result is False
-
-
-async def test_is_range_owner_returns_true() -> None:
-    """Test that is_range_owner() returns True when it returns a result with a range owned by the user."""
+    """Test the blueprint range headers crud function filters results appropriately."""
     dummy_db = DummyDB()
 
-    # Create a dummy result with a non-None value returned by scalar_one_or_none()
-    dummy_result = MagicMock()
-    dummy_result.scalar_one_or_none.return_value = object()
-    dummy_db.execute.return_value = dummy_result
+    # Build mock of result.mappings().all()
+    mock_sqlalchemy_result = MagicMock(name="SQLAlchemyResult")
+    mock_mappings_object = MagicMock(name="MappingsObject")
+    mock_mappings_object.all.return_value = []
+    mock_sqlalchemy_result.mappings.return_value = mock_mappings_object
 
-    dummy_range_id = RangeID(id=uuid.uuid4())
-    dummy_user_id = uuid.uuid4()
+    # Configure return of mock result
+    dummy_db.execute.return_value = mock_sqlalchemy_result
 
-    # Ignoring type mismatches with testing mocks
-    result = await is_range_owner(dummy_db, dummy_range_id, dummy_user_id)  # type: ignore
+    user_id = 1
+    await get_blueprint_range_headers(dummy_db, user_id=user_id, is_admin=is_admin)
 
-    assert result is True
+    # Build filter clauses
+    ownership_clause = str(BlueprintRangeModel.owner_id == user_id)
+    where_clause = str(dummy_db.execute.call_args[0][0].whereclause)
+
+    assert (ownership_clause in where_clause) == expect_owner_filter
 
 
-async def test_is_range_owner_returns_false() -> None:
-    """Test that the is_range_owner() return False when it returns no results of a range owned the user."""
+async def test_no_get_unauthorized_blueprint_ranges() -> None:
+    """Test that the crud function returns none when the user doesn't own the range blueprint."""
     dummy_db = DummyDB()
-    # Create a dummy result with None returned by scalar_one_or_none() to simulate no result
-    dummy_result = MagicMock()
-    dummy_result.scalar_one_or_none.return_value = None
-    dummy_db.execute.return_value = dummy_result
+    dummy_range = DummyBlueprintRange()
 
-    dummy_range_id = RangeID(id=uuid.uuid4())
-    dummy_user_id = uuid.uuid4()
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
 
-    # Ignoring type mismatches with testing mocks
-    result = await is_range_owner(dummy_db, dummy_range_id, dummy_user_id)  # type: ignore
-    assert result is False
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    assert not await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+
+async def test_owner_get_blueprint_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the crud function returns blueprint ranges when the correct owner requests them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that User's ID matches the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id
+    assert user_id == dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyBlueprintRange)
+
+
+async def test_admin_get_all_blueprint_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the crud function returns blueprint ranges when the user doesn't own the range blueprint but is admin."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=True
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyBlueprintRange)
+
+
+async def test_get_non_existent_blueprint_range() -> None:
+    """Test that the crud function returns None when the blueprint range doesn't exist in the database."""
+    dummy_db = DummyDB()
+
+    # Ensure that the "db" returns nothing like the VPC doesn't exist
+    dummy_db.get.return_value = None
+
+    assert not await get_blueprint_range(dummy_db, range_id=1, user_id=-1)
+
+
+async def test_build_blueprint_range_models() -> None:
+    """Test that the we can build blueprint range models from blueprint range creation schemas."""
+    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
+        valid_blueprint_range_create_payload, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    blueprint_range_models = build_blueprint_range_models(
+        [blueprint_range_create_schema], user_id
+    )
+
+    assert len(blueprint_range_models) == 1
+    assert blueprint_range_models[0].owner_id == user_id
+    assert blueprint_range_models[0].name == blueprint_range_create_schema.name
+
+
+async def test_create_blueprint_ranges_too_many_models(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the creation crud function for blueprint ranges raises an exception if we get back more models than input schemas."""
+    dummy_db = DummyDB()
+
+    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
+        valid_blueprint_range_create_payload, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Return too many "models"
+    mocker.patch(
+        "src.app.crud.crud_ranges.build_blueprint_range_models",
+        return_value=["fake", "list"],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="range blueprint models from a single schema"
+    ):
+        await create_blueprint_range(dummy_db, blueprint_range_create_schema, user_id)
+
+
+async def test_create_blueprint_range_raises_db_exceptions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the creation crud function for blueprint ranges passes on db exceptions and logs them."""
+    dummy_db = DummyDB()
+
+    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
+        valid_blueprint_range_create_payload, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Force a db exception
+    test_except_msg = "Fake DB error!"
+    dummy_db.flush.side_effect = SQLAlchemyError(test_except_msg)
+
+    with pytest.raises(SQLAlchemyError, match=test_except_msg):
+        await create_blueprint_range(dummy_db, blueprint_range_create_schema, user_id)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_create_blueprint_range_raises_generic_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the creation crud function for blueprint ranges passes on generic exceptions and logs them."""
+    dummy_db = DummyDB()
+
+    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
+        valid_blueprint_range_create_payload, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Force a db exception
+    test_except_msg = "Fake generic error!"
+    dummy_db.flush.side_effect = RuntimeError(test_except_msg)
+
+    with pytest.raises(RuntimeError, match=test_except_msg):
+        await create_blueprint_range(dummy_db, blueprint_range_create_schema, user_id)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_delete_non_existent_blueprint_range() -> None:
+    """Test that the delete crud function returns None when the blueprint range doesn't exist in the database."""
+    dummy_db = DummyDB()
+
+    # Ensure that the "db" returns nothing like the VPC doesn't exist
+    dummy_db.get.return_value = None
+
+    assert not await delete_blueprint_range(dummy_db, range_id=1, user_id=-1)
+    dummy_db.delete.assert_not_called()
+
+
+async def test_no_delete_unauthorized_blueprint_ranges() -> None:
+    """Test that the delete crud function returns none when the user doesn't own the range blueprint."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    assert not await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+    dummy_db.delete.assert_not_called()
+
+
+async def test_admin_delete_all_blueprint_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the delete crud function returns blueprint ranges when the user doesn't own the range blueprint but is admin."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=True
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyBlueprintRange)
+
+    # Check it was deleted
+    dummy_db.delete.assert_called_once()
+    dummy_db.flush.assert_called_once()
+
+
+async def test_delete_blueprint_range_raises_db_exceptions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the delete crud function for blueprint ranges passes on db exceptions and logs them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that we get the dummy range from "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Force a db exception
+    test_except_msg = "Fake DB error!"
+    dummy_db.flush.side_effect = SQLAlchemyError(test_except_msg)
+
+    with pytest.raises(SQLAlchemyError, match=test_except_msg):
+        await delete_blueprint_range(dummy_db, range_id=1, user_id=1, is_admin=True)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_delete_blueprint_range_raises_generic_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the delete crud function for blueprint ranges passes on generic exceptions and logs them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    # Ensure that we get the dummy range from "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Force a db exception
+    test_except_msg = "Fake generic error!"
+    dummy_db.flush.side_effect = RuntimeError(test_except_msg)
+
+    with pytest.raises(RuntimeError, match=test_except_msg):
+        await delete_blueprint_range(dummy_db, range_id=1, user_id=1, is_admin=True)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+# ==================== Deployed (Instances) =====================
+
+
+async def test_build_deployed_range_models() -> None:
+    """Test that the we can build deployed range models from range creation schemas."""
+    deployed_range_create_schema = DeployedRangeCreateSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    deployed_range_models = build_deployed_range_models(
+        [deployed_range_create_schema], user_id
+    )
+
+    assert len(deployed_range_models) == 1
+    assert deployed_range_models[0].owner_id == user_id
+    assert deployed_range_models[0].name == deployed_range_create_schema.name
+
+
+@pytest.mark.parametrize(
+    "is_admin, expect_owner_filter",
+    [
+        (False, True),
+        (True, False),
+    ],
+)
+async def test_get_deployed_range_headers_filters(
+    is_admin: bool,
+    expect_owner_filter: bool,
+) -> None:
+    """Test the deployed range headers crud function filters results appropriately."""
+    dummy_db = DummyDB()
+
+    # Build mock of result.mappings().all()
+    mock_sqlalchemy_result = MagicMock(name="SQLAlchemyResult")
+    mock_mappings_object = MagicMock(name="MappingsObject")
+    mock_mappings_object.all.return_value = []
+    mock_sqlalchemy_result.mappings.return_value = mock_mappings_object
+
+    # Configure return of mock result
+    dummy_db.execute.return_value = mock_sqlalchemy_result
+
+    user_id = 1
+    await get_deployed_range_headers(dummy_db, user_id=user_id, is_admin=is_admin)
+
+    # Build filter clauses
+    ownership_clause = str(DeployedRangeModel.owner_id == user_id)
+    where_clause = str(dummy_db.execute.call_args[0][0].whereclause)
+
+    assert (ownership_clause in where_clause) == expect_owner_filter
+
+
+async def test_no_get_unauthorized_deployed_ranges() -> None:
+    """Test that the crud function returns none when the user doesn't own the deployed range."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    assert not await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+
+async def test_owner_get_deployed_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the crud function returns deployed ranges when the correct owner requests them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that User's ID matches the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id
+    assert user_id == dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyDeployedRange)
+
+
+async def test_admin_get_all_deployed_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the crud function returns deployed ranges when the user doesn't own the deployed range but is admin."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=True
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyDeployedRange)
+
+
+async def test_get_non_existent_deployed_range() -> None:
+    """Test that the crud function returns None when the deployed range doesn't exist in the database."""
+    dummy_db = DummyDB()
+
+    # Ensure that the "db" returns nothing like the VPC doesn't exist
+    dummy_db.get.return_value = None
+
+    assert not await get_deployed_range(dummy_db, range_id=1, user_id=-1)
+
+
+@pytest.mark.parametrize(
+    "is_admin, expect_owner_filter",
+    [
+        (False, True),
+        (True, False),
+    ],
+)
+async def test_get_deployed_range_key_filters(
+    is_admin: bool,
+    expect_owner_filter: bool,
+) -> None:
+    """Test the deployed range key crud function filters results appropriately."""
+    dummy_db = DummyDB()
+
+    # Configure return of mock result
+    dummy_db.scalar.return_value = "fake_private_key"
+
+    range_id = random.randint(1, 100)  # noqa: S311
+    user_id = 1
+    await get_deployed_range_key(
+        dummy_db, range_id=range_id, user_id=user_id, is_admin=is_admin
+    )
+
+    # Build filter clauses
+    range_id_clause = str(DeployedRangeModel.id == range_id)
+    ownership_clause = str(DeployedRangeModel.owner_id == user_id)
+    where_clause = str(dummy_db.scalar.call_args[0][0].whereclause)
+
+    assert range_id_clause in where_clause  # Always only pull key of specified range
+    assert (ownership_clause in where_clause) == expect_owner_filter
+
+
+async def test_get_non_existent_deployed_range_key() -> None:
+    """Test that the crud function returns None when the deployed range key doesn't exist in the database."""
+    dummy_db = DummyDB()
+
+    # Ensure that the "db" returns nothing like the VPC doesn't exist
+    dummy_db.scalar.return_value = None
+
+    assert not await get_deployed_range_key(dummy_db, range_id=1, user_id=-1)
+
+
+async def test_create_deployed_ranges_too_many_models(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the creation crud function for deployed ranges raises an exception if we get back more models than input schemas."""
+    dummy_db = DummyDB()
+
+    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
+        valid_blueprint_range_create_payload, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Return too many "models"
+    mocker.patch(
+        "src.app.crud.crud_ranges.build_blueprint_range_models",
+        return_value=["fake", "list"],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="range blueprint models from a single schema"
+    ):
+        await create_blueprint_range(dummy_db, blueprint_range_create_schema, user_id)
+
+
+async def test_create_deployed_range_too_many_models(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the creation crud function for deployed ranges raises an exception if we get back more models than input schemas."""
+    dummy_db = DummyDB()
+
+    deployed_range_create_schema = DeployedRangeCreateSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Return too many "models"
+    mocker.patch(
+        "src.app.crud.crud_ranges.build_deployed_range_models",
+        return_value=["fake", "list"],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="deployed range models from a single schema"
+    ):
+        await create_deployed_range(dummy_db, deployed_range_create_schema, user_id)
+
+
+async def test_create_deployed_range_raises_db_exceptions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the creation crud function for deployed ranges passes on db exceptions and logs them."""
+    dummy_db = DummyDB()
+
+    deployed_range_create_schema = DeployedRangeCreateSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Force a db exception
+    test_except_msg = "Fake DB error!"
+    dummy_db.flush.side_effect = SQLAlchemyError(test_except_msg)
+
+    with pytest.raises(SQLAlchemyError, match=test_except_msg):
+        await create_deployed_range(dummy_db, deployed_range_create_schema, user_id)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_create_deployed_range_raises_generic_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the creation crud function for deployed ranges passes on generic exceptions and logs them."""
+    dummy_db = DummyDB()
+
+    deployed_range_create_schema = DeployedRangeCreateSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
+    )
+    user_id = random.randint(1, 100)  # noqa: S311
+
+    # Force a db exception
+    test_except_msg = "Fake generic error!"
+    dummy_db.flush.side_effect = RuntimeError(test_except_msg)
+
+    with pytest.raises(RuntimeError, match=test_except_msg):
+        await create_deployed_range(dummy_db, deployed_range_create_schema, user_id)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_delete_non_existent_deployed_range() -> None:
+    """Test that the delete crud function returns None when the deployed range doesn't exist in the database."""
+    dummy_db = DummyDB()
+
+    # Ensure that the "db" returns nothing like the VPC doesn't exist
+    dummy_db.get.return_value = None
+
+    assert not await delete_deployed_range(dummy_db, range_id=1, user_id=-1)
+    dummy_db.delete.assert_not_called()
+
+
+async def test_no_delete_unauthorized_deployed_ranges() -> None:
+    """Test that the delete crud function returns none when the user doesn't own the deployed range."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    assert not await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+    dummy_db.delete.assert_not_called()
+
+
+async def test_admin_delete_all_deployed_ranges(
+    mocker: MockerFixture,
+) -> None:
+    """Test that the delete crud function returns deployed ranges when the user doesn't own the deployed range but is admin."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that User's ID doesn't match the range's owner
+    user_id = 1
+    dummy_range.owner_id = user_id + 1
+    assert user_id != dummy_range.owner_id
+
+    # Ensure that we get the dummy range from the "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Patch pydantic validation
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    assert await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=True
+    )
+    mock_model_validate.assert_called_once()
+    args, _ = mock_model_validate.call_args
+    assert isinstance(args[0], DummyDeployedRange)
+
+    # Check it was deleted
+    dummy_db.delete.assert_called_once()
+    dummy_db.flush.assert_called_once()
+
+
+async def test_delete_deployed_range_raises_db_exceptions(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the delete crud function for deployed ranges passes on db exceptions and logs them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that we get the dummy range from "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Force a db exception
+    test_except_msg = "Fake DB error!"
+    dummy_db.flush.side_effect = SQLAlchemyError(test_except_msg)
+
+    with pytest.raises(SQLAlchemyError, match=test_except_msg):
+        await delete_deployed_range(dummy_db, range_id=1, user_id=1, is_admin=True)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )
+
+
+async def test_delete_deployed_range_raises_generic_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the delete crud function for deployed ranges passes on generic exceptions and logs them."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    # Ensure that we get the dummy range from "db"
+    dummy_db.get.return_value = dummy_range
+
+    # Force a db exception
+    test_except_msg = "Fake generic error!"
+    dummy_db.flush.side_effect = RuntimeError(test_except_msg)
+
+    with pytest.raises(RuntimeError, match=test_except_msg):
+        await delete_deployed_range(dummy_db, range_id=1, user_id=1, is_admin=True)
+
+    # Check that we properly logger.exception() db errors
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and test_except_msg in record.message
+        for record in caplog.records
+    )

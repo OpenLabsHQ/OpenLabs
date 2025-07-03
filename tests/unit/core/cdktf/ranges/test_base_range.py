@@ -1,25 +1,29 @@
 import json
+import logging
 import os
 import shutil
 import subprocess
-import uuid
+from pathlib import Path
 from typing import Callable
+from unittest.mock import Mock
 
 import pytest
 
 from src.app.core.cdktf.ranges.aws_range import AWSRange
 from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.regions import OpenLabsRegion
+from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
-from src.app.schemas.user_schema import UserID
 from tests.unit.core.cdktf.cdktf_mocks import (
     DummyPath,
     fake_open,
     fake_run_exception,
     fake_subprocess_run_cpe,
 )
-from tests.unit.core.cdktf.config import one_all_template
+from tests.unit.core.cdktf.config import one_all_blueprint
+
+pytestmark = pytest.mark.unit
+
 
 # NOTE:
 # This file is for testing base_range.py and the AbstractBaseRange class. Because
@@ -30,13 +34,13 @@ from tests.unit.core.cdktf.config import one_all_template
 @pytest.fixture(scope="function")
 def aws_range(
     range_factory: Callable[
-        [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+        [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
         AbstractBaseRange,
     ],
 ) -> AbstractBaseRange:
-    """Synthesize AWS stack with one_all_template."""
+    """Synthesize AWS stack with one_all_blueprint."""
     # Call the factory with the desired stack, stack name, and region.
-    return range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
+    return range_factory(AWSRange, one_all_blueprint, OpenLabsRegion.US_EAST_1)
 
 
 def test_base_range_synthesize_exception(
@@ -91,11 +95,10 @@ def test_base_range_init_with_state_file() -> None:
     test_state_file = {"test": "Test content"}
 
     aws_range = AWSRange(
-        id=uuid.uuid4(),
         name="test-range",
-        template=one_all_template,
+        range_obj=one_all_blueprint,
         region=OpenLabsRegion.US_EAST_1,
-        owner_id=UserID(id=uuid.uuid4()),
+        description="Test description.",
         secrets=SecretSchema(),
         state_file=test_state_file,
     )
@@ -192,6 +195,9 @@ def test_base_range_deploy_success(
 
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
+    monkeypatch.setattr(
+        aws_range, "_parse_terraform_outputs", lambda: {"fake": "output range"}
+    )
 
     # Patch cleanup_synth to simulate successful cleanup
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
@@ -202,12 +208,13 @@ def test_base_range_deploy_success(
         fake_open,
     )
 
-    result = aws_range.deploy()
-    assert result is True
+    assert aws_range.deploy()  # None means deploy failed
 
 
 def test_base_range_deploy_calledprocesserror(
-    aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that deploy() returns False when subprocess.run raises CalledProcessError."""
     monkeypatch.setattr(aws_range, "is_synthesized", lambda: True)
@@ -221,12 +228,28 @@ def test_base_range_deploy_calledprocesserror(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
 
-    result: bool = aws_range.deploy()
-    assert result is False
+    # Patch over auto destroy logic
+    mock_destroy = Mock()
+    mock_destroy.return_value = True
+    monkeypatch.setattr(aws_range, "destroy", mock_destroy)
+
+    assert not aws_range.deploy()  # None means deploy failed
+    mock_destroy.assert_called_once()  # Validate we auto destroy
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "terraform command"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
 
 
 def test_base_range_deploy_exception(
-    aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that deploy() returns False when subprocess.run raises a general exception."""
     monkeypatch.setattr(aws_range, "is_synthesized", lambda: True)
@@ -240,8 +263,22 @@ def test_base_range_deploy_exception(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
 
-    result: bool = aws_range.deploy()
-    assert result is False
+    # Patch over auto destroy logic
+    mock_destroy = Mock()
+    mock_destroy.return_value = True
+    monkeypatch.setattr(aws_range, "destroy", mock_destroy)
+
+    assert not aws_range.deploy()  # None means deploy failed
+    mock_destroy.assert_called_once()  # Validate we auto destroy
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "error during deployment"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
 
 
 def test_base_range_deploy_no_state_file(
@@ -264,12 +301,65 @@ def test_base_range_deploy_no_state_file(
     monkeypatch.setattr(aws_range, "get_state_file_path", lambda: dummy_path_no_exist)
     monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
 
-    result = aws_range.deploy()
-    assert result is False
+    assert not aws_range.deploy()  # None means deploy failed
+
+
+def test_base_range_deploy_no_parsed_output(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """Test that deploy() returns True when subprocess commands succeed."""
+    # Ensure the range is synthesized
+    monkeypatch.setattr(aws_range, "is_synthesized", lambda: True)
+
+    # Patch subprocess.run to simulate successful execution (no exceptions raised)
+    monkeypatch.setattr(subprocess, "run", lambda cmd, check, **kwargs: None)
+
+    # Patch os.chdir to prevent actual directory changes
+    monkeypatch.setattr(os, "chdir", lambda x: None)
+
+    # Create a dummy Path-like object for get_state_file_path and get_synth_dir
+    dummy_path = DummyPath()
+    dummy_path.exists.return_value = True
+
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: DummyPath())
+    monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
+
+    # No paresed output
+    monkeypatch.setattr(aws_range, "_parse_terraform_outputs", lambda: None)
+
+    # Patch cleanup_synth to simulate successful cleanup
+    monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
+
+    # Patch open to simulate reading a valid JSON state file
+    monkeypatch.setattr(
+        "builtins.open",
+        fake_open,
+    )
+    # Patch over auto destroy logic
+    mock_destroy = Mock()
+    mock_destroy.return_value = True
+    monkeypatch.setattr(aws_range, "destroy", mock_destroy)
+
+    assert not aws_range.deploy()  # None means deploy failed
+    mock_destroy.assert_called_once()  # Validate we auto destroy
+
+    # Check that we properly logger.exception() exceptions
+    except_log_keywords = "parse terraform outputs"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
 
 
 def test_base_range_destroy_success(
-    aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """Test that destroy() returns True when subprocess commands succeed."""
     # Ensure the range is deployed and synthesized
@@ -278,6 +368,11 @@ def test_base_range_destroy_success(
 
     # Simulate successful creation of the state file
     monkeypatch.setattr(aws_range, "create_state_file", lambda: True)
+
+    # Fake statefile
+    fake_state_file_path = tmp_path / "terraform.tfstate"
+    fake_state_file_path.touch()
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: fake_state_file_path)
 
     # Return empty credential environment variables
     monkeypatch.setattr(aws_range, "get_cred_env_vars", lambda: {})
@@ -299,7 +394,10 @@ def test_base_range_destroy_success(
 
 
 def test_base_range_destroy_calledprocesserror(
-    aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
 ) -> None:
     """Test that destroy() returns False when subprocess.run raises CalledProcessError."""
     monkeypatch.setattr(aws_range, "is_deployed", lambda: True)
@@ -313,8 +411,25 @@ def test_base_range_destroy_calledprocesserror(
     monkeypatch.setattr(aws_range, "get_synth_dir", lambda: DummyPath())
     monkeypatch.setattr(aws_range, "cleanup_synth", lambda: True)
 
+    # Patch state file operations
+    fake_state_file = tmp_path / "terraform.tfstate"
+    fake_state_file.touch()
+
+    # Patch state file functions
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: fake_state_file)
+    monkeypatch.setattr(os, "chdir", lambda path: None)
+
     result = aws_range.destroy()
     assert result is False
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "terraform command failed"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
 
 
 def test_base_range_destroy_create_state_file_failure(
@@ -344,3 +459,140 @@ def test_base_range_destroy_not_synthesized(
 
     result = aws_range.destroy()
     assert result is False
+
+
+def test_base_range_parse_terraform_outputs(
+    aws_range: AWSRange, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test parse_terraform_output() returns nothing when the state file doesn't exist."""
+    monkeypatch.setattr(
+        aws_range, "get_state_file_path", lambda: Path("/does/not/exist")
+    )
+
+    assert not aws_range._parse_terraform_outputs()
+
+
+def test_base_range_parse_terraform_outputs_calledprocesserror(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """Test that parse_terraform_output() returns None when subprocess.run raises CalledProcessError."""
+    fake_state_file = tmp_path / "terraform.tfstate"
+    fake_state_file.touch()
+
+    # Patch state file functions
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: fake_state_file)
+    monkeypatch.setattr(os, "chdir", lambda path: None)
+
+    # Patch subprocess.run to raise a CalledProcessError
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run_cpe)
+
+    assert not aws_range._parse_terraform_outputs()
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "terraform outputs"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
+
+
+def test_base_range_parse_terraform_outputs_no_output(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """Test that parse_terraform_output() returns None when there is no valid terraform output."""
+    fake_state_file = tmp_path / "terraform.tfstate"
+    fake_state_file.touch()
+
+    # Patch state file functions
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: fake_state_file)
+    monkeypatch.setattr(os, "chdir", lambda path: None)
+
+    # Patch subprocess.run to raise a CalledProcessError
+    mock_result = Mock()
+    mock_result.stdout = "{}"
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: mock_result)
+
+    assert not aws_range._parse_terraform_outputs()
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "terraform output"
+    assert any(
+        record.levelno == logging.ERROR
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
+
+
+def test_base_range_parse_terraform_outputs_keyerror(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """Test that parse_terraform_output() returns None it recieves a KeyError when parsing the state file."""
+    fake_state_file = tmp_path / "terraform.tfstate"
+    fake_state_file.touch()
+
+    # Patch state file functions
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: fake_state_file)
+    monkeypatch.setattr(os, "chdir", lambda path: None)
+
+    # Patch subprocess.run to raise a CalledProcessError
+    mock_result = Mock()
+    mock_result.stdout = """{"fake-JumpboxInstanceId": {"nothing": "to see here"}, "fake-JumpboxPublicIp": "hi", "fake-private-key": "not so private :)"}"""
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: mock_result)
+
+    assert not aws_range._parse_terraform_outputs()
+
+    # Check that we properly logger.exception() subprocess errors
+    except_log_keywords = "missing key"
+    assert any(
+        record.levelno == logging.ERROR
+        and record.exc_info is not None
+        and except_log_keywords in record.message.lower()
+        for record in caplog.records
+    )
+
+
+def test_parse_terraform_outputs_generic_exception(
+    aws_range: AWSRange,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    """Test that parse_terraform_output() returns None it recieves a generic exception when parsing the state file."""
+    # Arrange: Mock dependencies to force an IndexError during parsing
+    state_file = tmp_path / "terraform.tfstate"
+    state_file.touch()
+    monkeypatch.setattr(aws_range, "get_state_file_path", lambda: state_file)
+    monkeypatch.setattr(os, "chdir", lambda path: None)
+
+    mock_run_result = Mock(
+        stdout='{"a-JumpboxInstanceId":{"value":"id"},"b-JumpboxPublicIp":{"value":"ip"},"c-private-key":{"value":"pk"}}'
+    )
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: mock_run_result)
+
+    # Force an IndexError by creating a mismatch in VPC counts
+    malformed_dump = aws_range.range_obj.model_dump()
+    malformed_dump["vpcs"] = []
+    monkeypatch.setattr(
+        BlueprintRangeSchema, "model_dump", lambda *args, **kwargs: malformed_dump
+    )
+
+    assert not aws_range._parse_terraform_outputs()
+
+    # Assert that the correct exception was logged
+    assert any(
+        "unknown error parsing terraform outputs" in record.message.lower()
+        and record.levelno == logging.ERROR
+        and record.exc_info is not None
+        for record in caplog.records
+    )

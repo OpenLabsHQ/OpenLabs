@@ -1,22 +1,24 @@
 """SQLAlchemy models for OpenLabs API."""
 
-from .range_model import RangeModel
+from .host_models import BlueprintHostModel, DeployedHostModel
+from .mixin_models import OpenLabsUserMixin, OwnableObjectMixin
+from .range_models import BlueprintRangeModel, DeployedRangeModel
 from .secret_model import SecretModel
-from .template_base_model import OpenLabsUserMixin, OwnableObjectMixin
-from .template_host_model import TemplateHostModel
-from .template_range_model import TemplateRangeModel
-from .template_subnet_model import TemplateSubnetModel
-from .template_vpc_model import TemplateVPCModel
+from .subnet_models import BlueprintSubnetModel, DeployedSubnetModel
 from .user_model import UserModel
+from .vpc_models import BlueprintVPCModel, DeployedVPCModel
 
 __all__ = [
+    "BlueprintHostModel",
+    "BlueprintRangeModel",
+    "BlueprintSubnetModel",
+    "BlueprintVPCModel",
+    "DeployedHostModel",
+    "DeployedRangeModel",
+    "DeployedSubnetModel",
+    "DeployedVPCModel",
     "OpenLabsUserMixin",
     "OwnableObjectMixin",
-    "RangeModel",
     "SecretModel",
-    "TemplateHostModel",
-    "TemplateRangeModel",
-    "TemplateSubnetModel",
-    "TemplateVPCModel",
     "UserModel",
 ]

@@ -4,13 +4,15 @@ import logging
 import os
 import shutil
 import socket
-import uuid
+import sys
+from contextlib import AsyncExitStack
 from datetime import datetime, timezone
-from typing import AsyncGenerator, Callable, Generator
+from typing import Any, AsyncGenerator, Callable, Generator
 
 import pytest
 import pytest_asyncio
-from fastapi import FastAPI, status
+from dotenv import load_dotenv
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, create_engine
 from sqlalchemy.exc import SQLAlchemyError
@@ -28,20 +30,39 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
+from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
-from src.app.models.range_model import RangeModel
 from src.app.models.user_model import UserModel
-from src.app.schemas.range_schema import RangeID, RangeSchema
+from src.app.schemas.range_schemas import (
+    BlueprintRangeCreateSchema,
+    BlueprintRangeSchema,
+    DeployedRangeHeaderSchema,
+    DeployedRangeSchema,
+)
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
-from src.app.schemas.user_schema import UserID
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
+from tests.api_test_utils import (
+    authenticate_client,
+    wait_for_fastapi_service,
+)
+from tests.deploy_test_utils import (
+    RangeType,
+    deploy_managed_range,
+    destroy_managed_range,
+    get_provider_test_creds,
+    isolated_integration_client,
+)
+from tests.test_utils import (
+    add_key_recursively,
+    generate_random_int,
+    rotate_docker_compose_test_log_files,
+)
 from tests.unit.api.v1.config import (
-    BASE_ROUTE,
-    base_user_login_payload,
-    base_user_register_payload,
-    valid_range_payload,
+    valid_blueprint_range_create_payload,
+    valid_blueprint_range_multi_create_payload,
+    valid_deployed_range_data,
+    valid_deployed_range_header_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,14 +135,15 @@ def create_db_schema(postgres_container: str) -> None:
 
 @pytest.fixture(scope="module")
 def synthesize_factory() -> (
-    Callable[[type[AbstractBaseStack], TemplateRangeSchema, str, OpenLabsRegion], str]
+    Callable[[type[AbstractBaseStack], BlueprintRangeSchema, str, OpenLabsRegion], str]
 ):
     """Get factory to generate CDKTF synthesis for different stack classes."""
-    from cdktf import Testing
+    # Import here to avoid CDKTF long loading phase
+    from cdktf import Testing  # noqa: PLC0415
 
     def _synthesize(
         stack_cls: type[AbstractBaseStack],
-        cyber_range: TemplateRangeSchema,
+        cyber_range: BlueprintRangeSchema,
         stack_name: str = "test_range",
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
     ) -> str:
@@ -147,28 +169,25 @@ def synthesize_factory() -> (
 
 @pytest.fixture(scope="module")
 def range_factory() -> Callable[
-    [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+    [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
     AbstractBaseRange,
 ]:
     """Get factory to generate range object sythesis output."""
 
     def _range_synthesize(
         range_cls: type[AbstractBaseRange],
-        template: TemplateRangeSchema,
+        range_blueprint: BlueprintRangeSchema,
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
         state_file: None = None,
     ) -> AbstractBaseRange:
         """Create range object and return synth() output."""
-        range_id = uuid.uuid4()
-        owner_id = uuid.uuid4()
         secrets = SecretSchema()
 
         return RangeFactory.create_range(
-            id=range_id,
             name="test-range",
-            template=template,
+            description="Range for testing purposes!",
+            range_obj=range_blueprint,
             region=region,
-            owner_id=UserID(id=owner_id),
             secrets=secrets,
             state_file=state_file,
         )
@@ -202,160 +221,27 @@ async def db_override(
 ) -> Callable[[], AsyncGenerator[AsyncSession, None]]:
     """Fixture to override database dependency in test FastAPI app."""
     # Create a session factory using the captured engine.
-    async_session = async_sessionmaker(
+    async_session_factory_for_override = async_sessionmaker(
         bind=async_engine, expire_on_commit=False, class_=AsyncSession
     )
 
     async def override_async_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session() as session:
-            yield session
+        async with async_session_factory_for_override() as session:
+            try:
+                yield session
+                await session.commit()
+                logger.debug(
+                    "Test DB transaction committed successfully by override_async_get_db."
+                )
+            except Exception as e:
+                logger.debug(
+                    "Exception during test DB session or commit in override_async_get_db. Rolling back. Error: %s",
+                    e,
+                )
+                await session.rollback()
+                raise
 
     return override_async_get_db
-
-
-async def register_user(
-    client: AsyncClient,
-    email: str | None = None,
-    password: str | None = None,
-    name: str | None = None,
-) -> tuple[uuid.UUID, str, str, str]:
-    """Register a user using the provided client.
-
-    Optionally, provide a specific email, password, and name for the registered user.
-
-    Args:
-    ----
-        client (AsyncClient): Client object to interact with the API.
-        email (Optional[str]): Email to use for registration. Random email used if not provided.
-        password (Optional[str]): Password to use for registration. Random password used if not provided.
-        name (Optional[str]): Name to use for registration. Random name used if not provided.
-
-    Returns:
-    -------
-        uuid.UUID: UUID of newly registered user.
-        str: Username of registered user.
-        str: Password of registered user.
-        str: Name of the registered user.
-
-    """
-    registration_payload = copy.deepcopy(base_user_register_payload)
-
-    unique_str = str(uuid.uuid4())
-
-    # Create unique email
-    if not email:
-        email_split = registration_payload["email"].split("@")
-        email_split_len = 2  # username and domain from email
-        assert len(email_split) == email_split_len
-        email = f"{email_split[0]}-{unique_str}@{email_split[1]}"
-
-    # Make name unique for debugging
-    if not name:
-        name = f"{registration_payload['name']} {unique_str}"
-
-    # Create unique password
-    if not password:
-        password = f"password-{unique_str}"
-
-    # Build payload with values
-    registration_payload["email"] = email
-    registration_payload["password"] = password
-    registration_payload["name"] = name
-
-    # Register user
-    response = await client.post(
-        f"{BASE_ROUTE}/auth/register", json=registration_payload
-    )
-    assert response.status_code == status.HTTP_200_OK, "Failed to register user."
-
-    user_id = response.json()["id"]
-    assert user_id, "Failed to retrieve test user ID."
-
-    return uuid.UUID(user_id, version=4), email, password, name
-
-
-async def login_user(client: AsyncClient, email: str, password: str) -> bool:
-    """Login into an existing/registered user.
-
-    Sets authentication cookies secure = False to allow for HTTP transportation.
-    Ensure that this function is only used in a test environment and sent to
-    localhost only.
-
-    Args:
-    ----
-        client (AsyncClient): Client to login with.
-        email (str): Email of user to login as.
-        password (str): Password of user to login as.
-
-    Returns:
-    -------
-        bool: True if successfully logged in. False otherwise.
-
-    """
-    if not email:
-        msg = "Did not provide an email to login with!"
-        raise ValueError(msg)
-
-    if not password:
-        msg = "Did not provide a password to login with!"
-        raise ValueError(msg)
-
-    # Build login payload
-    login_payload = copy.deepcopy(base_user_login_payload)
-    login_payload["email"] = email
-    login_payload["password"] = password
-
-    # Login
-    response = await client.post(f"{BASE_ROUTE}/auth/login", json=login_payload)
-    if response.status_code != status.HTTP_200_OK:
-        logger.error("Failed to login as user: %s", email)
-        return False
-
-    # Make cookies non-secure (Works with HTTP)
-    for cookie in client.cookies.jar:
-        cookie.secure = False
-
-    return True
-
-
-async def logout_user(client: AsyncClient) -> bool:
-    """Logout out of current user.
-
-    Returns
-    -------
-        bool: True if successful. False otherwise.
-
-    """
-    response = await client.post(f"{BASE_ROUTE}/auth/logout")
-    return response.status_code == status.HTTP_200_OK
-
-
-async def authenticate_client(
-    client: AsyncClient,
-    email: str | None = None,
-    password: str | None = None,
-    name: str | None = None,
-) -> bool:
-    """Register and login a user using the provided client.
-
-    This function is here for convinience stringing together register_user
-    and login_user.
-
-    Args:
-    ----
-        client (AsyncClient): Client object to interact with the API.
-        email (Optional[str]): Email to use for registration. Random email used if not provided.
-        password (Optional[str]): Password to use for registration. Random password used if not provided.
-        name (Optional[str]): Name to use for registration. Random name used if not provided.
-
-
-    Returns:
-    -------
-        bool: True if successfully logged in. False otherwise.
-
-    """
-    _, email, password, _ = await register_user(client, email, password, name)
-    return await login_user(client, email, password)
 
 
 @pytest.fixture(scope="session")
@@ -363,7 +249,9 @@ def client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
     """Create app for client fixture."""
-    from src.app.main import app
+    # Required import here to get a seperate copy
+    # of the main app
+    from src.app.main import app  # noqa: PLC0415
 
     app.dependency_overrides[async_get_db] = db_override
 
@@ -375,7 +263,9 @@ def auth_client_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
 ) -> FastAPI:
     """Create app for auth_client fixture."""
-    from src.app.main import app
+    # Required import here to get a seperate copy
+    # of the main app
+    from src.app.main import app  # noqa: PLC0415
 
     app.dependency_overrides[async_get_db] = db_override
 
@@ -444,32 +334,27 @@ def get_free_port() -> int:
         return int(s.getsockname()[1])
 
 
-async def wait_for_fastapi_service(base_url: str, timeout: int = 30) -> bool:
-    """Poll the FastAPI health endpoint until it returns a 200 status code or the timeout is reached."""
-    url = f"{base_url}/health/ping"
-    start = asyncio.get_event_loop().time()
+@pytest.fixture(scope="session")
+def create_test_output_dir() -> str:
+    """Create test output directory `.testing-out`.
 
-    while True:
-        try:
-            async with AsyncClient() as client:
-                response = await client.get(url)
-            if response.status_code == status.HTTP_200_OK:
-                logger.info("FastAPI service is available.")
-                return True
-        except Exception as e:
-            logger.debug("FastAPI service not yet available: %s", e)
+    Returns
+    -------
+        str: Path to test output dir.
 
-        # Wait
-        await asyncio.sleep(1)
+    """
+    test_output_dir = "./.testing-out/"
+    if not os.path.exists(test_output_dir):
+        os.makedirs(test_output_dir)
 
-        # Timeout expired
-        if asyncio.get_event_loop().time() - start > timeout:
-            logger.error("FastAPI service did not become available in time.")
-            return False
+    return test_output_dir
 
 
 @pytest.fixture(scope="session")
-def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
+def docker_services(
+    get_free_port: int,
+    create_test_output_dir: str,
+) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
     ip_var_name = "API_IP_ADDR"
     port_var_name = "API_PORT"
@@ -478,17 +363,44 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
     os.environ[ip_var_name] = "127.127.127.127"
     os.environ[port_var_name] = str(get_free_port)
 
+    compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
+
     with DockerCompose(
         context=".",
-        compose_file_name="docker-compose.yml",
+        compose_file_name=compose_files,
         pull=True,
         build=True,
         wait=False,
         keep_volumes=False,
     ) as compose:
         logger.info("Docker Compose environment started.")
+        try:
+            yield compose
+        finally:
+            logger.info("Saving container logs...")
 
-        yield compose
+            # Check if the test run failed by seeing if an exception was raised
+            exc_type, _, _ = sys.exc_info()
+            did_fail = exc_type is not None
+
+            status = "FAILED" if did_fail else "PASSED"
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+            log_filename = f"docker_compose_test_{status}_{timestamp}.log"
+            log_path = os.path.join(create_test_output_dir, log_filename)
+
+            stdout, stderr = compose.get_logs()
+
+            # Save the logs to a file
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write("--- STDOUT ---\n")
+                f.write(stdout)
+                f.write("\n--- STDERR ---\n")
+                f.write(stderr)
+
+            logger.info("Container logs saved to: %s", log_path)
+
+            # Rotate and clear old logs
+            rotate_docker_compose_test_log_files(create_test_output_dir)
 
     del os.environ[ip_var_name]
     del os.environ[port_var_name]
@@ -496,38 +408,188 @@ def docker_services(get_free_port: int) -> Generator[DockerCompose, None, None]:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def integration_client(
-    docker_services: DockerCompose,
-    get_free_port: int,
-) -> AsyncGenerator[AsyncClient, None]:
-    """Create async client that connects to live FastAPI docker compose container."""
+async def docker_compose_api_url(
+    docker_services: DockerCompose, get_free_port: int
+) -> str:
+    """Spin up the Docker environment, waits for the API to be live, and returns the base URL of the running service."""
     base_url = f"http://127.127.127.127:{get_free_port}"
-
-    # Wait for docker compose and container to start
     await wait_for_fastapi_service(
-        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
+        f"{base_url}{get_api_base_route(version=1)}", timeout=60
     )
+    return base_url
 
-    async with AsyncClient(base_url=base_url) as client:
+
+@pytest_asyncio.fixture(scope="session")
+async def integration_client(
+    docker_compose_api_url: str,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create a shared async client that connects to live FastAPI docker compose container."""
+    async with AsyncClient(base_url=docker_compose_api_url) as client:
         yield client
 
 
 @pytest_asyncio.fixture(scope="session")
 async def auth_integration_client(
-    docker_services: DockerCompose,
-    get_free_port: int,
+    docker_compose_api_url: str,
 ) -> AsyncGenerator[AsyncClient, None]:
-    """Create authenticated async client to live FastAPI docker compose container."""
-    base_url = f"http://127.127.127.127:{get_free_port}"
-
-    # Wait for docker compose and container to start
-    await wait_for_fastapi_service(
-        f"{base_url}/{get_api_base_route(version=1)}", timeout=60
-    )
-
-    async with AsyncClient(base_url=base_url) as client:
+    """Create a shared authenticated async client to live FastAPI docker compose container."""
+    async with AsyncClient(base_url=docker_compose_api_url) as client:
         assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
+
+
+@pytest.fixture(scope="session")
+def load_test_env_file() -> bool:
+    """Load .env.tests file.
+
+    Returns
+    -------
+        bool: If at least one environment variable was set. False otherwise.
+
+    """
+    test_env_file = ".env.tests"
+    logger.info("Attempting to load test ENV file: %s", test_env_file)
+    return load_dotenv(test_env_file)
+
+
+@pytest_asyncio.fixture(scope="session")
+async def provider_deployed_ranges_for_provider(
+    request: pytest.FixtureRequest,
+    docker_compose_api_url: str,
+    load_test_env_file: bool,
+) -> AsyncGenerator[dict[RangeType, tuple[DeployedRangeSchema, str, str]], None]:
+    """Deploys and destroys all ranges for a provider in parallel."""
+    provider: OpenLabsProvider = request.param
+    logger.info(
+        "Starting parallel deployment of ranges for provider: %s...",
+        provider.value.upper(),
+    )
+
+    destroy_details = []
+    async with AsyncExitStack() as client_stack:
+        try:
+            blueprint_map = {
+                # Skipped until ARQ jobs implemented to avoid race conditions
+                # RangeType.ONE_ALL: valid_blueprint_range_create_payload,
+                RangeType.MULTI: valid_blueprint_range_multi_create_payload,
+            }
+
+            async def create_and_setup(
+                key: RangeType, blueprint_dict: dict[str, Any]
+            ) -> dict[str, Any]:
+                """Create a client and run the setup task."""
+                client = await client_stack.enter_async_context(
+                    isolated_integration_client(docker_compose_api_url)
+                )
+                creds = get_provider_test_creds(provider)
+                if not creds:
+                    pytest.skip(f"Credentials for {provider.value.upper()} not set.")
+
+                setup_info = await deploy_managed_range(
+                    client=client,
+                    provider=provider,
+                    cloud_credentials_payload=creds,
+                    blueprint_range=BlueprintRangeCreateSchema.model_validate(
+                        copy.deepcopy(blueprint_dict)
+                    ),
+                )
+                # Add the live client to the info needed for teardown
+                setup_info["client"] = client
+                return setup_info
+
+            # Deploy ranges
+            deploy_tasks = {
+                key: create_and_setup(key, blueprint_dict)
+                for key, blueprint_dict in blueprint_map.items()
+            }
+            results = await asyncio.gather(
+                *deploy_tasks.values(), return_exceptions=True
+            )
+
+            # Check for deploy errors
+            deployed_data_for_yield: dict[
+                RangeType, tuple[DeployedRangeSchema, str, str]
+            ] = {}
+            has_errors = False
+            for key, result in zip(deploy_tasks.keys(), results, strict=True):
+                if isinstance(result, BaseException):
+                    logger.critical(
+                        "Deploy failed for '%s': %s",
+                        key.value.upper(),
+                        result,
+                        exc_info=result,
+                    )
+                    has_errors = True
+                else:
+                    logger.info(
+                        "Successfully deployed '%s' range for '%s'.",
+                        key.value.upper(),
+                        provider.value.upper(),
+                    )
+                    # Prepare the data for the test (the tuple)
+                    deployed_data_for_yield[key] = (
+                        result["deployed_range"],
+                        result["email"],
+                        result["password"],
+                    )
+                    # Store the full dictionary for destroying
+                    destroy_details.append(result)
+
+            if has_errors:
+                pytest.fail(
+                    f"One or more ranges failed to deploy for provider {provider.value.upper()}."
+                )
+
+            yield deployed_data_for_yield
+
+        finally:
+            if destroy_details:
+                logger.info(
+                    "Starting parallel destroy of all test ranges for provider: %s...",
+                    provider.value.upper(),
+                )
+                destroy_tasks = [
+                    destroy_managed_range(
+                        client=info["client"],
+                        email=info["email"],
+                        password=info["password"],
+                        range_id=info["range_id"],
+                        provider=provider,
+                    )
+                    for info in destroy_details
+                ]
+                destroy_results = await asyncio.gather(
+                    *destroy_tasks, return_exceptions=True
+                )
+
+                for result in destroy_results:  # type: ignore
+                    if isinstance(result, BaseException):
+                        # Log any errors during teardown but don't fail the test run
+                        logger.error(
+                            "Error during parallel destroy: %s",
+                            result,
+                            exc_info=result,
+                        )
+
+
+@pytest.fixture
+def api_client(request: pytest.FixtureRequest) -> AsyncClient:
+    """Return the corresponding client fixture.
+
+    Only used for unauthenticated client fixtures.
+
+    """
+    return request.getfixturevalue(request.param)  # type: ignore
+
+
+@pytest.fixture
+def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
+    """Return the corresponding client fixture.
+
+    Only use for authenticated client fixtures.
+
+    """
+    return request.getfixturevalue(request.param)  # type: ignore
 
 
 @pytest.fixture
@@ -581,8 +643,10 @@ def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> N
 @pytest.fixture
 async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the synthesize function call to return false to trigger specific error."""
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -597,12 +661,12 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "synthesize": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
+            "Test range description.",
+            None,  # No state file
         ),
     )
 
@@ -610,8 +674,10 @@ async def mock_synthesize_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return false to trigger specific error."""
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -627,12 +693,12 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
                 "deploy": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
+            "Test range description",
+            None,  # No state file
         ),
     )
 
@@ -640,8 +706,10 @@ async def mock_deploy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the deploy function call to return true."""
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
+    add_key_recursively(blueprint_schema_json, "id", generate_random_int)
+    blueprint_schema = BlueprintRangeSchema.model_validate(
+        blueprint_schema_json, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -657,58 +725,87 @@ async def mock_deploy_success(monkeypatch: pytest.MonkeyPatch) -> None:
                 "deploy": lambda self: True,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            blueprint_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "Test range description.",
+            None,  # No state file
         ),
     )
 
 
 @pytest.fixture
-def mock_is_range_owner_false(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the is_range_owner function to return false."""
+def mock_create_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the create_deployed_range crud function to return nothing to force the error when adding to the ranges table."""
 
-    async def mock_is_range_owner(
-        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
-    ) -> bool:
-        return False
-
-    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
-
-
-@pytest.fixture
-def mock_is_range_owner_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the is_range_owner function to return false."""
-
-    async def mock_is_range_owner(
-        db: AsyncSession, range_id: RangeID, user_id: uuid.UUID
-    ) -> bool:
-        return True
-
-    monkeypatch.setattr("src.app.api.v1.ranges.is_range_owner", mock_is_range_owner)
-
-
-@pytest.fixture
-def mock_create_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the create_range function to return nothing to force the error when adding to the ranges table."""
-
-    async def mock_create_range(
-        db: AsyncSession, range_schema: RangeSchema, owner_id: uuid.UUID
+    async def mock_create_range_in_db_failure(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
     ) -> None:
         return None
 
-    monkeypatch.setattr("src.app.api.v1.ranges.create_range", mock_create_range)
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_failure
+    )
 
 
 @pytest.fixture
-def mock_delete_range_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def mock_create_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the create_deployed_range crud function to return fake range to simulate success."""
+
+    async def mock_create_range_in_db_success(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> DeployedRangeHeaderSchema:
+        return DeployedRangeHeaderSchema.model_validate(
+            valid_deployed_range_header_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_success
+    )
+
+
+@pytest.fixture
+def mock_delete_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
 
-    async def mock_delete_range(db: AsyncSession, range_model: RangeModel) -> None:
+    async def mock_delete_range(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> None:
         return None
 
-    monkeypatch.setattr("src.app.api.v1.ranges.delete_range", mock_delete_range)
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range
+    )
+
+
+@pytest.fixture
+def mock_delete_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bypass the delete_deployed_range crud function to return mock header data to simulate a successful delete."""
+
+    async def mock_delete_range_in_db_success(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> DeployedRangeHeaderSchema:
+        return DeployedRangeHeaderSchema.model_validate(
+            valid_deployed_range_header_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range_in_db_success
+    )
+
+
+@pytest.fixture
+def mock_retrieve_deployed_range_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Simulate successfully retrieving a deployed range from the database."""
+
+    async def mock_get_range_success(
+        *args: dict[str, Any], **kwargs: dict[str, Any]
+    ) -> DeployedRangeSchema:
+        return DeployedRangeSchema.model_validate(
+            valid_deployed_range_data, from_attributes=True
+        )
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range", mock_get_range_success
+    )

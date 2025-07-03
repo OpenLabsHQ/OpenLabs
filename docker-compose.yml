@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:17
-    container_name: postgres_db_openlabsx
+    container_name: postgres_db_openlabs
     env_file:
       - .env
     ports:
@@ -27,7 +27,7 @@ services:
     command: ["python", "-m", "src.scripts.create_admin"]
     depends_on:
       fastapi:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_healthy
     networks:
@@ -45,6 +45,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: "local"
     networks:
       - fastapi_network
 

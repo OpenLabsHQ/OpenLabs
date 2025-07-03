@@ -1,6 +1,5 @@
 import logging
 from datetime import UTC, datetime
-from uuid import UUID
 
 from bcrypt import checkpw, gensalt, hashpw
 from sqlalchemy import inspect, select
@@ -12,7 +11,6 @@ from ..models.user_model import UserModel
 from ..schemas.secret_schema import SecretSchema
 from ..schemas.user_schema import (
     UserCreateBaseSchema,
-    UserCreateSchema,
     UserID,
 )
 from ..utils.crypto import (
@@ -125,11 +123,10 @@ async def create_user(
         User: The newly created user.
 
     """
-    openlabs_user = UserCreateSchema(**openlabs_user.model_dump())
-    user_dict = openlabs_user.model_dump(exclude={"secrets"})
+    user_dict = openlabs_user.model_dump()
 
     # Here, we populate fields to match the database model
-    password = user_dict.pop("password")
+    password: str = user_dict.pop("password")
 
     # Generate bcrypt password hash
     hash_salt = gensalt()
@@ -157,6 +154,22 @@ async def create_user(
 
     user_obj = UserModel(**user_dict)
     db.add(user_obj)
+
+    try:
+        await db.flush()
+        await db.refresh(user_obj)
+        logger.debug(
+            "Successfully flushed new user: %s (%s) to database session.",
+            user_obj.email,
+            user_obj.id,
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to flush new user: %s to database session. Exception: %s.",
+            user_obj.email,
+            e,
+        )
+        raise
 
     user_id = UserID(id=user_obj.id)
 
@@ -262,14 +275,14 @@ async def get_decrypted_secrets(
 
 
 async def update_user_password(
-    db: AsyncSession, user_id: UUID, current_password: str, new_password: str
+    db: AsyncSession, user_id: int, current_password: str, new_password: str
 ) -> bool:
     """Update a user's password.
 
     Args:
     ----
         db (AsyncSession): Async database connection.
-        user_id (UUID): User ID.
+        user_id (int): User ID.
         current_password (str): Current password.
         new_password (str): New password.
 

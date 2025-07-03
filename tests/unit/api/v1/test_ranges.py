@@ -1,5 +1,6 @@
 import copy
-import uuid
+import random
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
@@ -10,80 +11,23 @@ from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.enums.regions import OpenLabsRegion
 from src.app.models.user_model import UserModel
+from src.app.schemas.range_schemas import (
+    DeployedRangeHeaderSchema,
+    DeployedRangeKeySchema,
+    DeployedRangeSchema,
+)
 from src.app.schemas.secret_schema import SecretSchema
-from src.app.schemas.template_range_schema import TemplateRangeSchema
-from tests.conftest import authenticate_client
+from tests.api_test_utils import authenticate_client
 
 from .config import (
     BASE_ROUTE,
+    valid_blueprint_range_create_payload,
+    valid_deployed_range_data,
     valid_range_deploy_payload,
-    valid_range_payload,
+    valid_range_private_key_data,
 )
 
-###### Test /ranges/deploy #######
-
-
-async def test_deploy_without_enc_key(client: AsyncClient) -> None:
-    """Test that attempting to deploy a range without being logged in will fail since the encryption key was not given from successful login."""
-    assert await authenticate_client(client), "Failed to authenticate to API"
-
-    for cookie in client.cookies.jar:
-        if cookie.name == "enc_key":
-            cookie.value = ""
-            break
-
-    response = await client.post(
-        f"{BASE_ROUTE}/ranges/deploy", json=valid_range_deploy_payload
-    )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-async def test_deploy_without_valid_enc_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range with an invalid encryption key will fail."""
-    modified_enc_key = "in*vali*^%$"
-    auth_client.cookies.update({"enc_key": modified_enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=valid_range_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-
-async def test_deploy_without_valid_range_template(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range with a non-existent range template will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=valid_range_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-async def test_deploy_without_valid_private_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to deploy a range without valid private key will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+pytestmark = pytest.mark.unit
 
 
 async def test_deploy_without_valid_secrets(
@@ -93,23 +37,18 @@ async def test_deploy_without_valid_secrets(
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -123,23 +62,18 @@ async def test_deploy_range_synthesize_failure(
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -153,23 +87,18 @@ async def test_deploy_range_deploy_failure(
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -178,29 +107,24 @@ async def test_deploy_range_database_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_deploy_success: None,
-    mock_create_range_failure: None,
+    mock_create_range_in_db_failure: None,
 ) -> None:
     """Test to deploy a range but fail when adding the deployed range model to the database."""
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -209,128 +133,72 @@ async def test_deploy_range_deploy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_deploy_success: None,
+    mock_create_range_in_db_success: None,
 ) -> None:
     """Test to deploy a range successfully with a returned range ID."""
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
     assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-
-###### Test /ranges/destroy #######
-
-
-async def test_destroy_with_invalid_uuid(auth_client: AsyncClient) -> None:
-    """Test that attempting to destroy a range without a valid uuid with fail."""
-    invalid_range_id = "invalid-uuid"
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{invalid_range_id}")
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-
-async def test_destroy_without_enc_key(client: AsyncClient) -> None:
-    """Test that attempting to destroy a range without being logged in will fail since the encryption key was not given from successful login."""
-    assert await authenticate_client(client), "Failed to authenticate to API"
-
-    for cookie in client.cookies.jar:
-        if cookie.name == "enc_key":
-            cookie.value = ""
-            break
-
-    test_range_id = uuid.uuid4()
-    response = await client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-async def test_destroy_without_valid_enc_key(auth_client: AsyncClient) -> None:
-    """Test that attempting to destroy a range with an invalid encryption key will fail."""
-    test_range_id = uuid.uuid4()
-    modified_enc_key = "in*vali*^%$"
-    auth_client.cookies.update({"enc_key": modified_enc_key})
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert int(response.json()["id"])
 
 
 async def test_destroy_without_valid_range_owner(
-    auth_client: AsyncClient, mock_is_range_owner_false: None
-) -> None:
-    """Test that attempting to destroy a range that a user does not own will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    test_range_id = uuid.uuid4()
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-async def test_destroy_without_valid_range(
-    auth_client: AsyncClient, mock_is_range_owner_true: None
-) -> None:
-    """Test that attempting to destroy a non-existent range will fail."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    test_range_id = uuid.uuid4()
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{test_range_id}")
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-async def test_destroy_without_valid_private_key(
     auth_client: AsyncClient,
+    client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_deploy_success: None,
-    mock_is_range_owner_true: None,
-    monkeypatch: pytest.MonkeyPatch,
+    mock_create_range_in_db_success: None,
 ) -> None:
-    """Test that attempting to destroy a range without valid private key will fail."""
+    """Test that attempting to destroy a range that a user does not own will fail."""
+    # User 1
     enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
     auth_client.cookies.update({"enc_key": enc_key})
     response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
+        f"{BASE_ROUTE}/blueprints/ranges",
+        json=valid_blueprint_range_create_payload,
     )
-    range_template_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    blueprint_id = int(response.json()["id"])
 
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
+    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
+    blueprint_deploy_payload["blueprint_id"] = blueprint_id
 
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
+        json=blueprint_deploy_payload,
     )
-    deployed_range_id = response.json()["id"]
     assert response.status_code == status.HTTP_200_OK
+    user1_range_id = int(response.json()["id"])
 
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
+    # User 2
+    auth_success = await authenticate_client(client)
+    if not auth_success:
+        pytest.fail("Failed to authenticate client to API!")
+    response = await client.delete(f"{BASE_ROUTE}/ranges/{user1_range_id}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+async def test_destroy_decrypt_secrets_failure(
+    auth_client: AsyncClient,
+    mock_decrypt_example_valid_aws_secrets: None,
+    mock_retrieve_deployed_range_success: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that attempting to destroy a range without valid private key will fail."""
 
     async def mock_get_decrypted_secrets_false(
         user: UserModel, db: AsyncSession, master_key: bytes
@@ -342,46 +210,18 @@ async def test_destroy_without_valid_private_key(
         "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets_false
     )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 async def test_destroy_without_valid_secrets(
     auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_deploy_success: None,
-    mock_is_range_owner_true: None,
+    mock_retrieve_deployed_range_success: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that attempting to destroy a range without valid cloud provider credentials will fail (no secrets in database for user)."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    deployed_range_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
 
     async def mock_get_decrypted_secrets(
         user: UserModel, db: AsyncSession, master_key: bytes
@@ -401,76 +241,22 @@ async def test_destroy_without_valid_secrets(
     monkeypatch.setattr(
         "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets
     )
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
-    )
-    monkeypatch.setattr(
-        RangeFactory,
-        "create_range",
-        lambda *args, **kwargs: type(
-            "MockRange",
-            (AbstractBaseRange,),
-            {
-                "get_provider_stack_class": lambda self: None,
-                "has_secrets": lambda self: False,
-                "get_cred_env_vars": lambda self: {},
-                "synthesize": lambda self: True,
-                "deploy": lambda self: True,
-            },
-        )(
-            uuid.uuid4(),
-            "test-range",
-            template_schema,
-            OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
-            SecretSchema(),
-            {},
-        ),
-    )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
+    )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 async def test_destroy_range_synthesize_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_deploy_success: None,
-    mock_is_range_owner_true: None,
+    mock_retrieve_deployed_range_success: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test to destroy a range but fail during the systhesize step."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    deployed_range_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    deployed_schema = DeployedRangeSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -485,59 +271,30 @@ async def test_destroy_range_synthesize_failure(
                 "synthesize": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            deployed_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "Test range description.",
+            None,  # No state file
         ),
     )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{valid_deployed_range_data["id"]}"
+    )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 async def test_destroy_range_destroy_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_deploy_success: None,
-    mock_is_range_owner_true: None,
+    mock_retrieve_deployed_range_success: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test to destroy a range but fail during the destroy step."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    deployed_range_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    deployed_schema = DeployedRangeSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -553,60 +310,31 @@ async def test_destroy_range_destroy_failure(
                 "destroy": lambda self: False,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            deployed_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "This is a test range description.",
+            None,  # No state file
         ),
     )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{valid_deployed_range_data["id"]}"
+    )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-async def test_destroy_range_database_failure(  # noqa: PLR0913
+async def test_destroy_range_database_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_deploy_success: None,
-    mock_is_range_owner_true: None,
-    mock_delete_range_failure: None,
+    mock_retrieve_deployed_range_success: None,
+    mock_delete_range_in_db_failure: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test to destroy a range but fail when deleting the deployed range model from the database."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    deployed_range_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    deployed_schema = DeployedRangeSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -622,59 +350,31 @@ async def test_destroy_range_database_failure(  # noqa: PLR0913
                 "destroy": lambda self: True,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            deployed_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "This is a test range description.",
+            None,  # No state file
         ),
     )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{valid_deployed_range_data["id"]}"
+    )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
 async def test_destroy_range_destroy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_deploy_success: None,
-    mock_is_range_owner_true: None,
+    mock_retrieve_deployed_range_success: None,
+    mock_delete_range_in_db_success: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test to destroy a range successfully with a returned true boolean value."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/templates/ranges",
-        json=valid_range_payload,
-    )
-    range_template_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    test_template_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    test_template_deploy_payload["template_id"] = range_template_id
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=test_template_deploy_payload,
-    )
-    deployed_range_id = response.json()["id"]
-    assert response.status_code == status.HTTP_200_OK
-
-    # Validate range UUID returned
-    uuid_response = response.json()["id"]
-    uuid_obj = uuid.UUID(uuid_response, version=4)
-    assert str(uuid_obj) == uuid_response
-
-    template_schema = TemplateRangeSchema.model_validate(
-        valid_range_payload, from_attributes=True
+    deployed_schema = DeployedRangeSchema.model_validate(
+        valid_deployed_range_data, from_attributes=True
     )
     monkeypatch.setattr(
         RangeFactory,
@@ -690,17 +390,70 @@ async def test_destroy_range_destroy_success(
                 "destroy": lambda self: True,
             },
         )(
-            uuid.uuid4(),
             "test-range",
-            template_schema,
+            deployed_schema,
             OpenLabsRegion.US_EAST_1,
-            uuid.uuid4(),
             SecretSchema(),
-            {},
+            "This is a test range description.",
+            None,  # No state file
         ),
     )
 
-    response = await auth_client.delete(f"{BASE_ROUTE}/ranges/{deployed_range_id}")
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{valid_deployed_range_data["id"]}"
+    )
     assert response.status_code == status.HTTP_200_OK
-    assert response.json()
-    assert str(deployed_range_id) in response.json()["message"]
+
+
+async def test_get_range_headers_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get a 200 response when there is at least one range header found."""
+    header = DeployedRangeHeaderSchema.model_validate(valid_deployed_range_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range_headers",
+        AsyncMock(return_value=[header]),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == [header.model_dump(mode="json")]
+
+
+async def test_get_range_details_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get a 200 response when the range we request exists."""
+    test_range = DeployedRangeSchema.model_validate(valid_deployed_range_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range",
+        AsyncMock(return_value=test_range),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/1337")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == test_range.model_dump(mode="json")
+
+
+async def test_get_range_key_success(
+    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that we get 200 response when we request the private key for an existing range."""
+    test_key = DeployedRangeKeySchema.model_validate(valid_range_private_key_data)
+
+    monkeypatch.setattr(
+        "src.app.api.v1.ranges.get_deployed_range_key",
+        AsyncMock(return_value=test_key),
+    )
+
+    response = await auth_client.get(f"{BASE_ROUTE}/ranges/1337/key")
+    assert response.status_code == status.HTTP_200_OK
+
+    response_data = response.json()
+    assert response_data == test_key.model_dump(mode="json")

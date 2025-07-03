@@ -13,20 +13,22 @@ from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
-from src.app.schemas.template_range_schema import TemplateRangeSchema
-from tests.unit.core.cdktf.config import modify_cidr, one_all_template
+from src.app.schemas.range_schemas import BlueprintRangeSchema
+from tests.unit.core.cdktf.config import one_all_blueprint
+
+pytestmark = [pytest.mark.unit, pytest.mark.aws]
 
 
 @pytest.fixture(scope="module")
 def aws_one_all_synthesis(
     range_factory: Callable[
-        [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+        [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
         AbstractBaseRange,
     ],
 ) -> str:
-    """Synthesize AWS stack with one_all_template."""
+    """Synthesize AWS stack with one_all_blueprint."""
     # Call the factory with the desired stack, stack name, and region.
-    range_obj = range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
+    range_obj = range_factory(AWSRange, one_all_blueprint, OpenLabsRegion.US_EAST_1)
 
     successful_synthesize = range_obj.synthesize()
     if not successful_synthesize:
@@ -39,20 +41,20 @@ def aws_one_all_synthesis(
 @pytest.fixture(scope="function")
 def aws_range(
     range_factory: Callable[
-        [type[AbstractBaseRange], TemplateRangeSchema, OpenLabsRegion],
+        [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
         AbstractBaseRange,
     ],
 ) -> AbstractBaseRange:
-    """Synthesize AWS stack with one_all_template."""
+    """Synthesize AWS stack with one_all_blueprint."""
     # Call the factory with the desired stack, stack name, and region.
-    return range_factory(AWSRange, one_all_template, OpenLabsRegion.US_EAST_1)
+    return range_factory(AWSRange, one_all_blueprint, OpenLabsRegion.US_EAST_1)
 
 
 def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
     """Ensure every VPC is valid."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_template.vpcs:
+    for vpc in one_all_blueprint.vpcs:
         assert Testing.to_have_resource_with_properties(
             aws_one_all_synthesis,
             Vpc.TF_RESOURCE_TYPE,
@@ -60,48 +62,44 @@ def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
         )
 
 
-def test_aws_range_each_vpc_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
+def test_aws_range_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one public subnet."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_template.vpcs:
-        # Generate the new subnet CIDR with third octet = 99
-        public_subnet_cidr = modify_cidr(str(vpc.cidr), 99)
-        assert Testing.to_have_resource_with_properties(
-            aws_one_all_synthesis,
-            Subnet.TF_RESOURCE_TYPE,
-            {
-                "tags": {"Name": f"RangePublicSubnet-{vpc.name}"},
-                "cidr_block": str(public_subnet_cidr),
-            },
-        )
+    assert Testing.to_have_resource_with_properties(
+        aws_one_all_synthesis,
+        Subnet.TF_RESOURCE_TYPE,
+        {
+            "tags": {"Name": "JumpBoxVPCPublicSubnet"},
+            "cidr_block": "10.255.99.0/24",
+        },
+    )
 
 
-def test_aws_range_each_vpc_has_a_jumpbox_ec2_instance(
+def test_aws_range_has_a_jumpbox_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each VPC has a jumpbox EC2 instance."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_template.vpcs:
-        assert Testing.to_have_resource_with_properties(
-            aws_one_all_synthesis,
-            Instance.TF_RESOURCE_TYPE,
-            {"tags": {"Name": f"JumpBox-{vpc.name}"}},
-        )
+    assert Testing.to_have_resource_with_properties(
+        aws_one_all_synthesis,
+        Instance.TF_RESOURCE_TYPE,
+        {"tags": {"Name": "JumpBox"}},
+    )
 
 
 def test_aws_range_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one subnet."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_template.vpcs:
+    for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
             assert Testing.to_have_resource_with_properties(
                 aws_one_all_synthesis,
                 Subnet.TF_RESOURCE_TYPE,
                 {
-                    "tags": {"Name": f"{subnet.name}-{vpc.name}"},
+                    "tags": {"Name": f"{subnet.name}"},
                     "cidr_block": str(subnet.cidr),
                 },
             )
@@ -113,18 +111,59 @@ def test_aws_range_each_subnet_has_at_least_one_ec2_instance(
     """Ensure each subnet has at least one EC2 instance."""
     assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
 
-    for vpc in one_all_template.vpcs:
+    for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
             for host in subnet.hosts:
                 assert Testing.to_have_resource_with_properties(
                     aws_one_all_synthesis,
                     Instance.TF_RESOURCE_TYPE,
                     {
-                        "tags": {"Name": f"{host.hostname}-{vpc.name}"},
+                        "tags": {"Name": f"{host.hostname}"},
                         "ami": str(AWS_OS_MAP[host.os]),
                         "instance_type": str(AWS_SPEC_MAP[host.spec]),
                     },
                 )
+
+
+def test_aws_range_no_secrets(aws_range: AWSRange) -> None:
+    """Test that the aws range has_secrets() returns False when one or more secrets are missing."""
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_access_key = ""
+    assert aws_range.has_secrets() is False
+
+    aws_range.secrets.aws_secret_key = ""
+    aws_range.secrets.aws_access_key = "fakeawssecretkey"
+    assert aws_range.has_secrets() is False
+
+    aws_range.secrets.aws_access_key = ""
+    aws_range.secrets.aws_secret_key = ""
+    assert aws_range.has_secrets() is False
+
+
+def test_aws_range_has_secrets(aws_range: AWSRange) -> None:
+    """Test that the aws range has_secrets() returns True when all secrets are present."""
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_access_key = "fakeawssecretkey"
+    assert aws_range.has_secrets() is True
+
+
+def test_aws_range_get_cred_env_vars(aws_range: AWSRange) -> None:
+    """Test that the aws range returns the correct terraform environment credential variables."""
+    fake_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    fake_access_key = "fakeawsaccesskey"
+
+    aws_range.secrets.aws_secret_key = fake_secret_key
+    aws_range.secrets.aws_access_key = fake_access_key
+
+    cred_vars = aws_range.get_cred_env_vars()
+
+    # Check for correct variable existence
+    assert "AWS_ACCESS_KEY_ID" in cred_vars
+    assert "AWS_SECRET_ACCESS_KEY" in cred_vars
+
+    # Check correct values returned
+    assert cred_vars["AWS_ACCESS_KEY_ID"] == fake_access_key
+    assert cred_vars["AWS_SECRET_ACCESS_KEY"] == fake_secret_key
 
 
 def test_aws_range_synthesize_exception(

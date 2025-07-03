@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+# ========= Builder Image =========
+# Base setup stage
+FROM python:3.12-slim AS builder
 
 WORKDIR /code
 
@@ -38,9 +40,31 @@ WORKDIR /code
 # For dynamic versioning
 COPY .git /code/.git
 
+EXPOSE 80
+
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
  CMD ["python", "-m", "src.scripts.health_check"]
 
-EXPOSE 80
+
+# ========= Debug Image =========
+# Adds debug capabilities
+FROM builder AS debug
+
+RUN pip install --no-cache-dir debugpy
+
+
+# ========= Test Image =========
+# Adds test dependencies
+FROM debug AS test
+
+COPY tests /code/tests
+
+COPY ./dev-requirements.txt /code/dev-requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
+
+
+# ========= Prod Image =========
+# Extra prod goodies
+FROM builder AS prod
 
 CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]

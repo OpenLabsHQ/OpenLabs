@@ -1,11 +1,15 @@
 from ipaddress import IPv4Network
 
+import pytest
+
 from src.app.enums.operating_systems import OpenLabsOS
 from src.app.validators.network import (
     is_valid_disk_size,
     is_valid_hostname,
     max_num_hosts_in_subnet,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_valid_hostnames() -> None:

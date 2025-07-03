@@ -1,19 +1,27 @@
 from abc import ABC, abstractmethod
 
-from ....enums.operating_systems import OpenLabsOS
-from ....enums.specs import OpenLabsSpec
-
 
 class CdktfBaseHost(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
-    id: str  # Unique ID given by cloud provider
-    name: str
-    hostname: str
-    os: OpenLabsOS
-    spec: OpenLabsSpec
-    size: int
-    tags: list[str]
+    id: str
+
+    def __init__(
+        self,
+        host_id: str,
+    ) -> None:
+        """Initialize a CdktfBaseHost object.
+
+        Args:
+        ----
+            host_id (str): Unique ID for host given by cloud provider.
+
+        Returns:
+        -------
+            None
+
+        """
+        self.id = host_id
 
     @abstractmethod
     def stop(self) -> bool:

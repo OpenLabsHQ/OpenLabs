@@ -16,4 +16,9 @@ ruff>=0.9.4
 black>=25.1.0
 mypy>=1.14.1
 pytest-mock>=3.14.0
+types-PyYAML>=6.0.12
 
+# Deploy tests
+python-dotenv>=1.1.0
+paramiko>=3.5.1
+types-paramiko>=3.5.0
