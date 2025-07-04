@@ -254,23 +254,12 @@ async def test_deploy_range_no_redis_connection(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_redis_queue_pool_no_connection: None,
+    mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range but fail because we are not connected to Redis."""
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
-
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
+        json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert "connect" in response.json()["detail"].lower()
@@ -283,26 +272,15 @@ async def test_deploy_range_deploy_success(  # noqa: PLR0913
     mock_redis_queue_pool_successful_job_queue: None,
     mock_successful_fetch_job_info: None,
     mock_successful_job_add_to_db: None,
+    mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID."""
     # Mock range object
     mock_range_factory()
 
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
-
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
+        json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
     assert response.json()["id"]  # OpenLabs job ID
@@ -314,57 +292,35 @@ async def test_deploy_range_queue_failure(
     mock_decrypt_example_valid_aws_secrets: None,
     mock_range_factory: Callable[..., MagicMock],
     mock_redis_queue_pool_failed_job_queue: None,
+    mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range returns a 500 when we fail to queue the deploy job."""
     # Mock range object
     mock_range_factory()
 
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
-
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
+        json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert "queue" in response.json()["detail"].lower()
 
 
-async def test_deploy_range_no_job_data_in_redis(
+async def test_deploy_range_no_job_data_in_redis(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_redis_queue_pool_successful_job_queue: None,
     mock_failed_fetch_job_info: None,
     mock_range_factory: Callable[..., MagicMock],
+    mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test that we get a 500 error when the endpoint is not able to fetch job details from redis."""
     # Mock range object
     mock_range_factory()
 
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
-
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
+        json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert "job" in response.json()["detail"].lower()
@@ -378,26 +334,15 @@ async def test_deploy_range_add_job_db_failure(  # noqa: PLR0913
     mock_failed_job_add_to_db: dict[str, type[Exception] | str],
     caplog: pytest.LogCaptureFixture,
     mock_range_factory: Callable[..., MagicMock],
+    mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test that we get a 500 error when the endpoint is not able to fetch job details from redis."""
     # Mock range object
     mock_range_factory()
 
-    enc_key = "VGhpcyBpcyBhIHRlc3Qgc3RyaW5nIGZvciBiYXNlNjQgZW5jb2Rpbmcu"
-    auth_client.cookies.update({"enc_key": enc_key})
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/blueprints/ranges",
-        json=valid_blueprint_range_create_payload,
-    )
-    assert response.status_code == status.HTTP_200_OK
-    blueprint_id = int(response.json()["id"])
-
-    blueprint_deploy_payload = copy.deepcopy(valid_range_deploy_payload)
-    blueprint_deploy_payload["blueprint_id"] = blueprint_id
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
-        json=blueprint_deploy_payload,
+        json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert "job" in response.json()["detail"].lower()
