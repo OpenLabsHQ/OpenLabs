@@ -34,12 +34,10 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
-from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeCreateSchema,
     BlueprintRangeSchema,
     DeployedRangeCreateSchema,
-    DeployedRangeHeaderSchema,
     DeployedRangeSchema,
 )
 from src.app.schemas.secret_schema import SecretSchema
@@ -60,7 +58,6 @@ from tests.test_utils import rotate_docker_compose_test_log_files
 from tests.unit.api.v1.config import (
     valid_blueprint_range_multi_create_payload,
     valid_deployed_range_data,
-    valid_deployed_range_header_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -591,54 +588,6 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
 
 
 @pytest.fixture
-def mock_decrypt_no_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass secrets decryption to return a fake secrets record for the user."""
-
-    async def mock_get_decrypted_secrets(
-        user: UserModel, db: AsyncSession, master_key: bytes
-    ) -> SecretSchema:
-        return SecretSchema(
-            aws_access_key=None,
-            aws_secret_key=None,
-            aws_created_at=None,
-            azure_client_id=None,
-            azure_client_secret=None,
-            azure_tenant_id=None,
-            azure_subscription_id=None,
-            azure_created_at=None,
-        )
-
-    # Patch the function
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets
-    )
-
-
-@pytest.fixture
-def mock_decrypt_example_valid_aws_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass secrets decryption to return a fake secrets record for the user."""
-
-    async def mock_get_decrypted_secrets(
-        user: UserModel, db: AsyncSession, master_key: bytes
-    ) -> SecretSchema:
-        return SecretSchema(
-            aws_access_key="AKIAIOSFODNN7EXAMPLE",
-            aws_secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # noqa: S106
-            aws_created_at=datetime.now(tz=timezone.utc),
-            azure_client_id=None,
-            azure_client_secret=None,
-            azure_tenant_id=None,
-            azure_subscription_id=None,
-            azure_created_at=None,
-        )
-
-    # Patch the function
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets
-    )
-
-
-@pytest.fixture
 def mock_range_factory(
     mocker: MockerFixture,
 ) -> Iterator[Callable[..., MagicMock]]:
@@ -716,79 +665,3 @@ def mock_range_factory(
         return mock_range
 
     yield _create_and_patch
-
-
-@pytest.fixture
-def mock_create_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the create_deployed_range crud function to return nothing to force the error when adding to the ranges table."""
-
-    async def mock_create_range_in_db_failure(
-        *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> None:
-        return None
-
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_failure
-    )
-
-
-@pytest.fixture
-def mock_create_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the create_deployed_range crud function to return fake range to simulate success."""
-
-    async def mock_create_range_in_db_success(
-        *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> DeployedRangeHeaderSchema:
-        return DeployedRangeHeaderSchema.model_validate(
-            valid_deployed_range_header_data, from_attributes=True
-        )
-
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.create_deployed_range", mock_create_range_in_db_success
-    )
-
-
-@pytest.fixture
-def mock_delete_range_in_db_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the delete_range function to return nothing to force the error when deleteing from the ranges table."""
-
-    async def mock_delete_range(
-        *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> None:
-        return None
-
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range
-    )
-
-
-@pytest.fixture
-def mock_delete_range_in_db_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Bypass the delete_deployed_range crud function to return mock header data to simulate a successful delete."""
-
-    async def mock_delete_range_in_db_success(
-        *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> DeployedRangeHeaderSchema:
-        return DeployedRangeHeaderSchema.model_validate(
-            valid_deployed_range_header_data, from_attributes=True
-        )
-
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.delete_deployed_range", mock_delete_range_in_db_success
-    )
-
-
-@pytest.fixture
-def mock_retrieve_deployed_range_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Simulate successfully retrieving a deployed range from the database."""
-
-    async def mock_get_range_success(
-        *args: dict[str, Any], **kwargs: dict[str, Any]
-    ) -> DeployedRangeSchema:
-        return DeployedRangeSchema.model_validate(
-            valid_deployed_range_data, from_attributes=True
-        )
-
-    monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_deployed_range", mock_get_range_success
-    )

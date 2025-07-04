@@ -323,7 +323,7 @@ async def deploy_range_from_blueprint_endpoint(
     try:
         created_job = await create_job(db, job_to_add, current_user.id)
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Failed to save ARQ job: %s to database on behalf of user: %s (%s)!",
             job.job_id,
             current_user_email,
@@ -501,7 +501,7 @@ async def delete_range_endpoint(
     try:
         created_job = await create_job(db, job_to_add, current_user.id)
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Failed to save ARQ job: %s to database on behalf of user: %s (%s)!",
             job.job_id,
             current_user_email,
