@@ -16,6 +16,7 @@ from ...schemas.range_schemas import (
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ...utils.job_utils import track_job_status
 from ..db.database import get_db_session_context
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -23,6 +24,7 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 logger = logging.getLogger(__name__)
 
 
+@track_job_status
 async def deploy_range(
     ctx: dict[str, Any],
     enc_key: str,
@@ -168,6 +170,7 @@ async def deploy_range(
     return deployed_range_header.model_dump(mode="json")
 
 
+@track_job_status
 async def destroy_range(
     ctx: dict[str, Any],
     enc_key: str,

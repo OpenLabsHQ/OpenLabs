@@ -1,9 +1,21 @@
+import asyncio
+import functools
 import logging
+from typing import Any, Callable, Coroutine
 
-from arq import ArqRedis
 from arq.jobs import Job, JobResult
 from arq.jobs import JobStatus as ArqJobStatus
+from redis.asyncio import Redis
+from tenacity import (
+    before_sleep_log,
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
+from ..core.db.database import get_db_session_context
+from ..core.utils import queue
+from ..crud.crud_jobs import _arq_upsert_job
 from ..enums.job_status import OpenLabsJobStatus
 from ..schemas.job_schemas import JobCreateSchema
 
@@ -55,47 +67,32 @@ def arq_to_openlabs_job_status(
     return status_map.get(arq_status, OpenLabsJobStatus.NOT_FOUND)
 
 
-async def get_job_from_redis(
-    arq_job_id: str,
-    redis: ArqRedis,
-) -> JobCreateSchema | None:
-    """Fetch an ARQ job's details and build a JobCreateSchema.
-
-    This function retrieves all available information for a given job ID
-    from Redis and uses it to populate the application's job schema.
-
-    Args:
-    ----
-        arq_job_id (str): The unique identifier of the ARQ job.
-        redis (ArqRedis): The ARQ Redis connection pool.
-
-    Returns:
-    -------
-        Optional[JobCreateSchema]: A populated schema instance if the job is found, otherwise None.
-
-    """
-    job = Job(job_id=arq_job_id, redis=redis)
+async def get_job_from_redis(ctx: dict[str, Any]) -> JobCreateSchema | None:
+    """Fetch an ARQ job's details and build a JobCreateSchema."""
+    job = Job(job_id=ctx["job_id"], redis=ctx["redis"])
     arq_status = await job.status()
 
     if arq_status == ArqJobStatus.not_found:
         return None
 
-    # A job definition should always exist if the job
-    # is not not_found
-    definition = await job.info()
-    if not definition:
+    # Will exist if job exists in ARQ
+    job_info = await job.info()
+    if not job_info:
         return None
 
-    # We include the in_progress status because in progress
-    # jobs always have a start_time which is only accesible
-    # with a result_info() call.
+    # Attempt to fetch result
     result_info: JobResult | None = None
-    result_info_statuses = [ArqJobStatus.complete, ArqJobStatus.in_progress]
-    if arq_status in result_info_statuses:
+    if arq_status in ArqJobStatus.complete:
         result_info = await job.result_info()
+
+    # Update job info with result
+    if result_info:
+        # Result info is a superset of job info
+        job_info = result_info
 
     status = arq_to_openlabs_job_status(arq_status, result_info)
 
+    # Handle results/errors
     job_result = None
     error_message = None
 
@@ -105,16 +102,139 @@ async def get_job_from_redis(
         elif arq_status == ArqJobStatus.complete and result_info.success is False:
             error_message = str(result_info.result)
 
+    # Get job try count
+    job_try = ctx.get("job_try")
+    if not job_try:
+        job_try = job_info.job_try
+
+    # Get job start time
+    start_time = ctx.get("start_time")
+    if not start_time:
+        start_time = getattr(job_info, "start_time", None)
+
+    # Get job finish time
+    finish_time = ctx.get("finish_time")
+    if not finish_time:
+        finish_time = getattr(job_info, "finish_time", None)
+
     job_data = {
-        "arq_job_id": arq_job_id,
-        "job_name": definition.function,
-        "job_try": definition.job_try,
-        "enqueue_time": definition.enqueue_time,
-        "start_time": result_info.start_time if result_info else None,
-        "finish_time": result_info.finish_time if result_info else None,
+        "arq_job_id": ctx["job_id"],
+        "job_name": job_info.function,
+        "job_try": job_try,
+        "enqueue_time": job_info.enqueue_time,
+        "start_time": start_time,
+        "finish_time": finish_time,
         "status": status,
         "result": job_result,
         "error_message": error_message,
     }
 
     return JobCreateSchema.model_validate(job_data)
+
+
+# Approximately 1 minute of total wait time
+@retry(
+    stop=stop_after_attempt(6),
+    wait=wait_random_exponential(multiplier=1, max=30),
+    before_sleep=before_sleep_log(logger, logging.DEBUG),
+)
+async def update_job_in_db(ctx: dict[str, Any], user_id: int) -> None:
+    """Update a job in the database."""
+    # For clarity
+    arq_job_id = ctx["job_id"]
+
+    job_update = await get_job_from_redis(ctx)
+    if not job_update:
+        msg = f"Failed to update job: {arq_job_id}. Not found in Redis!"
+        raise RuntimeError(msg)
+
+    async with get_db_session_context() as db:
+        await _arq_upsert_job(db, job_update, user_id)
+
+    logger.info(
+        "Marked job %s as %s.",
+        job_update.arq_job_id,
+        job_update.status.value,
+    )
+
+
+def track_job_status(
+    func: Callable[..., Coroutine[Any, Any, Any]],
+) -> Callable[..., Coroutine[Any, Any, Any]]:
+    """Track a job in Redis and update the database automatically."""
+
+    @functools.wraps(func)
+    async def wrapper(
+        ctx: dict[str, Any], *args: Any, **kwargs: Any  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
+        background_tasks: set[asyncio.Task] = set()
+
+        user_id = kwargs.get("user_id")
+        if not user_id:
+            msg = "Failed to update job status. User ID not found!"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        def update_task_callback(task: asyncio.Task) -> None:
+            """Log and discard database update task."""
+            try:
+                task.result()  # Reraise exception if present
+                logger.info(
+                    "Updated job with ARQ ID: %s in database successfully.",
+                    ctx.get("job_id", "unknown_id"),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to update job with ARQ ID: %s in database.",
+                    ctx.get("job_id", "unknown_id"),
+                )
+            finally:
+                background_tasks.discard(task)  # Always remove the task
+
+        # Run database updates in background
+        def create_update_task() -> None:
+            """Create and stores a background task for updating the DB."""
+            task = asyncio.create_task(update_job_in_db(ctx, user_id))
+            background_tasks.add(task)
+            task.add_done_callback(update_task_callback)
+
+        create_update_task()
+
+        try:
+            return await func(ctx, *args, **kwargs)
+        finally:
+            await asyncio.sleep(1)  # Yield control to let ARQ update Redis.
+            create_update_task()
+
+    return wrapper
+
+
+async def enqueue_arq_job(
+    job_name: str, *job_args: Any, user_id: int  # noqa: ANN401
+) -> str | None:
+    """Queue a job in ARQ."""
+    if not isinstance(queue.pool, Redis):
+        logger.critical(
+            "Failed to queue %s job on behalf of user: %s. Failed to connect to the Redis task queue!",
+            job_name,
+            user_id,
+        )
+        return None
+
+    job = await queue.pool.enqueue_job(job_name, *job_args, user_id=user_id)
+    if not job:
+        logger.error(
+            "Failed to queue %s job on behalf of user: %s. ARQ rejected the job!",
+            job_name,
+            user_id,
+        )
+        return None
+
+    logger.info(
+        "Successfully queued %s job on behalf of user: %s. ARQ ID: %s.",
+        job_name,
+        job.job_id,
+        user_id,
+    )
+
+    return job.job_id

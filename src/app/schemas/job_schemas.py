@@ -12,20 +12,22 @@ class JobCommonSchema(BaseModel):
     arq_job_id: str = Field(
         ..., description="ID of the job in ARQ and Redis.", min_length=1
     )
-    job_name: str = Field(..., description="Name of the job executed.", min_length=1)
-    job_try: int | None = Field(
-        default=None, ge=0, description="Number of times task has been attempted."
+    job_name: str = Field(
+        ..., description="Name of the ARQ job executed.", min_length=1
     )
-    enqueue_time: datetime = Field(..., description="When the task was enqueued.")
+    job_try: int | None = Field(
+        default=None, ge=0, description="Number of times job has been attempted."
+    )
+    enqueue_time: datetime = Field(..., description="When the job was queued.")
     start_time: datetime | None = Field(
-        default=None, description="Start time of the task."
+        default=None, description="Start time of the job."
     )
     finish_time: datetime | None = Field(
-        default=None, description="Finish time of the task."
+        default=None, description="Finish time of the job."
     )
     status: OpenLabsJobStatus = Field(
         ...,
-        description="Current status of the task.",
+        description="Current status of the job.",
         examples=[
             OpenLabsJobStatus.QUEUED,
             OpenLabsJobStatus.IN_PROGRESS,
@@ -34,10 +36,12 @@ class JobCommonSchema(BaseModel):
         ],
     )
     result: dict[str, Any] | None = Field(
-        default=None, description="Return value of the task, if available."
+        default=None,
+        description="Return value of the job. Only available for complete jobs.",
     )
     error_message: str | None = Field(
-        default=None, description="Error message if available."
+        default=None,
+        description="Error message if job failed. Only available for failed jobs.",
     )
 
     @field_validator("enqueue_time", "start_time", "finish_time")
@@ -102,7 +106,6 @@ class JobCommonSchema(BaseModel):
                 ],
             },
             OpenLabsJobStatus.IN_PROGRESS: {
-                "must_exist": ["start_time"],
                 "must_be_none": ["finish_time", "result", "error_message"],
             },
             OpenLabsJobStatus.COMPLETE: {
@@ -195,6 +198,27 @@ class JobCreateSchema(JobCommonSchema):
     Lacks database ID attribute.
     """
 
+    @classmethod
+    def create_queued(cls, *, arq_job_id: str, job_name: str) -> Self:
+        """Create a new job instance with a 'queued' status.
+
+        Args:
+        ----
+            arq_job_id (str): The job ID from ARQ.
+            job_name (str): The name of the job function.
+
+        Returns:
+        -------
+            Self: A new, validated JobCreateSchema instance.
+
+        """
+        return cls(
+            arq_job_id=arq_job_id,
+            job_name=job_name,
+            enqueue_time=datetime.now(timezone.utc),
+            status=OpenLabsJobStatus.QUEUED,
+        )
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -204,3 +228,12 @@ class JobSchema(JobCommonSchema):
     id: int = Field(..., description="Job unique identifier.")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class JobSubmissionResponseSchema(BaseModel):
+    """Response schema for endpoints that submit ARQ job."""
+
+    arq_job_id: str = Field(
+        ..., description="ID of the job in ARQ and Redis.", min_length=1
+    )
+    detail: str = Field(..., description="Details about job submission.", min_length=1)

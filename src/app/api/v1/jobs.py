@@ -64,9 +64,9 @@ async def get_all_jobs_endpoint(
     return jobs
 
 
-@router.get("/{job_id}")
+@router.get("/{identifier}")
 async def get_job_endpoint(
-    job_id: int,
+    identifier: int | str,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
 ) -> JobSchema:
@@ -74,7 +74,7 @@ async def get_job_endpoint(
 
     Args:
     ----
-        job_id (str): ID of the job.
+        identifier (int | str): The `id` integer or `arq_job_id` string.
         db (AsyncSession): Async database connection.
         current_user (UserModel): Currently authenticated user.
 
@@ -83,22 +83,23 @@ async def get_job_endpoint(
         JobSchema: Information about, including status and results, of the requested job.
 
     """
-    job = await get_job(db, job_id, current_user.id, current_user.is_admin)
+    job = await get_job(db, identifier, current_user.id, current_user.is_admin)
     if not job:
         logger.info(
             "Failed to retrieve job: %s for user: %s (%s).",
-            job_id,
+            identifier,
             current_user.email,
             current_user.id,
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job with ID: {job_id} not found or you don't have access to it!",
+            detail=f"Job with ID: {identifier} not found or you don't have access to it!",
         )
 
     logger.info(
-        "Successfully retrieved job: %s for user: %s (%s).",
+        "Successfully retrieved job: %s (ARQ ID: %s) for user: %s (%s).",
         job.id,
+        job.arq_job_id,
         current_user.email,
         current_user.id,
     )

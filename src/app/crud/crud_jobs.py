@@ -1,6 +1,8 @@
+import contextlib
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,14 +55,14 @@ async def get_jobs(
 
 
 async def get_job(
-    db: AsyncSession, job_id: int, user_id: int, is_admin: bool = False
+    db: AsyncSession, identifier: int | str, user_id: int, is_admin: bool = False
 ) -> JobSchema | None:
     """Get job by ID.
 
     Args:
     ----
         db (Session): Database connection.
-        job_id (int): ID of the job.
+        identifier (int | str): The `id` integer or `arq_job_id` string.
         user_id (int): ID of the user requesting data.
         is_admin (bool): Admins can see other user's jobs.
 
@@ -69,22 +71,34 @@ async def get_job(
         Optional[JobSchema]: Job data if it exists in the database.
 
     """
-    job_model = await db.get(JobModel, job_id)
+    with contextlib.suppress(Exception):
+        identifier = int(identifier)
+
+    if isinstance(identifier, int):
+        logger.debug("Retrieving job by integer ID: %s", identifier)
+        job_model = await db.get(JobModel, identifier)
+    else:
+        logger.debug("Retrieving job ARQ ID: %s", identifier)
+        stmt = select(JobModel).where(JobModel.arq_job_id == identifier)
+        result = await db.execute(stmt)
+        job_model = result.scalar_one_or_none()
 
     if not job_model:
-        logger.info("Failed to fetch job: %s. Not found in database!", job_id)
+        logger.info("Failed to fetch job: %s. Not found in database!", identifier)
         return None
 
     if is_admin or job_model.owner_id == user_id:
-        logger.debug("Fetched job: %s for user: %s.", job_id, user_id)
+        logger.debug("Fetched job: %s for user: %s.", identifier, user_id)
         return JobSchema.model_validate(job_model)
 
-    logger.warning("User: %s is not authorized to fetch job: %s.", user_id, job_id)
+    logger.warning("User: %s is not authorized to fetch job: %s.", user_id, identifier)
     return None
 
 
-async def create_job(db: AsyncSession, job: JobCreateSchema, user_id: int) -> JobSchema:
-    """Create and add a new job to the database session.
+async def add_new_job(
+    db: AsyncSession, job_to_add: JobCreateSchema, user_id: int
+) -> None:
+    """Add a new job to the database.
 
     **Note:** This function only adds jobs to the database session. It is the responsibility
     of the caller to commit the changes to the database or rollback in the event of
@@ -92,136 +106,77 @@ async def create_job(db: AsyncSession, job: JobCreateSchema, user_id: int) -> Jo
 
     Args:
     ----
-        db (Session): Database connection.
-        job (JobCreateSchema): Pydantic model of job data without IDs.
-        user_id (int): User who owns the new job.
+        db (AsyncSession): The database session.
+        job_to_add (JobSchema | JobCreateSchema): Pydantic model of job data.
+        user_id (int): User who owns the job.
 
     Returns:
     -------
-        JobSchema: The newly created job data with it's ID.
+        None
 
     """
-    job_model = JobModel(**job.model_dump(), owner_id=user_id)
+    insert_data = {**job_to_add.model_dump(), "owner_id": user_id}
 
-    db.add(job_model)
-    logger.debug(
-        "Added job model with name: %s to database session.",
-        job.job_name,
+    do_nothing_stmt = (
+        insert(JobModel)
+        .values(insert_data)
+        .on_conflict_do_nothing(index_elements=["arq_job_id"])
     )
 
-    try:
-        await db.flush()
-        await db.refresh(job_model)
-        logger.debug(
-            "Successfully flushed job: %s owned by user: %s.",
-            job_model.id,
-            user_id,
-        )
-    except SQLAlchemyError as e:
-        logger.exception(
-            "Database error while flushing job to database session for user: %s. Exception: %s.",
-            user_id,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.exception(
-            "Unexpected error while flushing job to database session for user: %s. Exception: %s.",
-            user_id,
-            e,
-        )
-        raise
-
-    return JobSchema.model_validate(job_model)
+    await db.execute(do_nothing_stmt)
+    logger.debug(
+        "Attempted insert for job with arq_job_id: %s.",
+        job_to_add.arq_job_id,
+    )
 
 
-async def _arq_get_job_by_arq_id(
-    db: AsyncSession,
-    arq_job_id: str,
-) -> JobModel | None:
-    """Get job by it's ARQ job ID.
+async def _arq_upsert_job(
+    db: AsyncSession, job_data: JobSchema | JobCreateSchema, user_id: int
+) -> JobModel:
+    """Insert a new job or update an existing one based on arq_job_id.
 
     **NOTE:** This is only supposed to be used by the ARQ hooks for automatic
-    job tracking and updates.
-
-    Args:
-    ----
-        db (Session): Database connection.
-        arq_job_id (str): ARQ job ID of the job.
-
-    Returns:
-    -------
-        Optional[JobModel]: Job data if it exists in the database.
-
-    """
-    stmt = select(JobModel).where(JobModel.arq_job_id == arq_job_id)
-
-    result = await db.execute(stmt)
-    job_model = result.scalar_one_or_none()
-
-    if not job_model:
-        logger.info(
-            "Failed to fetch job with arq_job_id: %s. Not found in database!",
-            arq_job_id,
-        )
-        return None
-
-    return job_model
-
-
-async def _arq_update_job(
-    db: AsyncSession,
-    job_update: JobSchema | JobCreateSchema,
-) -> JobModel | None:
-    """Update existing job.
-
-    **NOTE:** This is only supposed to be used by the ARQ hooks for automatic
-    job tracking and updates.
-
-    **NOTE 2:** It is the responsibility of the caller to commit the transaction
-    or rollback in the event of a failure.
+    job tracking and updates. It is the responsibility of the caller to commit
+    the transaction or rollback in the event of a failure.
 
     Args:
     ----
         db (AsyncSession): The database session.
-        job_update (JobSchema | JobCreateSchema): The updated job.
+        job_data (JobSchema | JobCreateSchema): The job data to insert or update.
+        user_id (int): ID of the user who owns the job.
 
     Returns:
     -------
-        Optional[JobModel]: The updated job model, or None if the job was not found.
+        JobModel: The inserted or updated job model.
 
     """
-    job_model = await _arq_get_job_by_arq_id(db, job_update.arq_job_id)
-    if not job_model:
-        msg = f"Failed to update job with ARQ ID: {job_update.arq_job_id}!"
-        logger.error(msg)
-        raise ValueError(msg)
+    insert_data = job_data.model_dump()
+    update_data = job_data.model_dump(exclude_unset=True)
 
-    # Exclude unset fields
-    update_data = job_update.model_dump(exclude_unset=True)
+    # Build initial insert
+    insert_stmt = insert(JobModel).values(**insert_data, owner_id=user_id)
 
-    logger.debug("Updating job model %s with new data.", job_model.id)
-
-    for field, value in update_data.items():
-        setattr(job_model, field, value)
+    # Build the full "upsert" statement
+    upsert_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=["arq_job_id"],
+        set_=update_data,
+    ).returning(JobModel)
 
     try:
-        await db.flush()
-        await db.refresh(job_model)
-        logger.debug("Successfully flushed updated job: %s.", job_model.id)
-    except SQLAlchemyError as e:
+        logger.debug("Upserting job with arq_job_id: %s", job_data.arq_job_id)
+        result = await db.execute(upsert_stmt)
+        job_model = result.scalar_one()
+        logger.debug("Successfully upserted and flushed job: %s.", job_model.id)
+        return job_model
+    except SQLAlchemyError:
         logger.exception(
-            "Database error while flushing updated job: %s. Exception: %s.",
-            job_model.id,
-            e,
+            "Database error while upserting job with arq_job_id: %s",
+            job_data.arq_job_id,
         )
         raise
-    except Exception as e:
+    except Exception:
         logger.exception(
-            "Unexpected error while flushing updated job: %s. Exception: %s.",
-            job_model.id,
-            e,
+            "Unexpected error while upserting job with arq_job_id: %s.",
+            job_data.arq_job_id,
         )
         raise
-
-    return job_model

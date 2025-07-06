@@ -6,7 +6,7 @@ from ...core.config import settings
 
 # Import logger to ensure workers log messages properly
 from ..logger import LOG_DIR  # noqa: F401
-from .hooks import after_job_end, on_job_start, shutdown, startup
+from .hooks import shutdown, startup
 from .ranges import deploy_range, destroy_range
 
 
@@ -23,9 +23,8 @@ class WorkerSettings:
     # Hook functions
     on_startup = startup
     on_shutdown = shutdown
-    on_job_start = on_job_start
-    after_job_end = after_job_end
 
     handle_signals = False
 
+    job_results_ttl = 86400  # 24 hours
     job_timeout = 1200  # 20 minutes (for large ranges)
