@@ -61,7 +61,7 @@ COPY tests /code/tests
 COPY ./dev-requirements.txt /code/dev-requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
 
-HEALTHCHECK --interval=5s --timeout=5s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=5s --timeout=5s --start-period=90s --retries=3 \
  CMD ["python", "-m", "src.scripts.health_check"]
 
 
