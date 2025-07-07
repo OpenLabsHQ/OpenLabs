@@ -11,14 +11,6 @@ PROVIDER_RANGE_PARAMS = [
 ]
 
 RANGE_TYPE_PARAMS = [
-    pytest.param(
-        RangeType.ONE_ALL,
-        marks=[
-            pytest.mark.deploy,
-            pytest.mark.skip(
-                reason="Skipping ONE_ALL test range until ARQ jobs implemented."
-            ),
-        ],
-    ),
+    pytest.param(RangeType.ONE_ALL, marks=[pytest.mark.deploy]),
     pytest.param(RangeType.MULTI, marks=[pytest.mark.deploy]),
 ]
