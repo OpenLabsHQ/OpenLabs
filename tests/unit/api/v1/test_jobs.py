@@ -47,4 +47,6 @@ async def test_jobs_get_job(
 
     # Make sure it is requesting the correct job
     mock_get_job.assert_awaited_once()
-    assert job.id in mock_get_job.call_args.args
+    assert (
+        str(job.id) in mock_get_job.call_args.args
+    )  # Ints are converted by FastAPI to strings because we accept int | str
