@@ -1,11 +1,8 @@
-import asyncio
-import copy
 import logging
 import os
 import shutil
 import socket
 import sys
-from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable, Generator, Iterator
 from unittest.mock import MagicMock
@@ -32,6 +29,7 @@ from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
+from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.range_schemas import (
@@ -44,18 +42,25 @@ from src.app.schemas.secret_schema import SecretSchema
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
 from tests.api_test_utils import (
+    add_blueprint_range,
+    add_cloud_credentials,
     authenticate_client,
+    deploy_range,
+    destroy_range,
+    get_range,
+    login_user,
+    register_user,
     wait_for_fastapi_service,
+    wait_for_jobs,
 )
 from tests.deploy_test_utils import (
     RangeType,
-    deploy_managed_range,
-    destroy_managed_range,
     get_provider_test_creds,
     isolated_integration_client,
 )
 from tests.test_utils import rotate_docker_compose_test_log_files
 from tests.unit.api.v1.config import (
+    valid_blueprint_range_create_payload,
     valid_blueprint_range_multi_create_payload,
     valid_deployed_range_data,
 )
@@ -455,116 +460,138 @@ async def provider_deployed_ranges_for_provider(
 ) -> AsyncGenerator[dict[RangeType, tuple[DeployedRangeSchema, str, str]], None]:
     """Deploys and destroys all ranges for a provider in parallel."""
     provider: OpenLabsProvider = request.param
+    provider_upper = provider.value.upper()
     logger.info(
         "Starting parallel deployment of ranges for provider: %s...",
-        provider.value.upper(),
+        provider_upper,
     )
 
-    destroy_details = []
-    async with AsyncExitStack() as client_stack:
+    blueprint_map = {
+        RangeType.ONE_ALL: valid_blueprint_range_create_payload,
+        RangeType.MULTI: valid_blueprint_range_multi_create_payload,
+    }
+    deploy_job_ids: list[str] = []
+    job_to_range_type: dict[str, RangeType] = {}
+    destroy_data: dict[RangeType, int] = {}
+    yield_data: dict[RangeType, tuple[DeployedRangeSchema, str, str]] = {}
+
+    async with isolated_integration_client(docker_compose_api_url) as client:
         try:
-            blueprint_map = {
-                # Skipped until ARQ jobs implemented to avoid race conditions
-                # RangeType.ONE_ALL: valid_blueprint_range_create_payload,
-                RangeType.MULTI: valid_blueprint_range_multi_create_payload,
-            }
+            # Create new user for this provider's deployments
+            _, email, password, _ = await register_user(client)
+            await login_user(client, email=email, password=password)
 
-            async def create_and_setup(
-                key: RangeType, blueprint_dict: dict[str, Any]
-            ) -> dict[str, Any]:
-                """Create a client and run the setup task."""
-                client = await client_stack.enter_async_context(
-                    isolated_integration_client(docker_compose_api_url)
-                )
-                creds = get_provider_test_creds(provider)
-                if not creds:
-                    pytest.skip(f"Credentials for {provider.value.upper()} not set.")
+            # Configure provider cloud credentials
+            creds = get_provider_test_creds(provider)
+            if not creds:
+                pytest.skip(f"Credentials for {provider_upper} not set.")
 
-                setup_info = await deploy_managed_range(
-                    client=client,
-                    provider=provider,
-                    cloud_credentials_payload=creds,
-                    blueprint_range=BlueprintRangeCreateSchema.model_validate(
-                        copy.deepcopy(blueprint_dict)
-                    ),
-                )
-                # Add the live client to the info needed for teardown
-                setup_info["client"] = client
-                return setup_info
+            added_creds = await add_cloud_credentials(client, provider, creds)
+            if not added_creds:
+                pytest.fail(f"Failed configure cloud credentials for {provider_upper}")
 
             # Deploy ranges
-            deploy_tasks = {
-                key: create_and_setup(key, blueprint_dict)
-                for key, blueprint_dict in blueprint_map.items()
-            }
-            results = await asyncio.gather(
-                *deploy_tasks.values(), return_exceptions=True
+            for range_type, blueprint_dict in blueprint_map.items():
+                # Create and configure blueprint
+                blueprint_range = BlueprintRangeCreateSchema.model_validate(
+                    blueprint_dict
+                )
+                blueprint_range.provider = provider
+
+                blueprint_payload = blueprint_range.model_dump(mode="json")
+                blueprint_header = await add_blueprint_range(client, blueprint_payload)
+                if not blueprint_header:
+                    pytest.fail(
+                        f"Failed to create range blueprint: {blueprint_range.name}"
+                    )
+
+                # Deploy range
+                job_details = await deploy_range(client, blueprint_header.id)
+                if not job_details:
+                    logger.error(
+                        "Failed to deploy range blueprint: %s", blueprint_header.name
+                    )
+                    continue
+
+                deploy_job_ids.append(job_details.arq_job_id)
+                job_to_range_type[job_details.arq_job_id] = range_type
+
+            # Poll for deployment completion
+            deploy_job_results = await wait_for_jobs(
+                client, deploy_job_ids, timeout=600
             )
 
-            # Check for deploy errors
-            deployed_data_for_yield: dict[
-                RangeType, tuple[DeployedRangeSchema, str, str]
-            ] = {}
-            has_errors = False
-            for key, result in zip(deploy_tasks.keys(), results, strict=True):
-                if isinstance(result, BaseException):
-                    logger.critical(
-                        "Deploy failed for '%s': %s",
-                        key.value.upper(),
-                        result,
-                        exc_info=result,
-                    )
-                    has_errors = True
-                else:
-                    logger.info(
-                        "Successfully deployed '%s' range for '%s'.",
-                        key.value.upper(),
-                        provider.value.upper(),
-                    )
-                    # Prepare the data for the test (the tuple)
-                    deployed_data_for_yield[key] = (
-                        result["deployed_range"],
-                        result["email"],
-                        result["password"],
-                    )
-                    # Store the full dictionary for destroying
-                    destroy_details.append(result)
+            # Fetch deployed range details
+            for job_id in deploy_job_ids:
+                current_range_type = job_to_range_type[job_id]
+                job = deploy_job_results[job_id]
 
-            if has_errors:
+                # Skip failed deployments for now
+                if not job or job.status == OpenLabsJobStatus.FAILED:
+                    logger.error(
+                        "Failed to deploy %s %s test range!",
+                        current_range_type.value.upper(),
+                        provider_upper,
+                    )
+                    continue
+
+                # Skip lost ranges for now
+                deployed_range = await get_range(client, job.result["id"])  # type: ignore
+                if not deployed_range:
+                    logger.error(
+                        "Failed to find deployed %s %s test range!",
+                        current_range_type.value.upper(),
+                        provider_upper,
+                    )
+                    continue
+
+                # RangeType --> Range, Email, Password
+                yield_data[current_range_type] = (
+                    deployed_range,
+                    email,
+                    password,
+                )
+                destroy_data[current_range_type] = deployed_range.id
+
+            # Here it's safe to fail
+            if len(yield_data) != len(blueprint_map):
                 pytest.fail(
-                    f"One or more ranges failed to deploy for provider {provider.value.upper()}."
+                    f"Failed to deploy all test ranges on {provider_upper}! See previous logs for details."
                 )
 
-            yield deployed_data_for_yield
+            yield yield_data
 
         finally:
-            if destroy_details:
-                logger.info(
-                    "Starting parallel destroy of all test ranges for provider: %s...",
-                    provider.value.upper(),
-                )
-                destroy_tasks = [
-                    destroy_managed_range(
-                        client=info["client"],
-                        email=info["email"],
-                        password=info["password"],
-                        range_id=info["range_id"],
-                        provider=provider,
-                    )
-                    for info in destroy_details
-                ]
-                destroy_results = await asyncio.gather(
-                    *destroy_tasks, return_exceptions=True
+            destroy_job_ids: list[str] = []
+            if destroy_data:
+                # Send destroy requests
+                for range_type, range_id in destroy_data.items():
+                    job_details = await destroy_range(client, range_id)
+                    if not job_details:
+                        logger.critical(
+                            "Failed to destroy %s %s test range. Possible dangling resources!",
+                            range_type.value.upper(),
+                            provider_upper,
+                        )
+                        continue
+
+                    destroy_job_ids.append(job_details.arq_job_id)
+
+                # Wait for results
+                destroy_job_results = await wait_for_jobs(
+                    client, destroy_job_ids, timeout=900
                 )
 
-                for result in destroy_results:  # type: ignore
-                    if isinstance(result, BaseException):
-                        # Log any errors during teardown but don't fail the test run
-                        logger.error(
-                            "Error during parallel destroy: %s",
-                            result,
-                            exc_info=result,
+                # Check results
+                for job_id in destroy_job_ids:
+                    job = destroy_job_results[job_id]
+                    if not job or job.status == OpenLabsJobStatus.FAILED:
+                        logger.critical(
+                            "Failed to destroy %s %s test range. Possible dangling resources!",
+                            range_type.value.upper(),
+                            provider_upper,
                         )
+                        continue
 
 
 @pytest.fixture
