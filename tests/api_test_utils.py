@@ -1,18 +1,21 @@
 import asyncio
 import copy
 import logging
+import random
+import time
 import uuid
-from typing import Any
+from typing import Any, Sequence
 
 from fastapi import status
 from httpx import AsyncClient
 
+from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
+from src.app.schemas.job_schemas import JobSchema, JobSubmissionResponseSchema
 from src.app.schemas.range_schemas import (
     BlueprintRangeHeaderSchema,
     BlueprintRangeSchema,
-    DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
     DeployedRangeSchema,
 )
@@ -349,7 +352,7 @@ async def deploy_range(
     base_name: str = "Test Range",
     description: str = "Test range. Auto generated for testing.",
     region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-) -> DeployedRangeHeaderSchema | None:
+) -> JobSubmissionResponseSchema | None:
     """Deploy a range from an existing blueprint range.
 
     Args:
@@ -362,7 +365,7 @@ async def deploy_range(
 
     Returns:
     -------
-        DeployedRangeHeaderSchema: Header info of the deployed range if successfully deployed. None otherwise.
+        JobSubmissionResponseSchema: Job information related to deploy request.
 
     """
     base_route = get_api_base_route(version=1)
@@ -393,19 +396,20 @@ async def deploy_range(
     response = await auth_client.post(
         f"{base_route}/ranges/deploy",
         json=deploy_payload,
-        timeout=None,
     )
-    if response.status_code != status.HTTP_200_OK:
+    if response.status_code != status.HTTP_202_ACCEPTED:
         logger.error(
-            "Failed to deploy range due to error while deploying. Ensure that all resources were successfully cleaned up! Error: %s",
+            "Failed to deploy range. Ensure that all resources were successfully cleaned up! Error: %s",
             response.json()["detail"],
         )
         return None
 
-    return DeployedRangeHeaderSchema.model_validate(response.json())
+    return JobSubmissionResponseSchema.model_validate(response.json())
 
 
-async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
+async def destroy_range(
+    auth_client: AsyncClient, range_id: int
+) -> JobSubmissionResponseSchema | None:
     """Deploy a range from an existing blueprint range.
 
     Args:
@@ -415,7 +419,7 @@ async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
 
     Returns:
     -------
-        bool: True if range successfully destroyed. False otherwise.
+        JobSubmissionResponseSchema: Job information related to destroy request.
 
     """
     base_route = get_api_base_route(version=1)
@@ -424,22 +428,21 @@ async def destroy_range(auth_client: AsyncClient, range_id: int) -> bool:
     logged_in = await is_logged_in(auth_client)
     if not logged_in:
         logger.error("Failed to destroy range. Provided client is not authenticated!")
-        return False
+        return None
 
     # Destroy range
     response = await auth_client.delete(
         f"{base_route}/ranges/{range_id}",
-        timeout=None,
     )
-    if response.status_code != status.HTTP_200_OK:
+    if response.status_code != status.HTTP_202_ACCEPTED:
         logger.error(
             "Failed to destroy range ID: %s. Error: %s",
             range_id,
             response.json()["detail"],
         )
-        return False
+        return None
 
-    return True
+    return JobSubmissionResponseSchema.model_validate(response.json())
 
 
 async def get_range(
@@ -512,3 +515,145 @@ async def get_range_key(auth_client: AsyncClient, range_id: int) -> str | None:
 
     # Format key
     return unformatted_key.replace("\\n", "\n")
+
+
+async def get_job(auth_client: AsyncClient, identifier: int | str) -> JobSchema | None:
+    """Get the details of a job.
+
+    Args:
+        auth_client: Authenticated httpx client.
+        identifier: The job's integer `id` or string `arq_job_id`.
+
+    Returns:
+        JobSchema: The job details if available. Otherwise, None.
+
+    """
+    # Verify we are logged in
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error(
+            "Failed to fetch job: %s. Provided client is not authenticated!", identifier
+        )
+        return None
+
+    base_route = get_api_base_route(version=1)
+
+    # Get job info
+    response = await auth_client.get(f"{base_route}/jobs/{identifier}")
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to get job: %s. Error: %s", identifier, response.json()["detail"]
+        )
+        return None
+
+    return JobSchema.model_validate(response.json())
+
+
+async def wait_for_job(  # noqa: PLR0913
+    auth_client: AsyncClient,
+    identifier: int | str,
+    interval: int = 5,
+    timeout: int = 60,
+    jitter: float = 2.0,
+    finished_statuses: list[OpenLabsJobStatus] | None = None,
+) -> JobSchema | None:
+    """Wait for job to finish.
+
+    A finished job can either be in a COMPLETE or FAILED state.
+
+    Args:
+        auth_client: Authenticated httpx client.
+        identifier: The job `id` or `arq_job_id`.
+        interval: Number of seconds to wait between checks.
+        timeout: Number of seconds to wait before giving up.
+        jitter: Max random seconds to add to interval to stagger API calls.
+        finished_statuses: List of OpenLabsJobStatus' to consider a job as completed. Defaults to `COMPLETED` and `FAILED`.
+
+    Returns:
+        JobSchema: Finished job info if found. Otherwise, None.
+
+    """
+    if finished_statuses is None:
+        finished_statuses = [OpenLabsJobStatus.COMPLETE, OpenLabsJobStatus.FAILED]
+
+    # Verify we are logged in
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error(
+            "Failed to fetch job: %s. Provided client is not authenticated!", identifier
+        )
+        return None
+
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < timeout:
+        job = await get_job(auth_client, identifier)
+        if job:
+            if job.status in finished_statuses:
+                logger.info(
+                    "Job %s finished with status: %s",
+                    identifier,
+                    job.status.value.upper(),
+                )
+                return job
+
+            # Not finished
+            logger.debug(
+                "Job %s has status %s. Checking again in %ss.",
+                identifier,
+                job.status.value.upper(),
+                interval,
+            )
+        else:
+            logger.debug(
+                "Job %s not found yet. Retrying in %ss.",
+                identifier,
+                interval,
+            )
+
+        # Add a random delay to the base interval
+        sleep_duration = interval + random.uniform(0, jitter)  # noqa: S311
+        await asyncio.sleep(sleep_duration)
+
+    # Timeout
+    logger.error(
+        "Job: %s did not finish within the %s-second timeout.", identifier, timeout
+    )
+    return None
+
+
+async def wait_for_jobs(  # noqa: PLR0913
+    auth_client: AsyncClient,
+    identifiers: Sequence[int | str],
+    interval: int = 5,
+    timeout: int = 60,
+    jitter: float = 2.0,
+    finished_statuses: list[OpenLabsJobStatus] | None = None,
+) -> dict[int | str, JobSchema | None]:
+    """Wait for a list of jobs to finish in parallel and returns a result dictionary.
+
+    Args:
+        auth_client: Authenticated httpx client.
+        identifiers: A list of job `id`s or `arq_job_id`s to monitor.
+        interval: Base number of seconds to wait between checks for each job.
+        timeout: Number of seconds to wait before giving up on each job.
+        jitter: Max random seconds to add to interval to stagger API calls.
+        finished_statuses: List of statuses to consider a job as completed.
+
+    Returns:
+        A dictionary mapping each identifier to its resulting JobSchema or None.
+
+    """
+    tasks = [
+        wait_for_job(
+            auth_client=auth_client,
+            identifier=identifier,
+            interval=interval,
+            timeout=timeout,
+            jitter=jitter,
+            finished_statuses=finished_statuses,
+        )
+        for identifier in identifiers
+    ]
+
+    results = await asyncio.gather(*tasks)
+    return dict(zip(identifiers, results, strict=True))
