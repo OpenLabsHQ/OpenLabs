@@ -134,63 +134,6 @@ class JobCommonSchema(BaseModel):
 
         return self
 
-    def mark_as_in_progress(self, start_time: datetime, job_try: int) -> Self:
-        """Return a new Job instance marked as in progress."""
-        if self.status != OpenLabsJobStatus.QUEUED:
-            msg = f"Cannot mark a '{self.status.value}' job as in progress. Must be queued first!"
-            raise ValueError(msg)
-
-        # Dump and instantiate a new model to ensure
-        # the new instance is validated
-        update_data = self.model_dump()
-        update_data.update(
-            {
-                "status": OpenLabsJobStatus.IN_PROGRESS,
-                "start_time": start_time,
-                "job_try": job_try,
-            }
-        )
-
-        return self.model_validate(update_data)
-
-    def mark_as_complete(self, finish_time: datetime, result: dict[str, Any]) -> Self:
-        """Return a new Job instance marked as complete."""
-        if self.status != OpenLabsJobStatus.IN_PROGRESS:
-            msg = f"Cannot mark a '{self.status.value}' job as complete. Must be in progress first!"
-            raise ValueError(msg)
-
-        # Dump and instantiate a new model to ensure
-        # the new instance is validated
-        update_data = self.model_dump()
-        update_data.update(
-            {
-                "status": OpenLabsJobStatus.COMPLETE,
-                "finish_time": finish_time,
-                "result": result,
-            }
-        )
-
-        return self.model_validate(update_data)
-
-    def mark_as_failed(self, finish_time: datetime, error_message: str) -> Self:
-        """Return a new Job instance marked as failed."""
-        if self.status != OpenLabsJobStatus.IN_PROGRESS:
-            msg = f"Cannot mark a '{self.status.value}' job as failed. Must be in progress first!"
-            raise ValueError(msg)
-
-        # Dump and instantiate a new model to ensure
-        # the new instance is validated
-        update_data = self.model_dump()
-        update_data.update(
-            {
-                "status": OpenLabsJobStatus.FAILED,
-                "finish_time": finish_time,
-                "error_message": error_message,
-            }
-        )
-
-        return self.model_validate(update_data)
-
 
 class JobCreateSchema(JobCommonSchema):
     """Schema for inserting ARQ jobs into the database.
