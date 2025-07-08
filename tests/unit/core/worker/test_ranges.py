@@ -72,6 +72,11 @@ def mock_worker_deploy_range_success(
     # Patch database connection
     mocker.patch(f"{worker_ranges_path}.get_db_session_context")
 
+    # Patch over job tracker decorator
+    mocker.patch(
+        f"{worker_ranges_path}.track_job_status", side_effect=lambda func: func
+    )
+
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
     mock_user.id = 1
@@ -103,6 +108,11 @@ def mock_worker_destroy_range_success(
     """Patch over all non-range object external dependencies to ensure the delete function returns as if successful."""
     # Patch database connection
     mocker.patch(f"{worker_ranges_path}.get_db_session_context")
+
+    # Patch over job tracker decorator
+    mocker.patch(
+        f"{worker_ranges_path}.track_job_status", side_effect=lambda func: func
+    )
 
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
