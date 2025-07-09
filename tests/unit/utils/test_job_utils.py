@@ -1,6 +1,7 @@
+import asyncio
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Coroutine
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -361,13 +362,22 @@ async def test_track_job_status_success(
     arq_job_util_path: str, mocker: MockerFixture, mock_ctx_dict: dict[str, Any]
 ) -> None:
     """Test successful excution of track_job_status decorator."""
+    tasks_to_run: list[Coroutine[Any, Any, Any]] = []
+
+    def capture_task_side_effect(coro: Coroutine[Any, Any, Any]) -> AsyncMock:
+        """Mock capturing the job and return a mock object with the correct spec."""
+        tasks_to_run.append(coro)
+        return mocker.MagicMock(spec=asyncio.Task)  # type: ignore
+
     # Mock all dependencies
     mock_update_job = mocker.patch(
         f"{arq_job_util_path}.update_job_in_db", new_callable=AsyncMock
     )
-    mock_create_task = mocker.patch(f"{arq_job_util_path}.asyncio.create_task")
     mock_sleep = mocker.patch(
         f"{arq_job_util_path}.asyncio.sleep", new_callable=AsyncMock
+    )
+    mock_create_task = mocker.patch(
+        f"{arq_job_util_path}.asyncio.create_task", side_effect=capture_task_side_effect
     )
 
     expected_result = "Function Result"
@@ -382,15 +392,14 @@ async def test_track_job_status_success(
     result = await dummy_func(mock_ctx_dict, user_id=user_id)
     assert result == expected_result
 
-    # Two updates for jobs in database
-    # 1) Job start --> In progress
-    # ~~ Job runs ~~
-    # 2) Job end --> Complete/Failed
-    assert mock_create_task.call_count == 2  # noqa: PLR2004
+    # Prevent not awaited mock error
+    for task_coro in tasks_to_run:
+        await task_coro
 
-    # Check that update_job_in_db was the target of the tasks
-    # The ANY is for the captured 'ctx' dict
-    mock_update_job.assert_has_calls(
+    # Assert that create_task was called twice
+    required_create_task_calls = 2
+    assert mock_create_task.call_count == required_create_task_calls
+    mock_update_job.assert_has_awaits(
         [
             mocker.call(ANY, user_id),
             mocker.call(ANY, user_id),
