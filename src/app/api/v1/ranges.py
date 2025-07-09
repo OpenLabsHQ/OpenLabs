@@ -4,12 +4,10 @@ import logging
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from src.app.utils.job_utils import enqueue_arq_job
-
 from ...core.auth.auth import get_current_user
 from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import async_get_db
-from ...crud.crud_jobs import add_new_job
+from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
     get_blueprint_range,
     get_deployed_range,
@@ -17,6 +15,7 @@ from ...crud.crud_ranges import (
     get_deployed_range_key,
 )
 from ...crud.crud_users import get_decrypted_secrets
+from ...enums.job_status import JobSubmissionDetail
 from ...models.user_model import UserModel
 from ...schemas.job_schemas import (
     JobCreateSchema,
@@ -28,6 +27,7 @@ from ...schemas.range_schemas import (
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ...utils.job_utils import enqueue_arq_job
 
 logger = logging.getLogger(__name__)
 
@@ -296,8 +296,8 @@ async def deploy_range_from_blueprint_endpoint(
         job_to_add = JobCreateSchema.create_queued(
             arq_job_id=arq_job_id, job_name=job_name
         )
-        await add_new_job(db, job_to_add, current_user.id)
-        detail_message = "Job accepted and initial status recorded."
+        await add_job(db, job_to_add, current_user.id)
+        detail_message = JobSubmissionDetail.DB_SAVE_SUCCESS
     except Exception:
         logger.warning(
             "Failed to save %s job with ARQ ID: %s to database on behalf of user: %s (%s)!",
@@ -306,9 +306,11 @@ async def deploy_range_from_blueprint_endpoint(
             current_user_email,
             current_user_id,
         )
-        detail_message = "Job accepted, status will be available shortly."
+        detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)
+    return JobSubmissionResponseSchema(
+        arq_job_id=arq_job_id, detail=detail_message.value
+    )
 
 
 @router.delete("/{range_id}", status_code=status.HTTP_202_ACCEPTED)
@@ -433,8 +435,8 @@ async def delete_range_endpoint(
         job_to_add = JobCreateSchema.create_queued(
             arq_job_id=arq_job_id, job_name=job_name
         )
-        await add_new_job(db, job_to_add, current_user.id)
-        detail_message = "Job accepted and initial status recorded."
+        await add_job(db, job_to_add, current_user.id)
+        detail_message = JobSubmissionDetail.DB_SAVE_SUCCESS
     except Exception:
         logger.warning(
             "Failed to save %s job with ARQ ID: %s to database on behalf of user: %s (%s)!",
@@ -443,6 +445,8 @@ async def delete_range_endpoint(
             current_user_email,
             current_user_id,
         )
-        detail_message = "Job accepted, status will be available shortly."
+        detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)
+    return JobSubmissionResponseSchema(
+        arq_job_id=arq_job_id, detail=detail_message.value
+    )

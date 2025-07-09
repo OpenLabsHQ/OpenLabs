@@ -3,7 +3,7 @@ import shutil
 from typing import Callable
 
 import pytest
-from cdktf import Testing
+from cdktf import Testing as CdktfTesting
 from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.subnet import Subnet
 from cdktf_cdktf_provider_aws.vpc import Vpc
@@ -52,10 +52,10 @@ def aws_range(
 
 def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
     """Ensure every VPC is valid."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
 
     for vpc in one_all_blueprint.vpcs:
-        assert Testing.to_have_resource_with_properties(
+        assert CdktfTesting.to_have_resource_with_properties(
             aws_one_all_synthesis,
             Vpc.TF_RESOURCE_TYPE,
             {"tags": {"Name": f"{vpc.name}"}, "cidr_block": str(vpc.cidr)},
@@ -64,9 +64,9 @@ def test_aws_range_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
 
 def test_aws_range_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one public subnet."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
-    assert Testing.to_have_resource_with_properties(
+    assert CdktfTesting.to_have_resource_with_properties(
         aws_one_all_synthesis,
         Subnet.TF_RESOURCE_TYPE,
         {
@@ -80,9 +80,11 @@ def test_aws_range_has_a_jumpbox_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each VPC has a jumpbox EC2 instance."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(
+        aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE
+    )
 
-    assert Testing.to_have_resource_with_properties(
+    assert CdktfTesting.to_have_resource_with_properties(
         aws_one_all_synthesis,
         Instance.TF_RESOURCE_TYPE,
         {"tags": {"Name": "JumpBox"}},
@@ -91,11 +93,11 @@ def test_aws_range_has_a_jumpbox_ec2_instance(
 
 def test_aws_range_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one subnet."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
     for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
-            assert Testing.to_have_resource_with_properties(
+            assert CdktfTesting.to_have_resource_with_properties(
                 aws_one_all_synthesis,
                 Subnet.TF_RESOURCE_TYPE,
                 {
@@ -109,12 +111,14 @@ def test_aws_range_each_subnet_has_at_least_one_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each subnet has at least one EC2 instance."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(
+        aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE
+    )
 
     for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
             for host in subnet.hosts:
-                assert Testing.to_have_resource_with_properties(
+                assert CdktfTesting.to_have_resource_with_properties(
                     aws_one_all_synthesis,
                     Instance.TF_RESOURCE_TYPE,
                     {
@@ -127,7 +131,7 @@ def test_aws_range_each_subnet_has_at_least_one_ec2_instance(
 
 def test_aws_range_no_secrets(aws_range: AWSRange) -> None:
     """Test that the aws range has_secrets() returns False when one or more secrets are missing."""
-    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (CdktfTesting)
     aws_range.secrets.aws_access_key = ""
     assert aws_range.has_secrets() is False
 
@@ -142,14 +146,14 @@ def test_aws_range_no_secrets(aws_range: AWSRange) -> None:
 
 def test_aws_range_has_secrets(aws_range: AWSRange) -> None:
     """Test that the aws range has_secrets() returns True when all secrets are present."""
-    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    aws_range.secrets.aws_secret_key = "fakeawssecretkey"  # noqa: S105 (CdktfTesting)
     aws_range.secrets.aws_access_key = "fakeawssecretkey"
     assert aws_range.has_secrets() is True
 
 
 def test_aws_range_get_cred_env_vars(aws_range: AWSRange) -> None:
     """Test that the aws range returns the correct terraform environment credential variables."""
-    fake_secret_key = "fakeawssecretkey"  # noqa: S105 (Testing)
+    fake_secret_key = "fakeawssecretkey"  # noqa: S105 (CdktfTesting)
     fake_access_key = "fakeawsaccesskey"
 
     aws_range.secrets.aws_secret_key = fake_secret_key
@@ -272,7 +276,7 @@ async def test_aws_range_cleanup_synth_exception(
 
     # Define a fake rmtree function that always raises an exception.
     def fake_rmtree(path: str, ignore_errors: bool = False) -> None:
-        msg = "Forced exception for testing"
+        msg = "Forced exception for CdktfTesting"
         raise OSError(msg)
 
     # Override shutil.rmtree with our fake function.

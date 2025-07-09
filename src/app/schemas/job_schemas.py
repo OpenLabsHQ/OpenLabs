@@ -3,7 +3,7 @@ from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ..enums.job_status import OpenLabsJobStatus
+from ..enums.job_status import JobSubmissionDetail, OpenLabsJobStatus
 
 
 class JobCommonSchema(BaseModel):
@@ -179,4 +179,7 @@ class JobSubmissionResponseSchema(BaseModel):
     arq_job_id: str = Field(
         ..., description="ID of the job in ARQ and Redis.", min_length=1
     )
-    detail: str = Field(..., description="Details about job submission.", min_length=1)
+    detail: JobSubmissionDetail = Field(
+        ...,
+        description="Details about job submission.",
+    )

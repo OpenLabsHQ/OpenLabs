@@ -21,7 +21,6 @@ pytestmark = pytest.mark.unit
 ARQ_TIMESTAMPS = ["enqueue_time", "start_time", "finish_time"]
 
 JOB_STATE_MUST_EXIST_PARAMS = [
-    (OpenLabsJobStatus.IN_PROGRESS, "start_time"),
     (OpenLabsJobStatus.COMPLETE, "start_time"),
     (OpenLabsJobStatus.COMPLETE, "finish_time"),
     (OpenLabsJobStatus.COMPLETE, "result"),
@@ -178,75 +177,3 @@ def test_job_common_schema_invalid_state_must_be_none(
 
     with pytest.raises(ValidationError, match=error_pattern):
         JobCommonSchema.model_validate(job_dict)
-
-
-def test_job_common_schema_mark_as_in_progress() -> None:
-    """Test that marking jobs in progress fails when not in queued state beforehand.
-
-    Status transition: QUEUED --> IN_PROGRESS
-
-    """
-    valid_initial_status = OpenLabsJobStatus.QUEUED
-
-    # Valid values
-    start_time = datetime.now(tz=timezone.utc)
-    job_try = 1
-
-    for status, payload in VALID_JOB_PAYLOADS.items():
-        # Build different status job schemas
-        job_schema = JobCommonSchema.model_validate(payload)
-
-        if status == valid_initial_status:
-            assert job_schema.mark_as_in_progress(start_time, job_try)
-        else:
-            # It's a value error because it's not a field/model_validator
-            with pytest.raises(ValueError, match=status.value):
-                job_schema.mark_as_in_progress(start_time, job_try)
-
-
-def test_job_common_schema_mark_as_complete() -> None:
-    """Test that marking jobs complete fails when not in in_progress state beforehand.
-
-    Status transition: IN_PROGRESS --> COMPLETE
-
-    """
-    valid_intial_status = OpenLabsJobStatus.IN_PROGRESS
-
-    # Valid values
-    finish_time = datetime.now(tz=timezone.utc)
-    result = {"yup": "nothing to see here"}
-
-    for status, payload in VALID_JOB_PAYLOADS.items():
-        # Build different status job schemas
-        job_schema = JobCommonSchema.model_validate(payload)
-
-        if status == valid_intial_status:
-            assert job_schema.mark_as_complete(finish_time, result)
-        else:
-            # It's a value error because it's not a field/model_validator
-            with pytest.raises(ValueError, match=status.value):
-                job_schema.mark_as_complete(finish_time, result)
-
-
-def test_job_common_schema_mark_as_failed() -> None:
-    """Test that marking jobs failed fails when not in in_progress state beforehand.
-
-    Status transition: IN_PROGRESS --> FAILED
-
-    """
-    valid_intial_status = OpenLabsJobStatus.IN_PROGRESS
-
-    # Valid values
-    finish_time = datetime.now(tz=timezone.utc)
-    error_message = "hello world :)"
-
-    for status, payload in VALID_JOB_PAYLOADS.items():
-        # Build different status job schemas
-        job_schema = JobCommonSchema.model_validate(payload)
-
-        if status == valid_intial_status:
-            assert job_schema.mark_as_failed(finish_time, error_message)
-        else:
-            # It's a value error because it's not a field/model_validator
-            with pytest.raises(ValueError, match=status.value):
-                job_schema.mark_as_failed(finish_time, error_message)

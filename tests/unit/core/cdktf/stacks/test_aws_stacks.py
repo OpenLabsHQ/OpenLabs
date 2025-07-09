@@ -1,7 +1,7 @@
 from typing import Callable
 
 import pytest
-from cdktf import Testing
+from cdktf import Testing as CdktfTesting
 from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.subnet import Subnet
 from cdktf_cdktf_provider_aws.vpc import Vpc
@@ -35,10 +35,10 @@ def aws_one_all_synthesis(
 
 def test_aws_stack_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
     """Ensure every VPC is valid."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
 
     for vpc in one_all_blueprint.vpcs:
-        assert Testing.to_have_resource_with_properties(
+        assert CdktfTesting.to_have_resource_with_properties(
             aws_one_all_synthesis,
             Vpc.TF_RESOURCE_TYPE,
             {"tags": {"Name": f"{vpc.name}"}, "cidr_block": str(vpc.cidr)},
@@ -47,9 +47,9 @@ def test_aws_stack_every_vpc_is_valid(aws_one_all_synthesis: str) -> None:
 
 def test_aws_stack_has_a_public_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each the range stack has one public subnet."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
-    assert Testing.to_have_resource_with_properties(
+    assert CdktfTesting.to_have_resource_with_properties(
         aws_one_all_synthesis,
         Subnet.TF_RESOURCE_TYPE,
         {
@@ -63,9 +63,11 @@ def test_aws_stack_has_a_jumpbox_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each the range stack has a jumpbox EC2 instance."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(
+        aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE
+    )
 
-    assert Testing.to_have_resource_with_properties(
+    assert CdktfTesting.to_have_resource_with_properties(
         aws_one_all_synthesis,
         Instance.TF_RESOURCE_TYPE,
         {"tags": {"Name": "JumpBox"}},
@@ -74,11 +76,11 @@ def test_aws_stack_has_a_jumpbox_ec2_instance(
 
 def test_aws_stack_each_vpc_has_at_least_one_subnet(aws_one_all_synthesis: str) -> None:
     """Ensure each VPC has at least one subnet."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
 
     for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
-            assert Testing.to_have_resource_with_properties(
+            assert CdktfTesting.to_have_resource_with_properties(
                 aws_one_all_synthesis,
                 Subnet.TF_RESOURCE_TYPE,
                 {
@@ -92,12 +94,14 @@ def test_aws_stack_each_subnet_has_at_least_one_ec2_instance(
     aws_one_all_synthesis: str,
 ) -> None:
     """Ensure each subnet has at least one EC2 instance."""
-    assert Testing.to_have_resource(aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE)
+    assert CdktfTesting.to_have_resource(
+        aws_one_all_synthesis, Instance.TF_RESOURCE_TYPE
+    )
 
     for vpc in one_all_blueprint.vpcs:
         for subnet in vpc.subnets:
             for host in subnet.hosts:
-                assert Testing.to_have_resource_with_properties(
+                assert CdktfTesting.to_have_resource_with_properties(
                     aws_one_all_synthesis,
                     Instance.TF_RESOURCE_TYPE,
                     {

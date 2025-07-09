@@ -167,15 +167,15 @@ def track_job_status(
     async def wrapper(
         ctx: dict[str, Any], *args: Any, **kwargs: Any  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
-        background_tasks: set[asyncio.Task] = set()
+        background_tasks: set[asyncio.Task[None]] = set()
 
         user_id = kwargs.get("user_id")
         if not user_id:
-            msg = "Failed to update job status. User ID not found!"
+            msg = "Failed to update job status. Keyword arg 'user_id' not found!"
             logger.error(msg)
             raise ValueError(msg)
 
-        def update_task_callback(task: asyncio.Task) -> None:
+        def update_task_callback(task: asyncio.Task[None]) -> None:
             """Log and discard database update task."""
             try:
                 task.result()  # Reraise exception if present
@@ -212,7 +212,17 @@ def track_job_status(
 async def enqueue_arq_job(
     job_name: str, *job_args: Any, user_id: int  # noqa: ANN401
 ) -> str | None:
-    """Queue a job in ARQ."""
+    """Queue a job in ARQ.
+
+    Args:
+        job_name: Name of function to be executed by ARQ.
+        *job_args: Positional arguments to be passed to ARQ function.
+        user_id: ID of user who triggered/associated with job.
+
+    Returns:
+        str: ARQ job ID if enqueue was successful. Otherwise, None.
+
+    """
     if not isinstance(queue.pool, Redis):
         logger.critical(
             "Failed to queue %s job on behalf of user: %s. Failed to connect to the Redis task queue!",

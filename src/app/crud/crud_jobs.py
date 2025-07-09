@@ -71,6 +71,7 @@ async def get_job(
         Optional[JobSchema]: Job data if it exists in the database.
 
     """
+    # If it succeeds we know we have an int primary key
     with contextlib.suppress(Exception):
         identifier = int(identifier)
 
@@ -95,9 +96,7 @@ async def get_job(
     return None
 
 
-async def add_new_job(
-    db: AsyncSession, job_to_add: JobCreateSchema, user_id: int
-) -> None:
+async def add_job(db: AsyncSession, job_to_add: JobCreateSchema, user_id: int) -> None:
     """Add a new job to the database.
 
     **Note:** This function only adds jobs to the database session. It is the responsibility

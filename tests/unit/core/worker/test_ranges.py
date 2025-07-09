@@ -1,14 +1,14 @@
 import base64
 import copy
 import logging
-from typing import Callable
+from collections.abc import Awaitable
+from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from arq.worker import Worker
 from pytest_mock import MockerFixture
 
-from src.app.core.worker.ranges import deploy_range, destroy_range
+import src.app.core.worker.ranges as worker_range_funcs
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeSchema,
@@ -26,19 +26,19 @@ from tests.test_utils import add_key_recursively, generate_random_int
 pytestmark = pytest.mark.unit
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def worker_ranges_path() -> str:
     """Return current path value of the ranges functions used by the ARQ worker."""
     return "src.app.core.worker.ranges"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def mock_arq_ctx() -> MagicMock:
     """Create a mock ARQ worker context."""
-    return MagicMock(spec=Worker)
+    return MagicMock()
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def blueprint_range() -> BlueprintRangeSchema:
     """Get a blueprint range schema for testing."""
     blueprint_schema_json = copy.deepcopy(valid_blueprint_range_create_payload)
@@ -48,19 +48,31 @@ def blueprint_range() -> BlueprintRangeSchema:
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def deployed_range() -> DeployedRangeSchema:
     """Get a deployed range schema for testing."""
     return DeployedRangeSchema.model_validate(valid_deployed_range_data)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def mock_enc_key() -> str:
     """Get a base64 string to use for testing functions that need enc_keys."""
     fake_key = "fakekeyvalueherehithere"
     bytes_string = fake_key.encode("utf-8")
     encoded_bytes = base64.b64encode(bytes_string)
     return encoded_bytes.decode("utf-8")
+
+
+@pytest.fixture(scope="session")
+def deploy_range() -> Callable[..., Awaitable[dict[str, Any]]]:
+    """Return unwrapped deploy_range function."""
+    return worker_range_funcs.deploy_range.__wrapped__  # type: ignore
+
+
+@pytest.fixture(scope="session")
+def destroy_range() -> Callable[..., Awaitable[dict[str, Any]]]:
+    """Return unwrapped destroy range function."""
+    return worker_range_funcs.destroy_range.__wrapped__  # type: ignore
 
 
 @pytest.fixture
@@ -71,11 +83,6 @@ def mock_worker_deploy_range_success(
     """Patch over all non-range object external dependencies to ensure the deploy function returns as if successful."""
     # Patch database connection
     mocker.patch(f"{worker_ranges_path}.get_db_session_context")
-
-    # Patch over job tracker decorator
-    mocker.patch(
-        f"{worker_ranges_path}.track_job_status", side_effect=lambda func: func
-    )
 
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
@@ -109,11 +116,6 @@ def mock_worker_destroy_range_success(
     # Patch database connection
     mocker.patch(f"{worker_ranges_path}.get_db_session_context")
 
-    # Patch over job tracker decorator
-    mocker.patch(
-        f"{worker_ranges_path}.track_job_status", side_effect=lambda func: func
-    )
-
     # Mock user calls
     mock_user = AsyncMock(spec=UserModel)
     mock_user.id = 1
@@ -137,8 +139,9 @@ def mock_worker_destroy_range_success(
     )
 
 
-async def test_worker_deploy_range_success(
+async def test_worker_deploy_range_success(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -156,8 +159,9 @@ async def test_worker_deploy_range_success(
     )
 
 
-async def test_worker_destroy_range_success(
+async def test_worker_destroy_range_success(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -177,6 +181,7 @@ async def test_worker_destroy_range_success(
 async def test_worker_deploy_range_no_user(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     mock_worker_deploy_range_success: None,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
     mocker: MockerFixture,
@@ -200,6 +205,7 @@ async def test_worker_deploy_range_no_user(  # noqa: PLR0913
 
 async def test_worker_destroy_range_no_user(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -223,6 +229,7 @@ async def test_worker_destroy_range_no_user(  # noqa: PLR0913
 
 async def test_worker_deploy_range_invalid_enc_key(
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
 ) -> None:
@@ -239,6 +246,7 @@ async def test_worker_deploy_range_invalid_enc_key(
 
 async def test_worker_destroy_range_invalid_enc_key(
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
 ) -> None:
@@ -254,6 +262,7 @@ async def test_worker_destroy_range_invalid_enc_key(
 
 async def test_worker_deploy_range_no_decrypted_secrets(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -276,6 +285,7 @@ async def test_worker_deploy_range_no_decrypted_secrets(  # noqa: PLR0913
 
 async def test_worker_destroy_range_no_decrypted_secrets(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -295,8 +305,9 @@ async def test_worker_destroy_range_no_decrypted_secrets(  # noqa: PLR0913
         )
 
 
-async def test_worker_deploy_range_invalid_range_secrets(
+async def test_worker_deploy_range_invalid_range_secrets(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -320,8 +331,9 @@ async def test_worker_deploy_range_invalid_range_secrets(
         )
 
 
-async def test_worker_destroy_range_invalid_range_secrets(
+async def test_worker_destroy_range_invalid_range_secrets(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -344,8 +356,9 @@ async def test_worker_destroy_range_invalid_range_secrets(
         )
 
 
-async def test_worker_deploy_range_failed_synthesis(
+async def test_worker_deploy_range_failed_synthesis(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -364,8 +377,9 @@ async def test_worker_deploy_range_failed_synthesis(
         )
 
 
-async def test_worker_destroy_range_failed_synthesis(
+async def test_worker_destroy_range_failed_synthesis(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -383,8 +397,9 @@ async def test_worker_destroy_range_failed_synthesis(
         )
 
 
-async def test_worker_deploy_range_failed_deploy(
+async def test_worker_deploy_range_failed_deploy(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -404,8 +419,9 @@ async def test_worker_deploy_range_failed_deploy(
         )
 
 
-async def test_worker_deploy_range_failed_destroy(
+async def test_worker_destroy_range_failed_destroy(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
@@ -425,6 +441,7 @@ async def test_worker_deploy_range_failed_destroy(
 
 async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PLR0913
     mocker: MockerFixture,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_arq_ctx: MagicMock,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
@@ -467,6 +484,7 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
 
 async def test_worker_destroy_range_db_failure(  # noqa: PLR0913
     mocker: MockerFixture,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_arq_ctx: MagicMock,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,

@@ -1,5 +1,4 @@
 import copy
-import logging
 import random
 import uuid
 from datetime import datetime, timezone
@@ -8,13 +7,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-from arq import ArqRedis
 from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.enums.job_status import JobSubmissionDetail
 from src.app.models.user_model import UserModel
-from src.app.schemas.job_schemas import JobCreateSchema, JobSchema
 from src.app.schemas.range_schemas import (
     DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
@@ -25,7 +23,6 @@ from tests.api_test_utils import authenticate_client
 
 from .config import (
     BASE_ROUTE,
-    complete_job_payload,
     valid_blueprint_range_create_payload,
     valid_deployed_range_data,
     valid_range_deploy_payload,
@@ -114,105 +111,45 @@ def mock_retrieve_deployed_range_success(
 
 
 @pytest.fixture
-def mock_redis_queue_pool_no_connection(
+def mock_job_enqueue_success(
     monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
-) -> None:
-    """Patch the queue.pool object to be None to simulate no connection te Redis."""
-    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", None)
+) -> str:
+    """Simulate successfully enqueueing a job in ARQ."""
+    fake_job_id = uuid.uuid4().hex
+    mock_enqueue = AsyncMock()
+    mock_enqueue.return_value = fake_job_id
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.enqueue_arq_job", mock_enqueue)
+    return fake_job_id
 
 
 @pytest.fixture
-def mock_redis_queue_pool_successful_job_queue(
+def mock_job_enqueue_failed(
     monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
 ) -> None:
-    """Patch the queue.pool object to ensure it passes as a real Redis connection and queues a fake job."""
-    fake_redis = AsyncMock(spec=ArqRedis)
-
-    class FakeJob:
-        job_id: str = str(uuid.uuid4()).replace("-", "")
-
-    fake_redis.enqueue_job.return_value = FakeJob()
-
-    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", fake_redis)
+    """Simulate failing to enqueue a job in ARQ."""
+    mock_enqueue = AsyncMock()
+    mock_enqueue.return_value = None
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.enqueue_arq_job", mock_enqueue)
 
 
 @pytest.fixture
-def mock_redis_queue_pool_failed_job_queue(
+def mock_add_job_to_db_success(
     monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
 ) -> None:
-    """Patch the queue.pool object to ensure it passes as a real Redis connection and but fails to queue a job."""
-    fake_redis = AsyncMock(spec=ArqRedis)
-
-    fake_redis.enqueue_job.return_value = None
-
-    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.queue.pool", fake_redis)
+    """Simulate successfully adding the job record to the database."""
+    mock_add_job = AsyncMock()
+    mock_add_job.return_value = None
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.add_job", mock_add_job)
 
 
 @pytest.fixture
-def mock_successful_fetch_job_info(
+def mock_add_job_to_db_failed(
     monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
 ) -> None:
-    """Patch over the redis job info retrieval utlity function to return a valid job schema."""
-    # Mock return value
-    mock_job_schema = JobCreateSchema.model_validate(complete_job_payload)
-
-    # Mock function
-    mock_get_info_from_redis = AsyncMock()
-    mock_get_info_from_redis.return_value = mock_job_schema
-
-    monkeypatch.setattr(
-        f"{range_api_v1_endpoints_path}.get_job_from_redis", mock_get_info_from_redis
-    )
-
-
-@pytest.fixture
-def mock_failed_fetch_job_info(
-    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
-) -> None:
-    """Patch over the redis job info retrieval utlity function to return no data."""
-    # Mock function failure
-    mock_get_info_from_redis = AsyncMock()
-    mock_get_info_from_redis.return_value = None
-
-    monkeypatch.setattr(
-        f"{range_api_v1_endpoints_path}.get_job_from_redis", mock_get_info_from_redis
-    )
-
-
-@pytest.fixture
-def mock_successful_job_add_to_db(
-    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
-) -> None:
-    """Patch over the job creation crud function to simulate successfully adding the job to the database."""
-    mock_created_job = JobSchema.model_validate(complete_job_payload)
-
-    # Mock function
-    mock_crud_create_job = AsyncMock()
-    mock_crud_create_job.return_value = mock_created_job
-
-    monkeypatch.setattr(
-        f"{range_api_v1_endpoints_path}.create_job", mock_crud_create_job
-    )
-
-
-@pytest.fixture
-def mock_failed_job_add_to_db(
-    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
-) -> dict[str, type[Exception] | str]:
-    """Patch over the job creation crud function to simulate an exception while adding the job to the database."""
-    # Fake exception
-    exception_type = RuntimeError
-    exception_msg = "Fake error adding job!"
-
-    # Mock function
-    mock_crud_create_job = AsyncMock()
-    mock_crud_create_job.side_effect = exception_type(exception_msg)
-
-    monkeypatch.setattr(
-        f"{range_api_v1_endpoints_path}.create_job", mock_crud_create_job
-    )
-
-    return {"exception_type": exception_type, "exception_msg": exception_msg}
+    """Simulate successfully adding the job record to the database."""
+    mock_add_job = AsyncMock()
+    mock_add_job.side_effect = RuntimeError("Fake DB error!")
+    monkeypatch.setattr(f"{range_api_v1_endpoints_path}.add_job", mock_add_job)
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -250,28 +187,12 @@ async def test_deploy_without_valid_secrets(
     assert "credential" in response.json()["detail"].lower()
 
 
-async def test_deploy_range_no_redis_connection(
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_redis_queue_pool_no_connection: None,
-    mock_deploy_payload: dict[str, Any],
-) -> None:
-    """Test to deploy a range but fail because we are not connected to Redis."""
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=mock_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "connect" in response.json()["detail"].lower()
-
-
 async def test_deploy_range_deploy_success(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_successful_fetch_job_info: None,
-    mock_successful_job_add_to_db: None,
+    mock_job_enqueue_success: None,
+    mock_add_job_to_db_success: None,
     mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID."""
@@ -283,60 +204,47 @@ async def test_deploy_range_deploy_success(  # noqa: PLR0913
         json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
-    assert response.json()["id"]  # OpenLabs job ID
     assert response.json()["arq_job_id"]
 
-
-async def test_deploy_range_queue_failure(
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_failed_job_queue: None,
-    mock_deploy_payload: dict[str, Any],
-) -> None:
-    """Test to deploy a range returns a 500 when we fail to queue the deploy job."""
-    # Mock range object
-    mock_range_factory()
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=mock_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "queue" in response.json()["detail"].lower()
-
-
-async def test_deploy_range_no_job_data_in_redis(  # noqa: PLR0913
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_failed_fetch_job_info: None,
-    mock_range_factory: Callable[..., MagicMock],
-    mock_deploy_payload: dict[str, Any],
-) -> None:
-    """Test that we get a 500 error when the endpoint is not able to fetch job details from redis."""
-    # Mock range object
-    mock_range_factory()
-
-    response = await auth_client.post(
-        f"{BASE_ROUTE}/ranges/deploy",
-        json=mock_deploy_payload,
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "job" in response.json()["detail"].lower()
+    # Job was successfully added to database
+    assert JobSubmissionDetail.DB_SAVE_SUCCESS.value == response.json()["detail"]
 
 
 async def test_deploy_range_add_job_db_failure(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_successful_fetch_job_info: None,
-    mock_failed_job_add_to_db: dict[str, type[Exception] | str],
-    caplog: pytest.LogCaptureFixture,
+    mock_range_factory: Callable[..., MagicMock],
+    mock_job_enqueue_success: None,
+    mock_add_job_to_db_failed: None,
+    mock_deploy_payload: dict[str, Any],
+) -> None:
+    """Test to deploy a range successfully with a returned the associated job ID, but indicates the job record wasn't added."""
+    # Mock range object
+    mock_range_factory()
+
+    # The job is successfully submitted, so the response code
+    # is still a success but the message to the user changes
+    # to reflect that the job might not be in the database for
+    # a little bit.
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/ranges/deploy",
+        json=mock_deploy_payload,
+    )
+    assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
+    assert response.json()["arq_job_id"]
+
+    # Failed to add job to database in endpoint
+    assert JobSubmissionDetail.DB_SAVE_FAILURE.value == response.json()["detail"]
+
+
+async def test_deploy_range_failed_job_queue(
+    auth_client: AsyncClient,
+    mock_job_enqueue_failed: None,
+    mock_decrypt_example_valid_aws_secrets: None,
     mock_range_factory: Callable[..., MagicMock],
     mock_deploy_payload: dict[str, Any],
 ) -> None:
-    """Test that we get a 500 error when the endpoint is not able to fetch job details from redis."""
+    """Test that the endpoint returns a 500 error when it fails to queue up a deploy job."""
     # Mock range object
     mock_range_factory()
 
@@ -345,13 +253,7 @@ async def test_deploy_range_add_job_db_failure(  # noqa: PLR0913
         json=mock_deploy_payload,
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "job" in response.json()["detail"].lower()
-
-    # Check that we properly log the exception
-    assert any(
-        record.levelno is logging.ERROR and record.exc_info is not None
-        for record in caplog.records
-    )
+    assert "queue" in response.json()["detail"]
 
 
 async def test_destroy_without_valid_range_owner(
@@ -370,6 +272,7 @@ async def test_destroy_without_valid_range_owner(
 
 async def test_destroy_decrypt_secrets_failure(
     auth_client: AsyncClient,
+    range_api_v1_endpoints_path: str,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
     monkeypatch: pytest.MonkeyPatch,
@@ -383,7 +286,8 @@ async def test_destroy_decrypt_secrets_failure(
 
     # Patch the function so that the deploy works, but the destroy fails
     monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_decrypted_secrets", mock_get_decrypted_secrets_false
+        f"{range_api_v1_endpoints_path}.get_decrypted_secrets",
+        mock_get_decrypted_secrets_false,
     )
 
     response = await auth_client.delete(
@@ -407,32 +311,13 @@ async def test_destroy_without_valid_secrets(
     assert "credential" in response.json()["detail"].lower()
 
 
-async def test_destroy_range_no_redis_connection(
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_retrieve_deployed_range_success: None,
-    mock_redis_queue_pool_no_connection: None,
-    mock_range_factory: Callable[..., MagicMock],
-) -> None:
-    """Test to destroy a range but fail because we are not connected to Redis."""
-    # Mock range object
-    mock_range_factory()
-
-    response = await auth_client.delete(
-        f"{BASE_ROUTE}/ranges/1",
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "connect" in response.json()["detail"].lower()
-
-
 async def test_destroy_range_destroy_success(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
+    mock_add_job_to_db_success: None,
+    mock_job_enqueue_success: None,
     mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_successful_fetch_job_info: None,
-    mock_successful_job_add_to_db: None,
 ) -> None:
     """Test to destroy a range successfully with a returned the associated job ID."""
     # Mock range object
@@ -442,58 +327,46 @@ async def test_destroy_range_destroy_success(  # noqa: PLR0913
         f"{BASE_ROUTE}/ranges/1",
     )
     assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
-    assert response.json()["id"]  # OpenLabs job ID
     assert response.json()["arq_job_id"]
 
-
-async def test_destroy_range_queue_failure(
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_retrieve_deployed_range_success: None,
-    mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_failed_job_queue: None,
-) -> None:
-    """Test to destroy a range returns a 500 when we fail to queue the destroy job."""
-    # Mock range object
-    mock_range_factory()
-
-    response = await auth_client.delete(
-        f"{BASE_ROUTE}/ranges/1",
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "queue" in response.json()["detail"].lower()
-
-
-async def test_destroy_range_no_job_data_in_redis(  # noqa: PLR0913
-    auth_client: AsyncClient,
-    mock_decrypt_example_valid_aws_secrets: None,
-    mock_retrieve_deployed_range_success: None,
-    mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_failed_fetch_job_info: None,
-) -> None:
-    """Test to destroy a range returns a 500 when we fail to queue the destroy job."""
-    # Mock range object
-    mock_range_factory()
-
-    response = await auth_client.delete(
-        f"{BASE_ROUTE}/ranges/1",
-    )
-    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "job" in response.json()["detail"].lower()
+    # Job was successfully added to database
+    assert JobSubmissionDetail.DB_SAVE_SUCCESS.value == response.json()["detail"]
 
 
 async def test_destroy_range_add_job_db_failure(  # noqa: PLR0913
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
+    mock_add_job_to_db_failed: None,
+    mock_job_enqueue_success: None,
     mock_range_factory: Callable[..., MagicMock],
-    mock_redis_queue_pool_successful_job_queue: None,
-    mock_successful_fetch_job_info: None,
-    mock_failed_job_add_to_db: None,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test to destroy a range returns a 500 when we fail to queue the destroy job."""
+    """Test to destroy a range successfully with a returned the associated job ID, but indicates the job record wasn't added."""
+    # Mock range object
+    mock_range_factory()
+
+    # The job is successfully submitted, so the response code
+    # is still a success but the message to the user changes
+    # to reflect that the job might not be in the database for
+    # a little bit.
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/1",
+    )
+    assert response.status_code == status.HTTP_202_ACCEPTED  # It's an async job
+    assert response.json()["arq_job_id"]
+
+    # Failed to add job to database in endpoint
+    assert JobSubmissionDetail.DB_SAVE_FAILURE.value == response.json()["detail"]
+
+
+async def test_destroy_range_failed_job_queue(
+    auth_client: AsyncClient,
+    mock_decrypt_example_valid_aws_secrets: None,
+    mock_job_enqueue_failed: None,
+    mock_retrieve_deployed_range_success: None,
+    mock_range_factory: Callable[..., MagicMock],
+) -> None:
+    """Test that the endpoint returns a 500 error when it fails to queue up a destroy job."""
     # Mock range object
     mock_range_factory()
 
@@ -501,23 +374,19 @@ async def test_destroy_range_add_job_db_failure(  # noqa: PLR0913
         f"{BASE_ROUTE}/ranges/1",
     )
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-    assert "job" in response.json()["detail"].lower()
-
-    # Check that we properly log the exception
-    assert any(
-        record.levelno is logging.ERROR and record.exc_info is not None
-        for record in caplog.records
-    )
+    assert "queue" in response.json()["detail"]
 
 
 async def test_get_range_headers_success(
-    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    auth_client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    range_api_v1_endpoints_path: str,
 ) -> None:
     """Test that we get a 200 response when there is at least one range header found."""
     header = DeployedRangeHeaderSchema.model_validate(valid_deployed_range_data)
 
     monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_deployed_range_headers",
+        f"{range_api_v1_endpoints_path}.get_deployed_range_headers",
         AsyncMock(return_value=[header]),
     )
 
@@ -529,13 +398,15 @@ async def test_get_range_headers_success(
 
 
 async def test_get_range_details_success(
-    auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    auth_client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    range_api_v1_endpoints_path: str,
 ) -> None:
     """Test that we get a 200 response when the range we request exists."""
     test_range = DeployedRangeSchema.model_validate(valid_deployed_range_data)
 
     monkeypatch.setattr(
-        "src.app.api.v1.ranges.get_deployed_range",
+        f"{range_api_v1_endpoints_path}.get_deployed_range",
         AsyncMock(return_value=test_range),
     )
 
