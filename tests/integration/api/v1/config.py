@@ -3,7 +3,7 @@ import pytest
 from src.app.enums.providers import OpenLabsProvider
 from tests.deploy_test_utils import RangeType
 
-PROVIDER_RANGE_PARAMS = [
+PROVIDER_PARAMS = [
     pytest.param(
         OpenLabsProvider.AWS,
         marks=[pytest.mark.deploy, pytest.mark.aws],
