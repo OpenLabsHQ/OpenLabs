@@ -20,8 +20,6 @@ from src.app.utils.job_utils import (
 )
 from tests.unit.api.v1.config import complete_job_payload
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture
 def arq_job_util_path() -> str:

@@ -5,8 +5,6 @@ from sqlalchemy import Dialect
 
 from src.app.core.db.ipv4_address_type import IPv4AddressType
 
-pytestmark = pytest.mark.unit
-
 
 def test_process_bind_param_invalid_type_ipv4_address_type() -> None:
     """Verify that process_bind_param raises a TypeError when the provided value is not an IPv4Address."""

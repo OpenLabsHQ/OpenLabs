@@ -29,8 +29,6 @@ from .config import (
     valid_range_private_key_data,
 )
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture
 def range_api_v1_endpoints_path() -> str:

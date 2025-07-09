@@ -23,8 +23,6 @@ from tests.common.api.v1.config import (
 )
 from tests.test_utils import add_key_recursively, generate_random_int
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture(scope="session")
 def worker_ranges_path() -> str:

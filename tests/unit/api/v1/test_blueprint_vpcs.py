@@ -9,8 +9,6 @@ from .config import (
     valid_blueprint_vpc_create_payload,
 )
 
-pytestmark = pytest.mark.unit
-
 
 async def test_blueprint_vpc_create_database_error(
     monkeypatch: pytest.MonkeyPatch, auth_client: AsyncClient

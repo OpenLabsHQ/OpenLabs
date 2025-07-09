@@ -19,9 +19,6 @@ from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
 from tests.unit.core.cdktf.config import one_all_blueprint
 
-pytestmark = pytest.mark.unit
-
-
 # NOTE:
 # This file is for testing base_range.py and the AbstractBaseRange class. Because
 # the class is abstract we can't instantiate it and test it directly, so the AWSRange

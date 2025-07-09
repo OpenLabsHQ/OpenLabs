@@ -1,6 +1,5 @@
 import random
 
-import pytest
 from fastapi import status
 from httpx import AsyncClient
 from pytest_mock import MockerFixture
@@ -9,8 +8,6 @@ from src.app.api.v1 import jobs as jobs_api
 from src.app.schemas.job_schemas import JobSchema
 
 from .config import BASE_ROUTE, complete_job_payload
-
-pytestmark = pytest.mark.unit
 
 
 async def test_jobs_get_all_jobs(

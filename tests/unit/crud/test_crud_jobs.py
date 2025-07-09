@@ -19,8 +19,6 @@ from src.app.schemas.job_schemas import JobCreateSchema, JobSchema
 
 from .crud_mocks import DummyDB, DummyJob
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture
 def crud_jobs_path() -> str:

@@ -10,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from src.app.core.worker.hooks import shutdown, startup
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture
 def arq_hook_path() -> str:

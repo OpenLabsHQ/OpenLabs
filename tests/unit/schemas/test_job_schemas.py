@@ -15,9 +15,6 @@ from tests.unit.api.v1.config import (
     queued_job_payload,
 )
 
-pytestmark = pytest.mark.unit
-
-
 ARQ_TIMESTAMPS = ["enqueue_time", "start_time", "finish_time"]
 
 JOB_STATE_MUST_EXIST_PARAMS = [
