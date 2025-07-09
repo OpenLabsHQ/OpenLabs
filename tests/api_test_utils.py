@@ -549,6 +549,49 @@ async def get_job(auth_client: AsyncClient, identifier: int | str) -> JobSchema 
     return JobSchema.model_validate(response.json())
 
 
+async def get_jobs(
+    auth_client: AsyncClient, job_status: OpenLabsJobStatus | None
+) -> list[JobSchema]:
+    """Get all jobs.
+
+    Args:
+        auth_client: Authenticated httpx client.
+        job_status: Job status to filter results by.
+
+    Returns:
+        list[JobSchema]: The jobs that are avaialble.
+
+    """
+    status_to_log = job_status.value if job_status else "any"
+
+    # Verify we are logged in
+    logged_in = await is_logged_in(auth_client)
+    if not logged_in:
+        logger.error(
+            "Failed to fetch %s jobs. Provided client is not authenticated!",
+            status_to_log,
+        )
+        return []
+
+    base_route = get_api_base_route(version=1)
+
+    params = {}
+    if job_status:
+        params["job_status"] = job_status.value
+
+    # Get job info
+    response = await auth_client.get(f"{base_route}/jobs", params=params)
+    if response.status_code != status.HTTP_200_OK:
+        logger.error(
+            "Failed to get %s jobs. Error: %s",
+            status_to_log,
+            response.json()["detail"],
+        )
+        return []
+
+    return [JobSchema.model_validate(job) for job in response.json()]
+
+
 async def wait_for_job(  # noqa: PLR0913
     auth_client: AsyncClient,
     identifier: int | str,
