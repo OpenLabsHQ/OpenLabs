@@ -82,9 +82,13 @@ filterwarnings = [
 
 # Register markers to easily select unit or integration tests.
 markers = [
+    "slow: marks tests that are slow for any reason.",
     "unit: marks tests as unit tests.",
     "integration: marks tests as integration tests.",
+    "api: marks tests that interact with API endpoints.",
+    "worker: marks tests that cover the ARQ worker code.",
     "deploy: marks tests that deploy live infrastructure.",
+    "cdktf: marks tests related to or that import cdktf code.",
     "aws: marks tests related to AWS specific functionality."
 ]
 

@@ -24,9 +24,6 @@ from sqlalchemy.ext.asyncio import (
 from testcontainers.compose import DockerCompose
 from testcontainers.postgres import PostgresContainer
 
-from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
-from src.app.core.cdktf.ranges.range_factory import RangeFactory
-from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.job_status import OpenLabsJobStatus
@@ -69,6 +66,64 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Dynamically mark all tests in the test suite."""
+    rootdir = config.rootpath
+
+    # Notes:
+    # ------
+    #   - `tests/common/` tests are automatically marked
+    #       through their parameters, so there is no rule here.
+    #
+    #   - Provider specific tests are marked via parameters and
+    #       on a file-by-file basis as there is no provider specific
+    #       folder structure.
+
+    for item in items:
+        # Rule 1: All tests in tests/unit marked 'unit'
+        if (rootdir / "tests" / "unit") in item.path.parents:
+            item.add_marker("unit")
+
+        # Rule 2: All tests in tests/integration marked 'integration'
+        # These tests are slow because they build the entire docker compose
+        if (rootdir / "tests" / "integration") in item.path.parents:
+            item.add_marker("integration")
+            item.add_marker("slow")
+
+        # Rule 3: All tests under any folder named 'cdktf' marked accordingly
+        # These tests are slow because of the loading time for providers
+        if "cdktf" in item.path.parts:
+            item.add_marker("cdktf")
+            item.add_marker("slow")
+
+        # Rule 4: All tests under an 'api' folder marked accordingly
+        # These are slow because of docker container fixture setup and
+        # import CDKTF dependencies through the range endpoints.
+        if "api" in item.path.parts:
+            item.add_marker("api")
+            item.add_marker("slow")
+
+        # Rule 5: All tests under the 'scripts' folder marked slow
+        # These are slow because they have retry/wait periods
+        if "scripts" in item.path.parts:
+            item.add_marker("slow")
+
+        # Rule 6: All tests under any the 'worker' folder marked accordingly
+        # and slow because the worker imports CDKTF dependencies through
+        # the range deploy/destroy functions.
+        if "worker" in item.path.parts:
+            item.add_marker("worker")
+            item.add_marker("slow")
+
+        # Rule 7: Mark tests in AWS-specific files.
+        filename = item.path.name
+        if "_aws_" in filename:
+            item.add_marker("aws")
+
+
 @pytest.fixture(autouse=True)
 def create_test_cdktf_dir(request: pytest.FixtureRequest) -> None:
     """Override settings CDKTF dir for testing."""
@@ -89,8 +144,6 @@ def postgres_container() -> Generator[str, None, None]:
     """
     logger.info("Starting Postgres test container...")
     with PostgresContainer("postgres:17") as container:
-        container.start()
-
         raw_url = container.get_connection_url()
         async_url = raw_url.replace("psycopg2", "asyncpg")
 
@@ -102,8 +155,8 @@ def postgres_container() -> Generator[str, None, None]:
     logger.info("Postgres test container stopped.")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def create_db_schema(postgres_container: str) -> None:
+@pytest.fixture(scope="session")
+def create_db_schema(postgres_container: str) -> Generator[str, None, None]:
     """Create database schema synchronously (using psycopg2 driver).
 
     Args:
@@ -125,6 +178,7 @@ def create_db_schema(postgres_container: str) -> None:
     try:
         Base.metadata.create_all(sync_engine)
         logger.info("All tables created (sync).")
+        yield postgres_container
     except SQLAlchemyError as err:
         logger.exception("Error creating tables.")
         raise err
@@ -135,11 +189,13 @@ def create_db_schema(postgres_container: str) -> None:
 
 @pytest.fixture(scope="module")
 def synthesize_factory() -> (
-    Callable[[type[AbstractBaseStack], BlueprintRangeSchema, str, OpenLabsRegion], str]
+    Callable[[type[Any], BlueprintRangeSchema, str, OpenLabsRegion], str]
 ):
     """Get factory to generate CDKTF synthesis for different stack classes."""
     # Import here to avoid CDKTF long loading phase
     from cdktf import Testing  # noqa: PLC0415
+
+    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
 
     def _synthesize(
         stack_cls: type[AbstractBaseStack],
@@ -169,10 +225,12 @@ def synthesize_factory() -> (
 
 @pytest.fixture(scope="module")
 def range_factory() -> Callable[
-    [type[AbstractBaseRange], BlueprintRangeSchema, OpenLabsRegion],
-    AbstractBaseRange,
+    [Any, BlueprintRangeSchema, OpenLabsRegion],
+    Any,
 ]:
     """Get factory to generate range object sythesis output."""
+    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
+    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
 
     def _range_synthesize(
         range_cls: type[AbstractBaseRange],
@@ -196,20 +254,21 @@ def range_factory() -> Callable[
 
 
 @pytest_asyncio.fixture(scope="session")
-async def async_engine(postgres_container: str) -> AsyncGenerator[AsyncEngine, None]:
+async def async_engine(create_db_schema: str) -> AsyncGenerator[AsyncEngine, None]:
     """Create async database engine.
 
     Args:
     ----
-        postgres_container (str): Postgres container connection string.
+        create_db_schema (str): Postgres container connection string.
 
     Returns:
     -------
         AsyncGenerator[AsyncEngine, None]: Async database engine.
 
     """
+    db_conn_str = create_db_schema
     engine = create_async_engine(
-        postgres_container, echo=False, future=True, poolclass=NullPool
+        db_conn_str, echo=False, future=True, poolclass=NullPool
     )
     yield engine
     await engine.dispose()
@@ -245,36 +304,22 @@ async def db_override(
 
 
 @pytest.fixture(scope="session")
-def client_app(
+def test_app(
     db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
-) -> FastAPI:
-    """Create app for client fixture."""
-    # Required import here to get a seperate copy
-    # of the main app
+) -> Generator[FastAPI, None, None]:
+    """Create a single app for all client fixtures with the DB override."""
     from src.app.main import app  # noqa: PLC0415
 
     app.dependency_overrides[async_get_db] = db_override
+    yield app
 
-    return app
-
-
-@pytest.fixture(scope="session")
-def auth_client_app(
-    db_override: Callable[[], AsyncGenerator[AsyncSession, None]],
-) -> FastAPI:
-    """Create app for auth_client fixture."""
-    # Required import here to get a seperate copy
-    # of the main app
-    from src.app.main import app  # noqa: PLC0415
-
-    app.dependency_overrides[async_get_db] = db_override
-
-    return app
+    # Clean up overrides after the test session finishes
+    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def client(
-    client_app: FastAPI,
+    test_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get async client fixture connected to the FastAPI app and test database container.
 
@@ -288,18 +333,14 @@ async def client(
             assert await logout_user(client)
         ```
     """
-    transport = ASGITransport(app=client_app)
-
+    transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-    # Clean up overrides after the test finishes
-    client_app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def auth_client(
-    auth_client_app: FastAPI,
+    test_app: FastAPI,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Get authenticated async client fixture conntected to the FastAPI app and test database container.
 
@@ -316,14 +357,10 @@ async def auth_client(
         ```
 
     """
-    transport = ASGITransport(app=auth_client_app)
-
+    transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         assert await authenticate_client(client), "Failed to authenticate test client"
         yield client
-
-    # Clean up overrides after the test finishes
-    auth_client_app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")
@@ -627,6 +664,9 @@ def mock_range_factory(
         Callable[..., MagicMock]: A function to create and patch the mock.
 
     """
+    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
+    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
+    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
 
     def _create_and_patch(  # noqa: D417, PLR0913
         # Arguments as specified in the user's original request
