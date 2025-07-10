@@ -12,6 +12,51 @@ RUN apt-get update && apt-get install -y git curl \
     && apt-get install -y gnupg2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+COPY src /code/src
+COPY .env /code/.env
+
+# For dynamic versioning
+COPY .git /code/.git
+
+EXPOSE 80
+
+# ========= Test Builder Image =========
+# Base test setup stage
+FROM builder AS test_builder
+
+COPY tests /code/tests
+
+COPY ./dev-requirements.txt /code/dev-requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
+
+COPY ./pyproject.toml /code/pyproject.toml 
+
+# ========= API Debug Image =========
+# Adds debug capabilities
+FROM builder AS api_debug
+
+RUN pip install --no-cache-dir debugpy
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
+ CMD ["python", "-m", "src.scripts.health_check"]
+
+
+# ========= API Test Image =========
+# Adds test dependencies
+FROM test_builder AS api_test
+
+HEALTHCHECK --interval=5s --timeout=5s --start-period=90s --retries=3 \
+ CMD ["python", "-m", "src.scripts.health_check"]
+
+
+# ========= Worker Image =========
+# Adds worker dependencies
+FROM builder AS worker
     
 RUN wget -O- https://apt.releases.hashicorp.com/gpg | \
     gpg --dearmor | \
@@ -22,13 +67,6 @@ RUN echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
     tee /etc/apt/sources.list.d/hashicorp.list
 RUN apt-get update && apt-get install -y terraform
 
-# Install python dependencies
-COPY ./requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
-
-COPY src /code/src
-COPY .env /code/.env
-
 # Set up terraform cache
 WORKDIR src/app/core/cdktf
 RUN mkdir -p "/root/.terraform.d/plugin-cache"
@@ -36,38 +74,6 @@ COPY src/app/core/cdktf/.terraformrc /root/.terraformrc
 RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code
-
-# For dynamic versioning
-COPY .git /code/.git
-
-EXPOSE 80
-
-# ========= Debug Image =========
-# Adds debug capabilities
-FROM builder AS debug
-
-RUN pip install --no-cache-dir debugpy
-
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
-
-
-# ========= Test Image =========
-# Adds test dependencies
-FROM builder AS test
-
-COPY tests /code/tests
-
-COPY ./dev-requirements.txt /code/dev-requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
-
-HEALTHCHECK --interval=5s --timeout=5s --start-period=90s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
-
-
-# ========= Worker Image =========
-# Adds worker dependencies
-FROM builder AS worker
 
 CMD ["arq", "src.app.core.worker.settings.WorkerSettings"]
 
