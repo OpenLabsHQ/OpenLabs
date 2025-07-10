@@ -50,7 +50,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
 # Adds test dependencies
 FROM test_builder AS api_test
 
-HEALTHCHECK --interval=5s --timeout=5s --start-period=180s --retries=3 \
+HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
  CMD ["python", "-m", "src.scripts.health_check"]
 
 
