@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-import src.app.core.worker.ranges as worker_range_funcs
+import src.app.worker.ranges as worker_range_funcs
 from src.app.models.user_model import UserModel
 from src.app.schemas.range_schemas import (
     BlueprintRangeSchema,
@@ -27,7 +27,7 @@ from tests.test_utils import add_key_recursively, generate_random_int
 @pytest.fixture(scope="session")
 def worker_ranges_path() -> str:
     """Return current path value of the ranges functions used by the ARQ worker."""
-    return "src.app.core.worker.ranges"
+    return "src.app.worker.ranges"
 
 
 @pytest.fixture(scope="module")
