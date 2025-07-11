@@ -8,13 +8,13 @@ import pytest
 from arq import ArqRedis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from src.app.core.worker.hooks import shutdown, startup
+from src.app.worker.hooks import shutdown, startup
 
 
 @pytest.fixture
 def arq_hook_path() -> str:
     """Return dot path of ARQ worker hook functions."""
-    return "src.app.core.worker.hooks"
+    return "src.app.worker.hooks"
 
 
 @pytest.fixture

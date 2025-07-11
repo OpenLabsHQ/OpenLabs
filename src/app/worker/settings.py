@@ -2,10 +2,10 @@ from typing import Any, Callable, ClassVar
 
 from arq.connections import RedisSettings
 
-from ...core.config import settings
+from ..core.config import settings
 
 # Import logger to ensure workers log messages properly
-from ..logger import LOG_DIR  # noqa: F401
+from ..core.logger import LOG_DIR  # noqa: F401
 from .hooks import shutdown, startup
 from .ranges import deploy_range, destroy_range
 

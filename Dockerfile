@@ -75,7 +75,7 @@ RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code
 
-CMD ["arq", "src.app.core.worker.settings.WorkerSettings"]
+CMD ["arq", "src.app.worker.settings.WorkerSettings"]
 
 
 # ========= Prod Image =========
