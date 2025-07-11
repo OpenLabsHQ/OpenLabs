@@ -12,12 +12,12 @@ import aiofiles as aiofiles_mock_target
 import aiofiles.os as aio_os_mock_target
 import pytest
 
-from src.app.core.cdktf.ranges.aws_range import AWSRange
-from src.app.core.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.enums.regions import OpenLabsRegion
+from src.app.provisioning.cdktf.ranges.aws_range import AWSRange
+from src.app.provisioning.cdktf.ranges.base_range import AbstractBaseRange
 from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.schemas.secret_schema import SecretSchema
-from tests.unit.core.cdktf.config import one_all_blueprint
+from tests.unit.provisioning.cdktf.config import one_all_blueprint
 
 # NOTE:
 # This file is for testing base_range.py and the AbstractBaseRange class. Because

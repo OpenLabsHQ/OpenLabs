@@ -1,9 +1,9 @@
 import pytest
 from cdktf import App
 
-from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.enums.regions import OpenLabsRegion
-from tests.unit.core.cdktf.config import one_all_blueprint
+from src.app.provisioning.cdktf.stacks.base_stack import AbstractBaseStack
+from tests.unit.provisioning.cdktf.config import one_all_blueprint
 
 
 def test_abstract_stack_creation_not_implemented_error() -> None:

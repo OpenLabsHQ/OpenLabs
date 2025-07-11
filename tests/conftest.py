@@ -195,7 +195,9 @@ def synthesize_factory() -> (
     # Import here to avoid CDKTF long loading phase
     from cdktf import Testing  # noqa: PLC0415
 
-    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
+    from src.app.provisioning.cdktf.stacks.base_stack import (  # noqa: PLC0415
+        AbstractBaseStack,
+    )
 
     def _synthesize(
         stack_cls: type[AbstractBaseStack],
@@ -229,8 +231,12 @@ def range_factory() -> Callable[
     Any,
 ]:
     """Get factory to generate range object sythesis output."""
-    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
-    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
+    from src.app.provisioning.cdktf.ranges.base_range import (  # noqa: PLC0415
+        AbstractBaseRange,
+    )
+    from src.app.provisioning.cdktf.ranges.range_factory import (  # noqa: PLC0415
+        RangeFactory,
+    )
 
     def _range_synthesize(
         range_cls: type[AbstractBaseRange],
@@ -664,9 +670,15 @@ def mock_range_factory(
         Callable[..., MagicMock]: A function to create and patch the mock.
 
     """
-    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
-    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
-    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
+    from src.app.provisioning.cdktf.ranges.base_range import (  # noqa: PLC0415
+        AbstractBaseRange,
+    )
+    from src.app.provisioning.cdktf.ranges.range_factory import (  # noqa: PLC0415
+        RangeFactory,
+    )
+    from src.app.provisioning.cdktf.stacks.base_stack import (  # noqa: PLC0415
+        AbstractBaseStack,
+    )
 
     def _create_and_patch(  # noqa: D417, PLR0913
         # Arguments as specified in the user's original request

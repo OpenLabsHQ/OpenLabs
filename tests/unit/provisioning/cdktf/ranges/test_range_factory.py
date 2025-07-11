@@ -2,12 +2,12 @@ import copy
 
 import pytest
 
-from src.app.core.cdktf.ranges.aws_range import AWSRange
-from src.app.core.cdktf.ranges.range_factory import RangeFactory
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
+from src.app.provisioning.cdktf.ranges.aws_range import AWSRange
+from src.app.provisioning.cdktf.ranges.range_factory import RangeFactory
 from src.app.schemas.secret_schema import SecretSchema
-from tests.unit.core.cdktf.config import one_all_blueprint
+from tests.unit.provisioning.cdktf.config import one_all_blueprint
 
 
 def test_range_factory_non_existent_range_type() -> None:

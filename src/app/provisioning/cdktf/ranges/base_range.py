@@ -13,6 +13,7 @@ import aiofiles
 import aiofiles.os as aio_os
 from cdktf import App
 
+from ....core.config import settings
 from ....enums.range_states import RangeState
 from ....enums.regions import OpenLabsRegion
 from ....schemas.range_schemas import (
@@ -21,7 +22,6 @@ from ....schemas.range_schemas import (
     DeployedRangeSchema,
 )
 from ....schemas.secret_schema import SecretSchema
-from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
 # Configure logging

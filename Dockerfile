@@ -68,9 +68,9 @@ RUN echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
 RUN apt-get update && apt-get install -y terraform
 
 # Set up terraform cache
-WORKDIR src/app/core/cdktf
+WORKDIR src/app/provisioning/cdktf
 RUN mkdir -p "/root/.terraform.d/plugin-cache"
-COPY src/app/core/cdktf/.terraformrc /root/.terraformrc 
+COPY src/app/provisioning/cdktf/.terraformrc /root/.terraformrc 
 RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code

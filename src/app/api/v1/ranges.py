@@ -5,7 +5,6 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
-from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import async_get_db
 from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
@@ -17,6 +16,7 @@ from ...crud.crud_ranges import (
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.job_status import JobSubmissionDetail
 from ...models.user_model import UserModel
+from ...provisioning.cdktf.ranges.range_factory import RangeFactory
 from ...schemas.job_schemas import (
     JobCreateSchema,
     JobSubmissionResponseSchema,

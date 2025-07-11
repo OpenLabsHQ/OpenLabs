@@ -9,9 +9,9 @@ from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_rang
 from src.app.enums.range_states import RangeState
 from src.app.schemas.user_schema import UserID
 
-from ..core.cdktf.ranges.range_factory import RangeFactory
 from ..core.db.database import get_db_session_context
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
+from ..provisioning.cdktf.ranges.range_factory import RangeFactory
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,

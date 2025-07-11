@@ -6,13 +6,13 @@ from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.subnet import Subnet
 from cdktf_cdktf_provider_aws.vpc import Vpc
 
-from src.app.core.cdktf.stacks.aws_stack import AWSStack
-from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
+from src.app.provisioning.cdktf.stacks.aws_stack import AWSStack
+from src.app.provisioning.cdktf.stacks.base_stack import AbstractBaseStack
 from src.app.schemas.range_schemas import BlueprintRangeSchema
-from tests.unit.core.cdktf.config import one_all_blueprint
+from tests.unit.provisioning.cdktf.config import one_all_blueprint
 
 
 @pytest.fixture(scope="module")
