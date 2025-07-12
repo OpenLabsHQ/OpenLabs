@@ -37,7 +37,6 @@ services:
       target: worker
       context: .
       dockerfile: Dockerfile
-    container_name: arq_worker_openlabs
     env_file:
       - .env
     depends_on:
