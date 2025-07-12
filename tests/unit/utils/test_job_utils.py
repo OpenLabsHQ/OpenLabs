@@ -13,9 +13,9 @@ from pytest_mock import MockerFixture
 from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.schemas.job_schemas import JobCreateSchema
 from src.app.utils.job_utils import (
+    _arq_get_job_from_redis,
     arq_to_openlabs_job_status,
     enqueue_arq_job,
-    _arq_get_job_from_redis,
     track_job_status,
     update_job_in_db,
 )
