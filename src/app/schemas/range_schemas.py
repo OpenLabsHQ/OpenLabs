@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validat
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
+from ..schemas.metadata_schemas import RangeMetadata
 from ..validators.network import mutually_exclusive_networks_v4
 from .vpc_schemas import (
     BlueprintVPCCreateSchema,
@@ -128,9 +129,7 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         description="State of deployed range.",
         examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
-    region: OpenLabsRegion = Field(
-        ..., description="Cloud region of deployed range."
-    )  # Add 3 more fields, Jumpbox cloud resource id, Jumpbox public IP address, SSH private key for range
+    region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
 
     # Jumpbox attributes
     jumpbox_resource_id: str = Field(
@@ -148,6 +147,10 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         ...,
         min_length=1,
         description="SSH private key for the range.",
+    )
+
+    metadata: RangeMetadata = Field(
+        ..., description="Provider specific range metadata."
     )
 
 
@@ -225,6 +228,9 @@ class DeployedRangeHeaderSchema(RangeCommonSchema):
         examples=[RangeState.ON, RangeState.OFF, RangeState.STARTING],
     )
     region: OpenLabsRegion = Field(..., description="Cloud region of deployed range.")
+    metadata: RangeMetadata = Field(
+        ..., description="Provider specific range metadata."
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

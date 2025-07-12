@@ -1,4 +1,5 @@
 from ipaddress import IPv4Address
+from typing import Literal, Union
 
 from pydantic import (
     BaseModel,
@@ -8,10 +9,9 @@ from pydantic import (
     field_validator,
 )
 
-from src.app.enums.operating_systems import OpenLabsOS
-from src.app.enums.specs import OpenLabsSpec
-
-from ..enums.operating_systems import OS_SIZE_THRESHOLD
+from ..enums.operating_systems import OS_SIZE_THRESHOLD, OpenLabsOS
+from .resource_identity_schemas import HostIdentity
+from ..enums.specs import OpenLabsSpec
 from ..validators.network import is_valid_disk_size, is_valid_hostname
 
 
@@ -135,11 +135,8 @@ class BlueprintHostHeaderSchema(BlueprintHostBaseSchema):
 class DeployedHostBaseSchema(HostCommonSchema):
     """Base pydantic class for all deployed host objects."""
 
-    resource_id: str = Field(
-        ...,
-        min_length=1,
-        description="Host cloud resource ID.",
-        examples=["i-05c770240dd042b88"],
+    cloud_id: HostIdentity = Field(
+        ..., description="Cloud provider specific host identifiers."
     )
     ip_address: IPv4Address = Field(
         ..., description="IP address of deployed host.", examples=["192.168.1.59"]
