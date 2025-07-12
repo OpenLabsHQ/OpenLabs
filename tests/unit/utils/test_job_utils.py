@@ -15,7 +15,7 @@ from src.app.schemas.job_schemas import JobCreateSchema
 from src.app.utils.job_utils import (
     arq_to_openlabs_job_status,
     enqueue_arq_job,
-    get_job_from_redis,
+    _arq_get_job_from_redis,
     track_job_status,
     update_job_in_db,
 )
@@ -76,7 +76,7 @@ def mock_successful_fetch_job_info(
     mock_get_info_from_redis.return_value = mock_job_schema
 
     monkeypatch.setattr(
-        f"{arq_job_util_path}.get_job_from_redis", mock_get_info_from_redis
+        f"{arq_job_util_path}._arq_get_job_from_redis", mock_get_info_from_redis
     )
 
     # Patch crud function
@@ -95,7 +95,7 @@ def mock_failed_fetch_job_info(
     mock_get_info_from_redis.return_value = None
 
     monkeypatch.setattr(
-        f"{arq_job_util_path}.get_job_from_redis", mock_get_info_from_redis
+        f"{arq_job_util_path}._arq_get_job_from_redis", mock_get_info_from_redis
     )
 
 
@@ -205,32 +205,32 @@ async def test_enqueue_arq_job_success(
     assert await enqueue_arq_job("test_job", user_id=-1) is not None
 
 
-async def test_get_job_from_redis_not_found(
+async def test__arq_get_job_from_redis_not_found(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
-    """Test that get_job_from_redis returns None when the job is not found."""
+    """Test that _arq_get_job_from_redis returns None when the job is not found."""
     mock_job_instance = mock_arq_job["job_instance"]
     mock_job_instance.status.return_value = ArqJobStatus.not_found
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
     assert result is None
 
 
-async def test_get_job_from_redis_no_job_def(
+async def test__arq_get_job_from_redis_no_job_def(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
-    """Test that get_job_from_redis returns None if the job definition is missing."""
+    """Test that _arq_get_job_from_redis returns None if the job definition is missing."""
     mock_job_instance = mock_arq_job["job_instance"]
     mock_job_instance.status.return_value = ArqJobStatus.queued
     mock_job_instance.info.return_value = None  # Simulate missing job definition
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
     assert result is None
 
 
-async def test_get_job_from_redis_queued_job(
+async def test__arq_get_job_from_redis_queued_job(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
@@ -238,7 +238,7 @@ async def test_get_job_from_redis_queued_job(
     mock_job_instance: AsyncMock = mock_arq_job["job_instance"]
     mock_job_instance.status.return_value = ArqJobStatus.queued
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
 
     assert isinstance(result, JobCreateSchema)
     assert result.arq_job_id == mock_ctx_dict["job_id"]
@@ -250,7 +250,7 @@ async def test_get_job_from_redis_queued_job(
     assert result.status == OpenLabsJobStatus.QUEUED
 
 
-async def test_get_job_from_redis_in_progress_job(
+async def test__arq_get_job_from_redis_in_progress_job(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
@@ -258,7 +258,7 @@ async def test_get_job_from_redis_in_progress_job(
     mock_job_instance: AsyncMock = mock_arq_job["job_instance"]
     mock_job_instance.status.return_value = ArqJobStatus.in_progress
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
 
     assert isinstance(result, JobCreateSchema)
     assert result.arq_job_id == mock_ctx_dict["job_id"]
@@ -270,7 +270,7 @@ async def test_get_job_from_redis_in_progress_job(
     assert result.status == OpenLabsJobStatus.IN_PROGRESS
 
 
-async def test_get_job_from_redis_completed_successfully(
+async def test__arq_get_job_from_redis_completed_successfully(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
@@ -278,7 +278,7 @@ async def test_get_job_from_redis_completed_successfully(
     mock_job_instance: AsyncMock = mock_arq_job["job_instance"]
     mock_job_instance.status.return_value = ArqJobStatus.complete
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
 
     assert isinstance(result, JobCreateSchema)
     assert result.arq_job_id == mock_ctx_dict["job_id"]
@@ -290,7 +290,7 @@ async def test_get_job_from_redis_completed_successfully(
     assert result.status == OpenLabsJobStatus.COMPLETE
 
 
-async def test_get_job_from_redis_completed_with_failure(
+async def test__arq_get_job_from_redis_completed_with_failure(
     mock_ctx_dict: dict[str, Any],
     mock_arq_job: dict[str, Any],
 ) -> None:
@@ -303,7 +303,7 @@ async def test_get_job_from_redis_completed_with_failure(
     error_message = "Something went wrong"
     mock_job_result.result = ValueError(error_message)
 
-    result = await get_job_from_redis(mock_ctx_dict)
+    result = await _arq_get_job_from_redis(mock_ctx_dict)
 
     assert isinstance(result, JobCreateSchema)
     assert result.arq_job_id == mock_ctx_dict["job_id"]
