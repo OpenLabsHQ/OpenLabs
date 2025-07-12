@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, Integer, String
+from sqlalchemy import DateTime, Enum, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,3 +35,6 @@ class JobModel(Base, OwnableObjectMixin):
     )
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Table indexes
+    __table_args__ = (Index("ix_jobs_status_finish_time", "status", "finish_time"),)

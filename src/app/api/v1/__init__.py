@@ -10,6 +10,7 @@ from .blueprint_vpcs import router as blueprint_vpcs_router
 from .health import router as health_router
 from .jobs import router as job_router
 from .ranges import router as ranges_router
+from .tasks import router as task_router
 from .users import router as user_router
 
 router = APIRouter(prefix="/v1")
@@ -22,3 +23,4 @@ router.include_router(ranges_router)
 router.include_router(auth_router)
 router.include_router(user_router)
 router.include_router(job_router)
+router.include_router(task_router)

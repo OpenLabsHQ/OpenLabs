@@ -83,8 +83,21 @@ class RedisQueueSettings(BaseSettings):
     REDIS_QUEUE_PASSWORD: str = config("REDIS_QUEUE_PASSWORD", default="ChangeMe123!")
 
 
+class JobSettings(BaseSettings):
+    """Job related settings."""
+
+    # Data retention
+    COMPLETED_JOB_MAX_AGE_DAYS: int = config("COMPLETED_JOB_MAX_AGE_DAYS", default=14)
+    FAILED_JOB_MAX_AGE_DAYS: int = config("FAILED_JOB_MAX_AGE_DAYS", default=30)
+
+
 class Settings(
-    AppSettings, PostgresSettings, CDKTFSettings, AuthSettings, RedisQueueSettings
+    AppSettings,
+    PostgresSettings,
+    CDKTFSettings,
+    AuthSettings,
+    RedisQueueSettings,
+    JobSettings,
 ):
     """FastAPI app settings."""
 

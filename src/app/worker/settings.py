@@ -7,13 +7,20 @@ from ..core.config import settings
 # Import logger to ensure workers log messages properly
 from ..core.logger import LOG_DIR  # noqa: F401
 from .hooks import shutdown, startup
+from .job_tasks import cleanup_old_jobs
 from .ranges import deploy_range, destroy_range
 
 
 class WorkerSettings:
     """Remote worker settings."""
 
-    functions: ClassVar[list[Callable[..., Any]]] = [deploy_range, destroy_range]
+    functions: ClassVar[list[Callable[..., Any]]] = [
+        # Ranges
+        deploy_range,
+        destroy_range,
+        # Tasks
+        cleanup_old_jobs,
+    ]
     redis_settings = RedisSettings(
         host=settings.REDIS_QUEUE_HOST,
         port=settings.REDIS_QUEUE_PORT,

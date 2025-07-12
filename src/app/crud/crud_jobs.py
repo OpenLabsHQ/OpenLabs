@@ -1,7 +1,8 @@
 import contextlib
 import logging
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -177,5 +178,90 @@ async def _arq_upsert_job(
         logger.exception(
             "Unexpected error while upserting job with arq_job_id: %s.",
             job_data.arq_job_id,
+        )
+        raise
+
+
+async def delete_completed_jobs_before(db: AsyncSession, cutoff_date: datetime) -> int:
+    """Delete completed job records with a finish_time before the cutoff.
+
+    Args:
+    ----
+        db: The database session.
+        cutoff_date: The cutoff datetime. All completed jobs finished before this time will be deleted.
+
+    Returns:
+    -------
+        int: The number of job records deleted.
+
+    """
+    stmt = delete(JobModel).where(
+        JobModel.status == OpenLabsJobStatus.COMPLETE,
+        JobModel.finish_time < cutoff_date,  # Earlier (older) than
+    )
+
+    try:
+        result = await db.execute(stmt)
+        deleted_count = result.rowcount
+        logger.info(
+            "Deleted %s completed job records older than %s.",
+            deleted_count,
+            cutoff_date,
+        )
+        return deleted_count
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while deleting completed jobs older than %s. Exception: %s",
+            cutoff_date,
+            e,
+        )
+        raise
+    except Exception as e:
+        logger.exception(
+            "Unexpected error while deleting completed jobs older than %s. Exception: %s",
+            cutoff_date,
+            e,
+        )
+        raise
+
+
+async def delete_failed_jobs_before(db: AsyncSession, cutoff_date: datetime) -> int:
+    """Delete failed job records with a finish_time before the cutoff.
+
+    Args:
+    ----
+        db (AsyncSession): The database session.
+        cutoff_date (datetime): The cutoff datetime. All failed jobs
+            finished before this time will be deleted.
+
+    Returns:
+    -------
+        int: The number of job records deleted.
+
+    """
+    stmt = delete(JobModel).where(
+        JobModel.status == OpenLabsJobStatus.FAILED,
+        JobModel.finish_time < cutoff_date,  # Earlier (older) than
+    )
+
+    try:
+        result = await db.execute(stmt)
+        deleted_count = result.rowcount
+        logger.info(
+            "Deleted %s failed job records older than %s.", deleted_count, cutoff_date
+        )
+        return deleted_count
+    except SQLAlchemyError as e:
+        logger.exception(
+            "Database error while deleting failed jobs older than %s. Exception: %s",
+            cutoff_date,
+            e,
+        )
+        raise
+    except Exception as e:
+        logger.exception(
+            "Unexpected error while deleting failed jobs older than %s. Exception: %s",
+            cutoff_date,
+            e,
         )
         raise
