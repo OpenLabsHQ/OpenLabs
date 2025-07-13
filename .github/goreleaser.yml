@@ -1,0 +1,66 @@
+# test this file with
+#   goreleaser release --config goreleaser.yml --clean --snapshot
+version: 2
+builds:
+  - env:
+      - CGO_ENABLED=0
+      - GOVERSION=1.19
+    ldflags:
+      - -s -w -X github.com/OpenLabsHQ/CLI/cmd.version={{.Version}} -X github.com/OpenLabsHQ/CLI/cmd.buildTime={{.Date}}
+    flags:
+      - -trimpath
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    binary: openlabs
+
+nfpms:
+  - maintainer: "https://github.com/OpenLabsHQ"
+    package_name: openlabs
+    formats:
+      - deb
+      - rpm
+      - apk
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      openlabs_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+      - CHANGELOG.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}"
+
+release:
+  draft: false
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
