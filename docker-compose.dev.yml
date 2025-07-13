@@ -1,13 +1,95 @@
+version: '3.8'
+
+x-common-variables: &common-variables
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  POSTGRES_DB: ${POSTGRES_DB:-openlabs}
+  POSTGRES_SERVER: postgres
+  POSTGRES_PORT: 5432
+  REDIS_QUEUE_HOST: redis
+  REDIS_QUEUE_PORT: 6379
+  REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+
 services:
-  fastapi:
-    build:
-      target: api_debug
-    container_name: fastapi_app_dev
+  postgres:
+    image: postgres:16
+    environment:
+      <<: *common-variables
     volumes:
-      - .:/code
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5678:5678"
-    command: [
-      "python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client",
-      "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--workers", "4"
-    ]
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      target: api_debug
+    environment:
+      <<: *common-variables
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:80"
+      - "5678:5678"  # Debug port
+    volumes:
+      - ./api/src:/code/src:ro
+      - ./api/.env:/code/.env:ro
+      - ./.git:/code/.git:ro
+    command: ["python", "-m", "debugpy", "--wait-for-client", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
+
+  worker:
+    build:
+      context: ./api
+      target: worker
+    environment:
+      <<: *common-variables
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./api/src:/code/src:ro
+      - ./api/.env:/code/.env:ro
+      - ./.git:/code/.git:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      target: builder
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+      - "3001:3001"  # Dev server port
+    environment:
+      - NODE_ENV=development
+      - API_URL=${API_URL:-http://localhost:8000}
+    depends_on:
+      - api
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/static:/app/static:ro
+    command: ["bun", "run", "dev", "--host", "0.0.0.0"]
+    profiles:
+      - frontend
+
+volumes:
+  postgres_data:

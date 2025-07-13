@@ -1,88 +1,81 @@
+version: '3.8'
+
+x-common-variables: &common-variables
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  POSTGRES_DB: ${POSTGRES_DB:-openlabs}
+  POSTGRES_SERVER: postgres
+  POSTGRES_PORT: 5432
+  REDIS_QUEUE_HOST: redis
+  REDIS_QUEUE_PORT: 6379
+  REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+
 services:
   postgres:
-    image: postgres:17
-    container_name: postgres_db_openlabs
-    env_file:
-      - .env
-    ports:
-      - "${POSTGRES_DEBUG_PORT:-5432}:5432"
+    image: postgres:16
+    environment:
+      <<: *common-variables
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - fastapi_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
 
   redis:
-    image: redis:alpine
-    container_name: redis_queue_openlabs
-    env_file:
-      - .env
-    command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD}"]
-    volumes:
-      - redis-data:/data
-    networks:
-      - fastapi_network
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_QUEUE_PASSWORD}", "ping"]
-      interval: 5s
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      target: prod
+    environment:
+      <<: *common-variables
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:80"
+    volumes:
+      - ./api/.env:/code/.env:ro
+      - ./.git:/code/.git:ro
 
   worker:
     build:
+      context: ./api
       target: worker
-      context: .
-      dockerfile: Dockerfile
-    env_file:
-      - .env
+    environment:
+      <<: *common-variables
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - fastapi_network
+    volumes:
+      - ./api/.env:/code/.env:ro
+      - ./.git:/code/.git:ro
 
-  fastapi:
+  frontend:
     build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: fastapi_app_openlabs
-    env_file:
-      - .env
+      context: ./frontend
     ports:
-      - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=${API_URL:-http://localhost:8000}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - fastapi_network
-
-  init:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: fastapi_init_openlabs
-    env_file:
-      - .env
-    command: ["python", "-m", "src.scripts.create_admin"]
-    depends_on:
-      fastapi:
-        condition: service_healthy
-    networks:
-      - fastapi_network
-    restart: on-failure
+      - api
+    profiles:
+      - frontend
 
 volumes:
   postgres_data:
-  redis-data:
-
-networks:
-  fastapi_network:
-    driver: bridge
