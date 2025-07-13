@@ -1,7 +1,7 @@
 services:
   fastapi:
     build:
-      target: debug
+      target: api_debug
     container_name: fastapi_app_dev
     volumes:
       - .:/code

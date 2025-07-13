@@ -6,8 +6,6 @@ from src.app.core.config import settings
 from tests.api_test_utils import login_user
 from tests.unit.api.v1.config import BASE_ROUTE
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_user_login_check_user_admin(

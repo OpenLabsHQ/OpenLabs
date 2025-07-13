@@ -125,8 +125,10 @@ class TestAuth:
 
     async def test_nonexistent_user_login(self, api_client: AsyncClient) -> None:
         """Test that we get a 401 response when logging in a user that doesn't exist."""
+        # Add a uuid to ensure uniqueness and so that I don't break the
+        # test because of manual testing ;)
         invalid_payload = copy.deepcopy(user_login_payload)
-        invalid_payload["email"] = "alex@ufsit.club"
+        invalid_payload["email"] = f"alex-{uuid.uuid4()}@ufsit.club"
 
         response = await api_client.post(
             f"{BASE_ROUTE}/auth/login", json=invalid_payload

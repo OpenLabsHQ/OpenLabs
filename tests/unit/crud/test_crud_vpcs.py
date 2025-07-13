@@ -28,9 +28,6 @@ from tests.unit.api.v1.config import (
 
 from .crud_mocks import DummyBlueprintVPC, DummyDB
 
-pytestmark = pytest.mark.unit
-
-
 # ==================== Blueprints =====================
 
 

@@ -11,8 +11,6 @@ from .config import (
     valid_blueprint_range_create_payload,
 )
 
-pytestmark = pytest.mark.unit
-
 
 async def test_blueprint_range_delete_non_standalone(
     monkeypatch: pytest.MonkeyPatch, auth_client: AsyncClient

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -27,10 +28,13 @@ local_session = async_sessionmaker(
 )
 
 
-async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Yield async Postgres session."""
-    async_session = local_session
-    async with async_session() as db:
+@asynccontextmanager
+async def get_db_session_context() -> AsyncGenerator[AsyncSession, None]:
+    """Yield a database session with proper transaction handling.
+
+    Commits on success, rolls back on any exception.
+    """
+    async with local_session() as db:
         try:
             yield db
             await db.commit()
@@ -42,3 +46,9 @@ async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
             )
             await db.rollback()
             raise e
+
+
+async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency to yield a database session."""
+    async with get_db_session_context() as db_session:
+        yield db_session

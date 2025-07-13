@@ -22,3 +22,6 @@ types-PyYAML>=6.0.12
 python-dotenv>=1.1.0
 paramiko>=3.5.1
 types-paramiko>=3.5.0
+
+# Types
+types-aiofiles>=24.1.0

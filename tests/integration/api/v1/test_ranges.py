@@ -12,15 +12,13 @@ from tests.deploy_test_utils import (
     provider_test_id,
     range_test_id,
 )
-from tests.integration.api.v1.config import PROVIDER_RANGE_PARAMS, RANGE_TYPE_PARAMS
-
-pytestmark = pytest.mark.integration
+from tests.integration.api.v1.config import PROVIDER_PARAMS, RANGE_TYPE_PARAMS
 
 
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
     "provider_deployed_ranges_for_provider",
-    PROVIDER_RANGE_PARAMS,
+    PROVIDER_PARAMS,
     indirect=True,
     ids=provider_test_id,
 )

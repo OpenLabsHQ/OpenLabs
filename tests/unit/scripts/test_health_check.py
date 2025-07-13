@@ -5,8 +5,6 @@ from httpx import AsyncClient
 
 from src.scripts.health_check import wait_for_api_ready
 
-pytestmark = pytest.mark.unit
-
 
 def test_health_check_script_works(client: AsyncClient) -> None:
     """Test that the health_check.py script works."""

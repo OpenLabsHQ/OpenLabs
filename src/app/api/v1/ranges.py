@@ -7,23 +7,27 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from ...core.auth.auth import get_current_user
 from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import async_get_db
+from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
-    create_deployed_range,
-    delete_deployed_range,
     get_blueprint_range,
     get_deployed_range,
     get_deployed_range_headers,
     get_deployed_range_key,
 )
 from ...crud.crud_users import get_decrypted_secrets
+from ...enums.job_status import JobSubmissionDetail
 from ...models.user_model import UserModel
-from ...schemas.message_schema import MessageSchema
+from ...schemas.job_schemas import (
+    JobCreateSchema,
+    JobSubmissionResponseSchema,
+)
 from ...schemas.range_schemas import (
     DeployedRangeHeaderSchema,
     DeployedRangeKeySchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ...utils.job_utils import enqueue_arq_job
 
 logger = logging.getLogger(__name__)
 
@@ -168,13 +172,13 @@ async def get_deployed_range_key_endpoint(
     return range_private_key
 
 
-@router.post("/deploy")
+@router.post("/deploy", status_code=status.HTTP_202_ACCEPTED)
 async def deploy_range_from_blueprint_endpoint(
     deploy_request: DeployRangeSchema,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
-) -> DeployedRangeHeaderSchema:
+) -> JobSubmissionResponseSchema:
     """Deploy range blueprints.
 
     Args:
@@ -186,7 +190,7 @@ async def deploy_range_from_blueprint_endpoint(
 
     Returns:
     -------
-        DeployedRangeHeaderSchema: Header data for the deployed range including it's ID.
+        JobSubmissionResponseSchema: Job tracking ID and submission details.
 
     """
     # Check if we have the encryption key needed to decrypt secrets
@@ -257,7 +261,7 @@ async def deploy_range_from_blueprint_endpoint(
 
     if not range_to_deploy.has_secrets():
         logger.info(
-            "Failed to deploy range: %s. User: %s (%s) does not have credentials for provider: %s.",
+            "Failed to queue deploy request for range: %s. User: %s (%s) does not have credentials for provider: %s.",
             deploy_request.name,
             current_user.email,
             current_user.id,
@@ -268,89 +272,54 @@ async def deploy_range_from_blueprint_endpoint(
             detail=f"No credentials found for provider: {blueprint_range.provider}",
         )
 
-    # Deploy range
-    successful_synthesize = range_to_deploy.synthesize()
-    if not successful_synthesize:
-        logger.error(
-            "Failed to synthesize range: %s from blueprint: %s (%s) for user: %s (%s).",
-            range_to_deploy.name,
-            blueprint_range.name,
-            blueprint_range.id,
-            current_user.email,
-            current_user.id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to synthesize range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
-        )
+    # Queue deployment job
+    job_name = "deploy_range"
 
-    create_deployed_range_schema = range_to_deploy.deploy()
-    if not create_deployed_range_schema:
-        logger.error(
-            "Failed to deploy range: %s from blueprint: %s (%s) for user: %s (%s).",
-            range_to_deploy.name,
-            blueprint_range.name,
-            blueprint_range.id,
-            current_user.email,
-            current_user.id,
-        )
+    arq_job_id = await enqueue_arq_job(
+        job_name,
+        enc_key,
+        deploy_request.model_dump(mode="json"),
+        blueprint_range.model_dump(mode="json"),
+        user_id=current_user.id,
+    )
+    if not arq_job_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deploy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
+            detail="Failed queue up job! Try again later.",
         )
 
     # Pre-fetch/save data for logging incase of a database error
-    range_name = range_to_deploy.name
     current_user_email = current_user.email
     current_user_id = current_user.id
 
-    # Store range in database
     try:
-        deployed_range_header = await create_deployed_range(
-            db, create_deployed_range_schema, user_id=current_user.id
+        job_to_add = JobCreateSchema.create_queued(
+            arq_job_id=arq_job_id, job_name=job_name
         )
-        if not deployed_range_header:
-            msg = "Failed to save deployed range to database!"
-            raise RuntimeError(msg)
-    except Exception as e:
-        await db.rollback()
-
-        logger.exception(
-            "Failed to commit range: %s to database on behalf of user: %s (%s)! Exception: %s",
-            range_name,
+        await add_job(db, job_to_add, current_user.id)
+        detail_message = JobSubmissionDetail.DB_SAVE_SUCCESS
+    except Exception:
+        logger.warning(
+            "Failed to save %s job with ARQ ID: %s to database on behalf of user: %s (%s)!",
+            job_name,
+            arq_job_id,
             current_user_email,
             current_user_id,
-            e,
         )
+        detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-        # Auto clean up resources
-        range_to_deploy.synthesize()
-        range_to_deploy.destroy()
-
-        # Notify user
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save deployed range to database. Range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id})!",
-        ) from e
-
-    logger.info(
-        "Successfully created and deployed range: %s (%s) for user: %s (%s).",
-        deployed_range_header.name,
-        deployed_range_header.id,
-        current_user.email,
-        current_user.id,
+    return JobSubmissionResponseSchema(
+        arq_job_id=arq_job_id, detail=detail_message.value
     )
 
-    return deployed_range_header
 
-
-@router.delete("/{range_id}")
+@router.delete("/{range_id}", status_code=status.HTTP_202_ACCEPTED)
 async def delete_range_endpoint(
     range_id: int,
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     enc_key: str | None = Cookie(None, alias="enc_key", include_in_schema=False),
-) -> MessageSchema:
+) -> JobSubmissionResponseSchema:
     """Destroy a deployed range.
 
     Args:
@@ -362,7 +331,7 @@ async def delete_range_endpoint(
 
     Returns:
     -------
-        MessageSchema: Success message. Error otherwise.
+        JobSubmissionResponseSchema: Job tracking ID and submission details.
 
     """
     # Check if we have the encryption key needed to decrypt secrets
@@ -381,7 +350,6 @@ async def delete_range_endpoint(
     try:
         master_key = base64.b64decode(enc_key)
     except Exception as e:
-        # Less common and might point to underlying issue
         logger.warning(
             "Failed to decode encryption key for user: %s (%s).",
             current_user.email,
@@ -432,7 +400,7 @@ async def delete_range_endpoint(
 
     if not range_to_destroy.has_secrets():
         logger.info(
-            "Failed to destroy range: %s (%s). User: %s (%s) does not have credentials for provider: %s.",
+            "Failed to queue destroy request for range: %s (%s). User: %s (%s) does not have credentials for provider: %s.",
             deployed_range.name,
             deployed_range.id,
             current_user.email,
@@ -444,63 +412,41 @@ async def delete_range_endpoint(
             detail=f"No credentials found for provider: {deployed_range.provider}",
         )
 
-    # Destroy range
-    successful_synthesize = range_to_destroy.synthesize()
-    if not successful_synthesize:
-        logger.error(
-            "Failed to synthesize range: %s (%s) for user: %s (%s).",
-            range_to_destroy.name,
-            deployed_range.id,
-            current_user.email,
-            current_user.id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to synthesize range: {range_to_destroy.name} ({range_id})!",
-        )
+    # Queue deployment job
+    job_name = "destroy_range"
 
-    successful_destroy = range_to_destroy.destroy()
-    if not successful_destroy:
-        logger.error(
-            "Failed to destroy range: %s (%s) for user: %s (%s).",
-            range_to_destroy.name,
-            deployed_range.id,
-            current_user.email,
-            current_user.id,
-        )
+    arq_job_id = await enqueue_arq_job(
+        job_name,
+        enc_key,
+        deployed_range.model_dump(mode="json"),
+        user_id=current_user.id,
+    )
+    if not arq_job_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to destroy range: {range_to_destroy.name} ({range_id})!",
+            detail="Failed queue up job! Try again later.",
         )
 
     # Pre-fetch/save data for logging incase of a database error
-    range_name = range_to_destroy.name
     current_user_email = current_user.email
     current_user_id = current_user.id
 
-    # Delete range from database
     try:
-        deleted_from_db = await delete_deployed_range(
-            db, range_id, current_user.id, current_user.is_admin
+        job_to_add = JobCreateSchema.create_queued(
+            arq_job_id=arq_job_id, job_name=job_name
         )
-        if not deleted_from_db:
-            msg = "Failed to delete destroyed range from DB!"
-            raise RuntimeError(msg)
-    except Exception as e:
-        await db.rollback()
-
-        logger.exception(
-            "Failed to commit range deletion: %s to database on behalf of user: %s (%s)! Exception: %s",
-            range_name,
+        await add_job(db, job_to_add, current_user.id)
+        detail_message = JobSubmissionDetail.DB_SAVE_SUCCESS
+    except Exception:
+        logger.warning(
+            "Failed to save %s job with ARQ ID: %s to database on behalf of user: %s (%s)!",
+            job_name,
+            arq_job_id,
             current_user_email,
             current_user_id,
-            e,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Range destroyed but failed to delete deployed range in database! Range: {range_to_destroy.name} ({range_id}).",
-        ) from e
+        detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return MessageSchema(
-        message=f"Successfully destroyed range: {range_to_destroy.name} ({range_id})"
+    return JobSubmissionResponseSchema(
+        arq_job_id=arq_job_id, detail=detail_message.value
     )

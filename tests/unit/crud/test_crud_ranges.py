@@ -35,9 +35,6 @@ from tests.unit.api.v1.config import (
 
 from .crud_mocks import DummyBlueprintRange, DummyDB, DummyDeployedRange
 
-pytestmark = pytest.mark.unit
-
-
 # ==================== Blueprints =====================
 
 

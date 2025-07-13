@@ -27,9 +27,6 @@ from tests.unit.api.v1.config import (
 
 from .crud_mocks import DummyBlueprintHost, DummyDB
 
-pytestmark = pytest.mark.unit
-
-
 # ==================== Blueprints =====================
 
 

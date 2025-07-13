@@ -7,8 +7,6 @@ from pydantic import ValidationError
 from src.app.schemas.subnet_schemas import DeployedSubnetCreateSchema
 from tests.unit.api.v1.config import valid_deployed_subnet_data
 
-pytestmark = pytest.mark.unit
-
 
 def test_deployed_subnet_schema_invalid_public_cidr() -> None:
     """Test that the deployed subnet creation schema fails with public subnet cidrs."""

@@ -12,8 +12,6 @@ from tests.unit.api.v1.config import (
     valid_blueprint_range_create_payload,
 )
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_blueprint_ranges_admin_can_view_all(

@@ -115,6 +115,8 @@ cp .env.tests.example .env.tests
 pytest -m aws
 ```
 
+> See `marks` defined in `pyproject.toml` for more options.
+
 Code coverage:
 
 ```bash

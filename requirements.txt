@@ -1,3 +1,4 @@
+# API Base
 fastapi[standard]~=0.115
 pydantic-settings~=2.7
 SQLAlchemy~=2.0
@@ -16,3 +17,8 @@ bcrypt
 # Crypto
 cryptography>=41.0.0
 argon2-cffi>=23.1.0
+
+# Async Jobs
+arq>=0.26.3
+aiofiles>=24.1.0
+tenacity>=9.1.2

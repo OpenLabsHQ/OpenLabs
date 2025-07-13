@@ -7,8 +7,6 @@ from pydantic import ValidationError
 from src.app.schemas.vpc_schemas import DeployedVPCCreateSchema
 from tests.unit.api.v1.config import valid_deployed_vpc_data
 
-pytestmark = pytest.mark.unit
-
 
 def test_deployed_vpc_schema_invalid_public_cidr() -> None:
     """Test that the deployed VPC creation schema fails with public VPC cidrs."""

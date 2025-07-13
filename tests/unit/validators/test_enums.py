@@ -1,10 +1,6 @@
 from enum import Enum
 
-import pytest
-
 from src.app.validators.enums import is_valid_enum_value
-
-pytestmark = pytest.mark.unit
 
 
 class Color(Enum):
