@@ -1,0 +1,15 @@
+[book]
+authors = ["adamkadaban", "alexchristy", "nareshp1"]
+language = "en"
+multilingual = false
+src = "src"
+title = "OpenLabs"
+
+[output.html]
+git-repository-url = "https://github.com/OpenLabsHQ/Documentation"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/OpenLabsHQ/Documentation/edit/main/{path}"
+default-theme = "light"
+cname = "docs.openlabs.sh"
+
+[preprocessor.alerts]
