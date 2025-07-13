@@ -67,7 +67,7 @@ def arq_to_openlabs_job_status(
     return status_map.get(arq_status, OpenLabsJobStatus.NOT_FOUND)
 
 
-async def get_job_from_redis(ctx: dict[str, Any]) -> JobCreateSchema | None:
+async def _arq_get_job_from_redis(ctx: dict[str, Any]) -> JobCreateSchema | None:
     """Fetch an ARQ job's details and build a JobCreateSchema."""
     job = Job(job_id=ctx["job_id"], redis=ctx["redis"])
     arq_status = await job.status()
@@ -143,7 +143,7 @@ async def update_job_in_db(ctx: dict[str, Any], user_id: int) -> None:
     # For clarity
     arq_job_id = ctx["job_id"]
 
-    job_update = await get_job_from_redis(ctx)
+    job_update = await _arq_get_job_from_redis(ctx)
     if not job_update:
         msg = f"Failed to update job: {arq_job_id}. Not found in Redis!"
         raise RuntimeError(msg)
