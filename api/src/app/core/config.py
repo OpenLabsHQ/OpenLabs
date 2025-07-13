@@ -19,7 +19,10 @@ class AppSettings(BaseSettings):
         "APP_DESCRIPTION", default="OpenLabs backend API."
     )
     APP_VERSION: str | None = config(
-        "APP_VERSION", default=get_version(root=os.path.join(current_file_dir, "..", "..", "..", ".."))
+        "APP_VERSION",
+        default=get_version(
+            root=os.path.join(current_file_dir, "..", "..", "..", "..")
+        ),
     )  # Latest tagged release
     LICENSE_NAME: str | None = config("LICENSE", default="GPLv3")
     LICENSE_URL: str | None = config(
