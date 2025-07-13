@@ -1,0 +1,70 @@
+{
+  "vpcs": [
+    {
+      "cidr": "192.168.0.0/16",
+      "name": "team practice vpc",
+      "subnets": [
+        {
+          "cidr": "192.168.1.0/24",
+          "name": "team practice subnet",
+          "hosts": [
+            {
+              "hostname": "kali-1",
+              "os": "kali",
+              "spec": "tiny",
+              "size": 64,
+              "tags": [
+                "linux",
+                "kali"
+              ]
+            },
+            {
+              "hostname": "kali-2",
+              "os": "kali",
+              "spec": "tiny",
+              "size": 64,
+              "tags": [
+                "linux",
+                "kali"
+              ]
+            },
+            {
+              "hostname": "kali-3",
+              "os": "kali",
+              "spec": "tiny",
+              "size": 64,
+              "tags": [
+                "linux",
+                "kali"
+              ]
+            },
+            {
+              "hostname": "kali-4",
+              "os": "kali",
+              "spec": "tiny",
+              "size": 64,
+              "tags": [
+                "linux",
+                "kali"
+              ]
+            },
+            {
+              "hostname": "kali-5",
+              "os": "kali",
+              "spec": "tiny",
+              "size": 64,
+              "tags": [
+                "linux",
+                "kali"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "provider": "aws",
+  "name": "BlueTeamPractice",
+  "vnc": false,
+  "vpn": true
+}

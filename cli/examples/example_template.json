@@ -1,0 +1,30 @@
+{
+  "vpcs": [
+    {
+      "cidr": "192.168.0.0/16",
+      "name": "example-vpc-1",
+      "subnets": [
+        {
+          "cidr": "192.168.1.0/24",
+          "name": "example-subnet-1",
+          "hosts": [
+            {
+              "hostname": "example-host-1",
+              "os": "debian_11",
+              "spec": "tiny",
+              "size": 8,
+              "tags": [
+                "web",
+                "linux"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "provider": "aws",
+  "name": "example-range-1",
+  "vnc": false,
+  "vpn": false
+}
