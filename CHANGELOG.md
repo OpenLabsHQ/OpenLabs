@@ -1,3 +1,15 @@
+# v0.11.0 (Sun Jul 13 2025)
+
+#### 🚀 Enhancement
+
+- ARQ Jobs [#110](https://github.com/OpenLabsHQ/API/pull/110) ([@alexchristy](https://github.com/alexchristy))
+
+#### Authors: 1
+
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
 # v0.10.0 (Thu Jul 03 2025)
 
 #### 🚀 Enhancement
