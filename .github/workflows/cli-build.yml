@@ -1,0 +1,105 @@
+name: CLI - Build + Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    paths:
+      - 'cli/**'
+  workflow_dispatch:
+  workflow_run:
+    workflows: [auto_release]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  check_pr_labels:
+    name: Check PR Labels
+    if: ${{ github.event_name == 'workflow_run' }}
+    runs-on: ubuntu-latest
+    outputs:
+      skip_build: ${{ steps.check_labels.outputs.has_documentation_label == 'true' }}
+    steps:
+      - name: Check documentation label
+        id: check_labels
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }}
+            });
+            
+            // Check if the workflow was triggered by a PR
+            if (workflowRun.data.head_commit && workflowRun.data.head_commit.message.includes('Merge pull request')) {
+              const prNumber = workflowRun.data.head_commit.message.match(/Merge pull request #(\d+)/)[1];
+              
+              // Get PR details to check labels
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              
+              // Check if PR has documentation label
+              const hasDocLabel = pr.labels.some(label => label.name === 'documentation');
+              core.setOutput('has_documentation_label', hasDocLabel.toString());
+              console.log(`PR #${prNumber} has documentation label: ${hasDocLabel}`);
+            } else {
+              core.setOutput('has_documentation_label', 'false');
+            }
+
+  prepare:
+    name: Prepare Release
+    needs: [check_pr_labels]
+    if: ${{ github.event_name != 'workflow_run' || needs.check_pr_labels.outputs.skip_build != 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.get_tag.outputs.tag_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get tag name
+        id: get_tag
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
+
+  release:
+    name: Create Release
+    needs: [check_pr_labels, prepare]
+    if: ${{ github.event_name != 'workflow_run' || needs.check_pr_labels.outputs.skip_build != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.tag_name }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.1
+          cache: true
+
+      - name: Run GoReleaser
+        run: |
+          cd cli
+          curl -sfL https://goreleaser.com/static/run | bash -s -- release --config ../.github/goreleaser.yml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

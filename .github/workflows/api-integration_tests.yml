@@ -1,18 +1,28 @@
-name: Unit Tests
+name: API - Integration Tests
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'api/**'
   pull_request:
     branches:
       - '**'
+    paths:
+      - 'api/**'
 
 jobs:
   run:
     runs-on: ubuntu-latest
-
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      
     steps:
+      # Install docker
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+
       # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,6 +30,7 @@ jobs:
       # Create .env file with defaults
       - name: Set default ENV values
         run: |
+          cd api
           cp .env.example .env
 
       # Set up Python
@@ -31,11 +42,13 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: |
+          cd api
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r dev-requirements.txt
 
       # Run Tests
-      - name: Run Unit Tests
+      - name: Run Integration Tests
         run: |
-          pytest -m unit
+          cd api
+          pytest -m "integration and not deploy" --no-cov 
