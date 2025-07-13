@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres_db_openlabs
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_DEBUG_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fastapi_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:alpine
+    container_name: redis_queue_openlabs
+    env_file:
+      - .env
+    command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD}"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - fastapi_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_QUEUE_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      target: worker
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_app_openlabs
+    env_file:
+      - .env
+    ports:
+      - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+
+  init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi_init_openlabs
+    env_file:
+      - .env
+    command: ["python", "-m", "src.scripts.create_admin"]
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+    restart: on-failure
+
+volumes:
+  postgres_data:
+  redis-data:
+
+networks:
+  fastapi_network:
+    driver: bridge
