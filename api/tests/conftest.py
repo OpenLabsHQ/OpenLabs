@@ -403,7 +403,7 @@ def docker_services(
     compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
 
     with DockerCompose(
-        context=".",
+        context="..",
         compose_file_name=compose_files,
         pull=True,
         build=True,

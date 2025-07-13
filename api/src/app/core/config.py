@@ -11,6 +11,23 @@ env_path = os.path.join(current_file_dir, "..", "..", "..", ".env")
 config = Config(env_path)
 
 
+def find_git_root() -> str:
+    """Find the git repository root directory."""
+    # Try different possible paths relative to this file
+    possible_paths = [
+        os.path.join(current_file_dir, "..", "..", ".."),  # Docker: /code
+        os.path.join(current_file_dir, "..", "..", "..", ".."),  # Local: project root
+    ]
+    
+    for path in possible_paths:
+        git_path = os.path.join(path, ".git")
+        if os.path.exists(git_path):
+            return path
+    
+    # Fallback to current directory
+    return "."
+
+
 class AppSettings(BaseSettings):
     """FastAPI app settings."""
 
@@ -20,9 +37,7 @@ class AppSettings(BaseSettings):
     )
     APP_VERSION: str | None = config(
         "APP_VERSION",
-        default=get_version(
-            root=os.path.join(current_file_dir, "..", "..", "..", "..")
-        ),
+        default=get_version(root=find_git_root()),
     )  # Latest tagged release
     LICENSE_NAME: str | None = config("LICENSE", default="GPLv3")
     LICENSE_URL: str | None = config(
