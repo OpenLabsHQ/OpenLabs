@@ -38,6 +38,7 @@ from src.app.schemas.range_schemas import (
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
+from src.app.utils.path_utils import find_git_root
 from tests.api_test_utils import (
     add_blueprint_range,
     add_cloud_credentials,
@@ -400,15 +401,11 @@ def docker_services(
     os.environ[ip_var_name] = "127.127.127.127"
     os.environ[port_var_name] = str(get_free_port)
 
+    compose_dir = str(find_git_root())
     compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
 
-    # Find the project root where docker-compose files are located
-    current_dir = os.path.dirname(os.path.realpath(__file__))
-    project_root = os.path.join(current_dir, "..", "..")
-    project_root = os.path.abspath(project_root)
-
     with DockerCompose(
-        context=project_root,
+        context=compose_dir,
         compose_file_name=compose_files,
         pull=True,
         build=True,

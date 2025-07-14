@@ -5,27 +5,10 @@ from setuptools_scm import get_version
 from starlette.config import Config
 
 from ..utils.cdktf_utils import create_cdktf_dir
+from ..utils.path_utils import find_git_root
 
-current_file_dir = os.path.dirname(os.path.realpath(__file__))
-env_path = os.path.join(current_file_dir, "..", "..", "..", ".env")
+env_path = os.path.join(str(find_git_root()), ".env")
 config = Config(env_path)
-
-
-def find_git_root() -> str:
-    """Find the git repository root directory."""
-    # Try different possible paths relative to this file
-    possible_paths = [
-        os.path.join(current_file_dir, "..", "..", ".."),  # Docker: /code
-        os.path.join(current_file_dir, "..", "..", "..", ".."),  # Local: project root
-    ]
-
-    for path in possible_paths:
-        git_path = os.path.join(path, ".git")
-        if os.path.exists(git_path):
-            return path
-
-    # Fallback to current directory
-    return "."
 
 
 class AppSettings(BaseSettings):
@@ -37,7 +20,7 @@ class AppSettings(BaseSettings):
     )
     APP_VERSION: str | None = config(
         "APP_VERSION",
-        default=get_version(root=find_git_root()),
+        default=get_version(root=str(find_git_root())),
     )  # Latest tagged release
     LICENSE_NAME: str | None = config("LICENSE", default="GPLv3")
     LICENSE_URL: str | None = config(
