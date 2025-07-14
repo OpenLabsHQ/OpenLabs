@@ -53,7 +53,7 @@ def lifespan_factory(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[Any, None]:
-        from asyncio import Event  # noqa: PLC0415
+        from asyncio import Event
 
         initialization_complete = Event()
         app.state.initialization_complete = initialization_complete
@@ -131,13 +131,21 @@ def create_application(
     lifespan = lifespan_factory(settings, create_tables_on_start=create_tables_on_start)
 
     app = FastAPI(lifespan=lifespan, **kwargs)
-    
+
     # Add CORS middleware
     if isinstance(settings, AppSettings):
         cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",")]
-        cors_methods = [method.strip() for method in settings.CORS_METHODS.split(",")] if settings.CORS_METHODS != "*" else ["*"]
-        cors_headers = [header.strip() for header in settings.CORS_HEADERS.split(",")] if settings.CORS_HEADERS != "*" else ["*"]
-        
+        cors_methods = (
+            [method.strip() for method in settings.CORS_METHODS.split(",")]
+            if settings.CORS_METHODS != "*"
+            else ["*"]
+        )
+        cors_headers = (
+            [header.strip() for header in settings.CORS_HEADERS.split(",")]
+            if settings.CORS_HEADERS != "*"
+            else ["*"]
+        )
+
         app.add_middleware(
             CORSMiddleware,
             allow_origins=cors_origins,
@@ -145,7 +153,7 @@ def create_application(
             allow_methods=cors_methods,
             allow_headers=cors_headers,
         )
-    
+
     app.include_router(router)
 
     add_yaml_middleware_to_router(app, router_path="/api/v1/blueprints")

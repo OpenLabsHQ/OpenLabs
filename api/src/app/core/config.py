@@ -18,12 +18,12 @@ def find_git_root() -> str:
         os.path.join(current_file_dir, "..", "..", ".."),  # Docker: /code
         os.path.join(current_file_dir, "..", "..", "..", ".."),  # Local: project root
     ]
-    
+
     for path in possible_paths:
         git_path = os.path.join(path, ".git")
         if os.path.exists(git_path):
             return path
-    
+
     # Fallback to current directory
     return "."
 
@@ -46,11 +46,10 @@ class AppSettings(BaseSettings):
     )
     CONTACT_NAME: str | None = config("CONTACT_NAME", default="OpenLabs Support")
     CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default="support@openlabs.sh")
-    
+
     # CORS settings
     CORS_ORIGINS: str = config(
-        "CORS_ORIGINS", 
-        default="http://localhost:3000,http://localhost:3001"
+        "CORS_ORIGINS", default="http://localhost:3000,http://localhost:3001"
     )
     CORS_CREDENTIALS: bool = config("CORS_CREDENTIALS", default=True)
     CORS_METHODS: str = config("CORS_METHODS", default="*")
