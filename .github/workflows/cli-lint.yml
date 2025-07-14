@@ -25,10 +25,3 @@ jobs:
           version: v1.64
           working-directory: cli
 
-  verify-lint-passing:
-    name: Verify Lint Passing
-    needs: golangci
-    runs-on: ubuntu-latest
-    steps:
-      - name: Lint check passed
-        run: echo "All lint checks passed!"
