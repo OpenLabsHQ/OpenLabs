@@ -4,7 +4,7 @@ from cdktf import LocalBackend, TerraformStack
 from constructs import Construct
 
 from ....enums.regions import OpenLabsRegion
-from ....schemas.template_range_schema import TemplateRangeSchema
+from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 
 
 class AbstractBaseStack(TerraformStack):
@@ -17,21 +17,21 @@ class AbstractBaseStack(TerraformStack):
     def __init__(  # noqa: PLR0913
         self,
         scope: Construct,
-        template_range: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         cdktf_id: str,
         cdktf_dir: str,
         region: OpenLabsRegion,
         range_name: str,
     ) -> None:
-        """Initialize AWS terraform stack.
+        """Initialize an abstract terraform stack.
 
         Args:
         ----
             self (AWSStack): AWSStack class.
-            scope (Construct): CDKTF app
-            template_range: Range object used for create all necessary resources to deploy
-            cdktf_id (str): Unique ID for CDKTF app
-            cdktf_dir (str): Directory location for all terraform files
+            scope (Construct): CDKTF app.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
+            cdktf_id (str): Unique ID for CDKTF app.
+            cdktf_dir (str): Directory location for all terraform files.
             region (OpenLabsRegion): Supported OpenLabs cloud region.
             range_name (str): Name of range to deploy.
 
@@ -50,30 +50,25 @@ class AbstractBaseStack(TerraformStack):
         )
 
         # Will raise NotImplementedError when not-overriden by child class
-        parts = cdktf_id.split("-")
-        uuid_str = "-".join(parts[-5:])
-        range_name = f"{range_name}-{uuid_str}"
+
         self.build_resources(
-            template_range=template_range,
+            range_obj=range_obj,
             region=region,
-            cdktf_id=cdktf_id,
             range_name=range_name,
         )
 
     def build_resources(
         self,
-        template_range: TemplateRangeSchema,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
-        cdktf_id: str,
         range_name: str,
     ) -> None:
         """'Psuedo-abtract' method to build the CDKTF resources.
 
         Args:
         ----
-            template_range (TemplateRangeSchema): Template range object to build terraform for.
+            range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
             region (OpenLabsRegion): Support OpenLabs cloud region.
-            cdktf_id (str): Unique ID for each deployment to use for Terraform resource naming.
             range_name (str): Name of range to deploy.
 
         Returns:

@@ -1,3 +1,33 @@
+# v0.11.0 (Sun Jul 13 2025)
+
+#### 🚀 Enhancement
+
+- ARQ Jobs [#110](https://github.com/OpenLabsHQ/API/pull/110) ([@alexchristy](https://github.com/alexchristy))
+
+#### Authors: 1
+
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
+# v0.10.0 (Thu Jul 03 2025)
+
+#### 🚀 Enhancement
+
+- View range endpoints [#102](https://github.com/OpenLabsHQ/API/pull/102) ([@alexchristy](https://github.com/alexchristy) [@Nareshp1](https://github.com/Nareshp1) [@Adamkadaban](https://github.com/Adamkadaban))
+
+#### 🔩 Dependency Updates
+
+- fix(deps): bump node from 18.x to 22.x in dockerfile [#86](https://github.com/OpenLabsHQ/API/pull/86) ([@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 3
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+- Naresh Panchal ([@Nareshp1](https://github.com/Nareshp1))
+
+---
+
 # v0.9.0 (Sat May 03 2025)
 
 #### 🚀 Enhancement

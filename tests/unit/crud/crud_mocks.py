@@ -1,50 +1,54 @@
-# Dummy DB session for testing
-from unittest.mock import AsyncMock
+from typing import Any
+from unittest.mock import AsyncMock, Mock
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class DummyDB:
+class DummyDB(AsyncMock):
     """Dummy database class for testing."""
 
-    def __init__(self) -> None:
+    def __init__(self, *args: Any, **kwargs: dict[str, Any]) -> None:  # noqa: ANN401
         """Initialize dummy db."""
-        self.delete = AsyncMock()
-        self.commit = AsyncMock()
-        self.execute = AsyncMock()
+        super().__init__(*args, spec=AsyncSession, **kwargs)
 
 
-class DummyTemplateHost:
-    """Dummy host template model for testing."""
+class DummyBlueprintHost(Mock):
+    """Dummy blueprint host model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateSubnet:
-    """Dummy template subnet model for testing."""
+class DummyBlueprintSubnet(Mock):
+    """Dummy blueprint subnet model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateVPC:
-    """Dummy template VPC model for testing."""
+class DummyBlueprintVPC(Mock):
+    """Dummy blueprint VPC model for testing."""
 
     def is_standalone(self) -> bool:
         """Return dummy standalone state."""
         return True
 
 
-class DummyTemplateRange:
-    """Dummy template range model for testing."""
+class DummyBlueprintRange(Mock):
+    """Dummy blueprint range model for testing."""
 
-    def is_standalone(self) -> bool:
-        """Return dummy standalone state."""
-        return True
+    pass
 
 
-class DummyRangeModel:
-    """Dummy range model for testing."""
+class DummyDeployedRange(Mock):
+    """Dummy deployed range model for testing."""
+
+    pass
+
+
+class DummyJob(Mock):
+    """Dummy job model for testing."""
 
     pass

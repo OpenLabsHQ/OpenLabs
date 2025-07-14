@@ -39,6 +39,35 @@ def generate_rsa_key_pair() -> Tuple[str, str]:
     return private_b64, public_b64
 
 
+# Range RSA Key Generation
+def generate_range_rsa_key_pair() -> Tuple[str, str]:
+    """Generate an rsa key pair and return base64 encoded strings."""
+    private_key = rsa.generate_private_key(
+        public_exponent=65537, key_size=2048, backend=default_backend()
+    )
+
+    public_key = private_key.public_key()
+
+    # Serialize private key
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+    # Serialize public keyin OpenSSH format
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.OpenSSH,
+        format=serialization.PublicFormat.OpenSSH,
+    )
+
+    # Decode bytes to strings
+    private_key_str = private_pem.decode("utf-8")
+    public_key_str = public_pem.decode("utf-8")
+
+    return private_key_str, public_key_str
+
+
 # Master Key Generation using Argon2
 def generate_master_key(
     password: str, salt: bytes | None = None

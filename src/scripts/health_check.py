@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from fastapi import status
-from httpx import AsyncClient, ConnectError
+from httpx import AsyncClient, ConnectError, ConnectTimeout
 
 from ..app.utils.api_utils import get_api_base_route
 
@@ -51,13 +51,19 @@ async def wait_for_api_ready(
                     logger.info("FastAPI is ready!")
                     return True
 
-            except (ConnectError, asyncio.TimeoutError) as e:
+            except (
+                ConnectError,
+                ConnectTimeout,
+                asyncio.TimeoutError,
+            ) as e:
                 logger.debug(
                     "FastAPI not ready yet (attempt %s/%s): %s",
                     attempt + 1,
                     max_retries,
                     str(e),
                 )
+            except Exception as e:
+                logger.exception("Unable to check FastAPI readiness. Exception: %s", e)
 
             logger.debug("Waiting %s seconds before next attempt...", retry_interval)
             await asyncio.sleep(retry_interval)

@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, DateTime, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..core.db.database import Base
-from .template_base_model import OpenLabsUserMixin
+from .mixin_models import OpenLabsUserMixin
 
 
 class UserModel(Base, OpenLabsUserMixin):
@@ -13,7 +13,7 @@ class UserModel(Base, OpenLabsUserMixin):
     __tablename__ = "users"
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
