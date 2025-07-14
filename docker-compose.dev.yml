@@ -9,6 +9,10 @@ x-common-variables: &common-variables
   REDIS_QUEUE_HOST: redis
   REDIS_QUEUE_PORT: 6379
   REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+  CORS_CREDENTIALS: ${CORS_CREDENTIALS:-true}
+  CORS_METHODS: ${CORS_METHODS:-*}
+  CORS_HEADERS: ${CORS_HEADERS:-*}
 
 services:
   postgres:
@@ -38,7 +42,8 @@ services:
 
   api:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
       target: api_debug
     environment:
       <<: *common-variables
@@ -52,13 +57,14 @@ services:
       - "5678:5678"  # Debug port
     volumes:
       - ./api/src:/code/src:ro
-      - ./api/.env:/code/.env:ro
+      - ./.env:/code/.env:ro
       - ./.git:/code/.git:ro
     command: ["python", "-m", "debugpy", "--wait-for-client", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload"]
 
   worker:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
       target: worker
     environment:
       <<: *common-variables
@@ -69,19 +75,20 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/code/src:ro
-      - ./api/.env:/code/.env:ro
+      - ./.env:/code/.env:ro
       - ./.git:/code/.git:ro
 
   frontend:
     build:
       context: ./frontend
       target: builder
+      args:
+        VITE_API_URL: ${API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
       - "3001:3001"  # Dev server port
     environment:
       - NODE_ENV=development
-      - API_URL=${API_URL:-http://localhost:8000}
     depends_on:
       - api
     volumes:

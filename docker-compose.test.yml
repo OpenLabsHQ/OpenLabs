@@ -9,6 +9,10 @@ x-common-variables: &common-variables
   REDIS_QUEUE_HOST: redis
   REDIS_QUEUE_PORT: 6379
   REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+  CORS_CREDENTIALS: ${CORS_CREDENTIALS:-true}
+  CORS_METHODS: ${CORS_METHODS:-*}
+  CORS_HEADERS: ${CORS_HEADERS:-*}
 
 services:
   postgres:
@@ -36,7 +40,8 @@ services:
 
   api-test:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
       target: api_test
     environment:
       <<: *common-variables
@@ -46,7 +51,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./api/.env:/code/.env:ro
+      - ./.env:/code/.env:ro
       - ./.git:/code/.git:ro
       - ./api/.testing-out:/code/.testing-out
     command: ["python", "-m", "pytest", "-v", "--tb=short"]

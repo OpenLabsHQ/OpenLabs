@@ -9,6 +9,10 @@ x-common-variables: &common-variables
   REDIS_QUEUE_HOST: redis
   REDIS_QUEUE_PORT: 6379
   REDIS_QUEUE_PASSWORD: ${REDIS_QUEUE_PASSWORD:-ChangeMe123!}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
+  CORS_CREDENTIALS: ${CORS_CREDENTIALS:-true}
+  CORS_METHODS: ${CORS_METHODS:-*}
+  CORS_HEADERS: ${CORS_HEADERS:-*}
 
 services:
   postgres:
@@ -34,7 +38,8 @@ services:
 
   api:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
       target: prod
     environment:
       <<: *common-variables
@@ -46,12 +51,13 @@ services:
     ports:
       - "${API_PORT:-8000}:80"
     volumes:
-      - ./api/.env:/code/.env:ro
+      - ./.env:/code/.env:ro
       - ./.git:/code/.git:ro
 
   worker:
     build:
-      context: ./api
+      context: .
+      dockerfile: api/Dockerfile
       target: worker
     environment:
       <<: *common-variables
@@ -61,17 +67,18 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./api/.env:/code/.env:ro
+      - ./.env:/code/.env:ro
       - ./.git:/code/.git:ro
 
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_API_URL: ${API_URL:-http://localhost:8000}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
-      - API_URL=${API_URL:-http://localhost:8000}
     depends_on:
       - api
     profiles:
