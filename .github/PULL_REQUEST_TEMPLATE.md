@@ -4,6 +4,8 @@
 - [ ] I have tested my changes locally and verified they work as expected.
 - [ ] I have added relevant tests to cover my changes.
 - [ ] I have made any necessary updates to the documentation.
+- [ ] I have made any necessary updates to the CLI.
+- [ ] I have made any necessary updates to the frontend.
 
 ## Description
 
