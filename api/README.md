@@ -1,7 +1,7 @@
 <h1 align="center">OpenLabs API</h1>
 
 <p align="center">
-<a href="https://github.com/OpenLabsHQ/API"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/API"></a>
+<a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 <a href="https://github.com/astral-sh/ruff"><img alt="Linting: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 <a href="https://mypy-lang.org/"><img alt="Checked with mypy" src="https://www.mypy-lang.org/static/mypy_badge.svg"></a>
@@ -25,7 +25,7 @@
 Clone the repo:
 
 ```bash
-git clone https://github.com/OpenLabsHQ/API.git
+git clone https://github.com/OpenLabsHQ/OpenLabs.git
 ```
 
 Copy the ENV example:

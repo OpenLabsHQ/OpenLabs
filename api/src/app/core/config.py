@@ -42,7 +42,7 @@ class AppSettings(BaseSettings):
     LICENSE_NAME: str | None = config("LICENSE", default="GPLv3")
     LICENSE_URL: str | None = config(
         "LICENSE_URL",
-        default="https://github.com/OpenLabsHQ/API?tab=GPL-3.0-1-ov-file#readme",
+        default="https://github.com/OpenLabsHQ/OpenLabs?tab=GPL-3.0-1-ov-file#readme",
     )
     CONTACT_NAME: str | None = config("CONTACT_NAME", default="OpenLabs Support")
     CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default="support@openlabs.sh")

@@ -6,9 +6,9 @@ src = "src"
 title = "OpenLabs"
 
 [output.html]
-git-repository-url = "https://github.com/OpenLabsHQ/Documentation"
+git-repository-url = "https://github.com/OpenLabsHQ/OpenLabs"
 git-repository-icon = "fa-github"
-edit-url-template = "https://github.com/OpenLabsHQ/Documentation/edit/main/{path}"
+edit-url-template = "https://github.com/OpenLabsHQ/OpenLabs/edit/main/docs/{path}"
 default-theme = "light"
 cname = "docs.openlabs.sh"
 
