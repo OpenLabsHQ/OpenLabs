@@ -3,15 +3,17 @@ services:
     image: postgres:17
     container_name: postgres_db_openlabs
     env_file:
-      - api/.env
-    ports:
-      - "${POSTGRES_DEBUG_PORT:-5432}:5432"
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-openlabs}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe123!}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - fastapi_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-openlabs}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,10 +22,10 @@ services:
     image: redis:alpine
     container_name: redis_queue_openlabs
     env_file:
-      - api/.env
+      - .env
     command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD:-ChangeMe123!}"]
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     networks:
       - fastapi_network
     healthcheck:
@@ -38,7 +40,7 @@ services:
       context: .
       dockerfile: api/Dockerfile
     env_file:
-      - api/.env
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,14 +55,9 @@ services:
       dockerfile: api/Dockerfile
     container_name: fastapi_app_openlabs
     env_file:
-      - api/.env
-    environment:
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}
-      - CORS_CREDENTIALS=${CORS_CREDENTIALS:-true}
-      - CORS_METHODS=${CORS_METHODS:-*}
-      - CORS_HEADERS=${CORS_HEADERS:-*}
+      - .env
     ports:
-      - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
+      - "${API_LISTEN_ADDR:-127.0.0.1}:${API_LISTEN_PORT:-8000}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +72,7 @@ services:
       dockerfile: api/Dockerfile
     container_name: fastapi_init_openlabs
     env_file:
-      - api/.env
+      - .env
     command: ["python", "-m", "src.scripts.create_admin"]
     depends_on:
       fastapi:
@@ -103,7 +100,7 @@ services:
 
 volumes:
   postgres_data:
-  redis-data:
+  redis_data:
 
 networks:
   fastapi_network:

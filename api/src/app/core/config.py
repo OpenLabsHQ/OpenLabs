@@ -49,7 +49,7 @@ class AppSettings(BaseSettings):
 
     # CORS settings
     CORS_ORIGINS: str = config(
-        "CORS_ORIGINS", default="http://localhost:3000,http://localhost:3001"
+        "CORS_ORIGINS", default="http://frontend:3000,http://frontend:3001"
     )
     CORS_CREDENTIALS: bool = config("CORS_CREDENTIALS", default=True)
     CORS_METHODS: str = config("CORS_METHODS", default="*")
@@ -87,7 +87,7 @@ class PostgresSettings(DatabaseSettings):
     """Postgres database settings."""
 
     POSTGRES_USER: str = config("POSTGRES_USER", default="postgres")
-    POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="postgres")
+    POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="ChangeMe123!")
     POSTGRES_SERVER: str = config(
         "POSTGRES_SERVER", default="postgres"  # Internal compose DNS
     )

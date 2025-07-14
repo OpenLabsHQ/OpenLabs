@@ -18,7 +18,7 @@ COPY api/requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY api/src /code/src
-COPY api/.env /code/.env
+COPY .env /code/.env
 
 # For dynamic versioning
 COPY .git /code/.git

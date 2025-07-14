@@ -393,8 +393,8 @@ def docker_services(
     create_test_output_dir: str,
 ) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
-    ip_var_name = "API_IP_ADDR"
-    port_var_name = "API_PORT"
+    ip_var_name = "API_LISTEN_ADDR"
+    port_var_name = "API_LISTEN_PORT"
 
     # Export test config
     os.environ[ip_var_name] = "127.127.127.127"
