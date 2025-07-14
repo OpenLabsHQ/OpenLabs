@@ -401,7 +401,7 @@ def docker_services(
     os.environ[port_var_name] = str(get_free_port)
 
     compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
-    
+
     # Find the project root where docker-compose files are located
     current_dir = os.path.dirname(os.path.realpath(__file__))
     project_root = os.path.join(current_dir, "..", "..")
