@@ -14,10 +14,10 @@ RUN apt-get update && apt-get install -y git curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
-COPY ./requirements.txt /code/requirements.txt
+COPY api/requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-COPY src /code/src
+COPY api/src /code/src
 COPY .env /code/.env
 
 # For dynamic versioning
@@ -29,12 +29,12 @@ EXPOSE 80
 # Base test setup stage
 FROM builder AS test_builder
 
-COPY tests /code/tests
+COPY api/tests /code/tests
 
-COPY ./dev-requirements.txt /code/dev-requirements.txt
+COPY api/dev-requirements.txt /code/dev-requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
 
-COPY ./pyproject.toml /code/pyproject.toml 
+COPY api/pyproject.toml /code/pyproject.toml 
 
 # ========= API Debug Image =========
 # Adds debug capabilities
@@ -70,7 +70,7 @@ RUN apt-get update && apt-get install -y terraform
 # Set up terraform cache
 WORKDIR src/app/core/cdktf
 RUN mkdir -p "/root/.terraform.d/plugin-cache"
-COPY src/app/core/cdktf/.terraformrc /root/.terraformrc 
+COPY api/src/app/core/cdktf/.terraformrc /root/.terraformrc 
 RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code
