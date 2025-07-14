@@ -402,7 +402,7 @@ def docker_services(
     os.environ[port_var_name] = str(get_free_port)
 
     compose_dir = str(find_git_root())
-    compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
+    compose_files = ["docker-compose.yml"]
 
     with DockerCompose(
         context=compose_dir,
