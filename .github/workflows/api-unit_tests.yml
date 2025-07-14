@@ -24,7 +24,6 @@ jobs:
       # Create .env file with defaults
       - name: Set default ENV values
         run: |
-          cd api
           cp .env.example .env
 
       # Set up Python
