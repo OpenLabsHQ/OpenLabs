@@ -46,6 +46,15 @@ class AppSettings(BaseSettings):
     )
     CONTACT_NAME: str | None = config("CONTACT_NAME", default="OpenLabs Support")
     CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default="support@openlabs.sh")
+    
+    # CORS settings
+    CORS_ORIGINS: str = config(
+        "CORS_ORIGINS", 
+        default="http://localhost:3000,http://localhost:3001"
+    )
+    CORS_CREDENTIALS: bool = config("CORS_CREDENTIALS", default=True)
+    CORS_METHODS: str = config("CORS_METHODS", default="*")
+    CORS_HEADERS: str = config("CORS_HEADERS", default="*")
 
 
 class AuthSettings(BaseSettings):
