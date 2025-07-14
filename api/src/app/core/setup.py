@@ -53,7 +53,7 @@ def lifespan_factory(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[Any, None]:
-        from asyncio import Event # noqa: PLC0415
+        from asyncio import Event  # noqa: PLC0415
 
         initialization_complete = Event()
         app.state.initialization_complete = initialization_complete
