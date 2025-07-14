@@ -88,9 +88,11 @@ class PostgresSettings(DatabaseSettings):
 
     POSTGRES_USER: str = config("POSTGRES_USER", default="postgres")
     POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="postgres")
-    POSTGRES_SERVER: str = config("POSTGRES_SERVER", default="localhost")
+    POSTGRES_SERVER: str = config(
+        "POSTGRES_SERVER", default="postgres"  # Internal compose DNS
+    )
     POSTGRES_PORT: int = config("POSTGRES_PORT", default=5432)
-    POSTGRES_DB: str = config("POSTGRES_DB", default="postgres")
+    POSTGRES_DB: str = config("POSTGRES_DB", default="openlabs")
     POSTGRES_SYNC_PREFIX: str = config("POSTGRES_SYNC_PREFIX", default="postgresql://")
     POSTGRES_ASYNC_PREFIX: str = config(
         "POSTGRES_ASYNC_PREFIX", default="postgresql+asyncpg://"
@@ -104,7 +106,9 @@ class PostgresSettings(DatabaseSettings):
 class RedisQueueSettings(BaseSettings):
     """Redis queue settings."""
 
-    REDIS_QUEUE_HOST: str = config("REDIS_QUEUE_HOST", default="localhost")
+    REDIS_QUEUE_HOST: str = config(
+        "REDIS_QUEUE_HOST", default="redis"  # Internal compose DNS
+    )
     REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
     REDIS_QUEUE_PASSWORD: str = config("REDIS_QUEUE_PASSWORD", default="ChangeMe123!")
 
