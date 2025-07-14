@@ -90,9 +90,10 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      - NODE_ENV=production
+      NODE_ENV: production
     depends_on:
-      - fastapi
+      fastapi:
+        condition: service_healthy
     networks:
       - fastapi_network
     profiles:
