@@ -486,9 +486,9 @@ def load_test_env_file() -> bool:
         bool: If at least one environment variable was set. False otherwise.
 
     """
-    test_env_file = ".env.tests"
+    test_env_file = find_git_root() / ".env.tests"
     logger.info("Attempting to load test ENV file: %s", test_env_file)
-    return load_dotenv(test_env_file)
+    return load_dotenv(str(test_env_file))
 
 
 @pytest_asyncio.fixture(scope="session")
