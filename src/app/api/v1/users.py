@@ -13,6 +13,7 @@ from src.app.schemas.creds_verify_schema import CredsVerifySchema
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
+from ...crud.crud_secrets import get_user_secrets, upsert_user_secrets
 from ...crud.crud_users import get_user_by_id, update_user_password
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
@@ -121,7 +122,7 @@ async def update_password(
 
 
 @router.get("/me/secrets")
-async def get_user_secrets(
+async def fetch_user_secrets(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> UserSecretResponseSchema:
@@ -194,10 +195,8 @@ async def update_user_secrets(
         MessageSchema: Status message of updating user secrets.
 
     """
-    # Fetch secrets explicitly from the database
-    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
-    result = await db.execute(stmt)
-    secrets = result.scalars().first()
+    # Fetch secrets from the database
+    secrets = await get_user_secrets(db, current_user.id)
     if not secrets:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -209,9 +208,13 @@ async def update_user_secrets(
         creds_obj = CredsFactory.create_creds_verification(
             provider=creds.provider, credentials=creds.credentials
         )
+    except ValueError as e:
+        # Handles missing credential fields in request
+        raise HTTPException(status_code=400, detail=str(e)) from None
     except ValidationError as e:
-        error = e.errors()[0]["msg"].split(", ", 1)[-1]
-        raise HTTPException(status_code=400, detail=error) from None
+        # Handles Pydantic schema validation errors (e.g., bad format/length of credentials)
+        error_msg = e.errors()[0]["msg"].split(", ", 1)[-1]
+        raise HTTPException(status_code=400, detail=error_msg) from None
 
     verified, msg = creds_obj.verify_creds()
 
@@ -228,14 +231,23 @@ async def update_user_secrets(
             detail="User encryption keys not set up. Please register a new account.",
         )
 
-    # Update user secrets with encryption
-    message = creds_obj.update_user_secrets(
-        secrets=secrets, current_user_public_key=current_user.public_key
+    # Convert provided credentials to dictionary for encryption
+    user_creds = creds_obj.convert_user_creds()
+
+    # Encrypt with the user's public key
+    encrypted_data = encrypt_with_public_key(
+        data=user_creds, public_key_b64=current_user.public_key
     )
 
-    await db.commit()
+    # Update the secrets with encrypted values
+    secrets = creds_obj.update_user_creds(
+        secrets=secrets, encrypted_data=encrypted_data
+    )
 
-    return message
+    # Add new secrets to database
+    await upsert_user_secrets(db, current_user.id, secrets)
+
+    return creds_obj.get_message()
 
 
 @router.post("/me/secrets/aws")
