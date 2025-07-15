@@ -5,7 +5,7 @@ from typing import Any, List, Tuple
 import boto3
 from botocore.exceptions import ClientError
 
-from src.app.schemas.message_schema import AWSUpdateSecretMessageSchema, MessageSchema
+from src.app.schemas.message_schema import MessageSchema
 from src.app.schemas.secret_schema import AWSSecrets, SecretSchema
 
 from .base_creds import AbstractBaseCreds
@@ -24,22 +24,22 @@ class AWSCreds(AbstractBaseCreds):
         # Check for missing fields
         required_fields = ["aws_access_key", "aws_secret_key"]
         if not all(field in credentials for field in required_fields):
-            msg = "Missing credentials. Please ensure you are providing proper AWS credentials."
+            msg = "Partial credentials or no credentials provided. Please ensure you are providing proper AWS credentials."
             raise ValueError(msg)
 
         self.credentials = AWSSecrets.model_validate(credentials)
 
-    def convert_user_creds(self) -> dict[str, str]:
+    def get_user_creds(self) -> dict[str, str]:
         """Convert user AWS secrets to dictionary for encryption."""
         return {
             "aws_access_key": self.credentials.aws_access_key,
             "aws_secret_key": self.credentials.aws_secret_key,
         }
 
-    def update_user_creds(
+    def update_secret_schema(
         self, secrets: SecretSchema, encrypted_data: dict[str, str]
     ) -> SecretSchema:
-        """Update user secrets record with newly encrypted secrets."""
+        """Update user secrets schema with newly encrypted secrets."""
         secrets.aws_access_key = encrypted_data["aws_access_key"]
         secrets.aws_secret_key = encrypted_data["aws_secret_key"]
         secrets.aws_created_at = datetime.now(UTC)
@@ -49,11 +49,12 @@ class AWSCreds(AbstractBaseCreds):
         """Verify credentials authenticate to an AWS account."""
         try:
             # --- Step 1: Basic Authentication with STS ---
-            client = boto3.client(
-                "sts",
+            # Created shared session for authenticaion and IAM permission check
+            session = boto3.Session(
                 aws_access_key_id=self.credentials.aws_access_key,
                 aws_secret_access_key=self.credentials.aws_secret_key,
             )
+            client = session.client("sts")
             caller_identity = (
                 client.get_caller_identity()
             )  # will raise an error if not valid
@@ -62,12 +63,18 @@ class AWSCreds(AbstractBaseCreds):
                 "AWS credentials successfully authenticated for ARN: %s", caller_arn
             )
 
+            if caller_arn.endswith(
+                ":root"
+            ):  # If root access key credentials are used, skip permissions check as root user has all permissions
+                return (
+                    True,
+                    MessageSchema(
+                        message="AWS credentials authenticated and all required permissions are present."
+                    ),
+                )
+
             # --- Step 2: Simulate permissions for a sample of minimum critical actions ---
-            iam_client = boto3.client(
-                "iam",
-                aws_access_key_id=self.credentials.aws_access_key,
-                aws_secret_access_key=self.credentials.aws_secret_key,
-            )
+            iam_client = session.client("iam")
 
             actions_to_test = [
                 # For Instance
@@ -163,9 +170,3 @@ class AWSCreds(AbstractBaseCreds):
                 False,
                 MessageSchema(message=message),
             )
-
-    def get_message(self) -> MessageSchema:
-        """Provide specific message for successful verification and updadting of credentials in the database."""
-        return MessageSchema(
-            message="AWS credentials successfully verified and updated"
-        )

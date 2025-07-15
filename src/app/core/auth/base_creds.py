@@ -14,23 +14,18 @@ class AbstractBaseCreds(ABC):
         pass
 
     @abstractmethod
-    def convert_user_creds(self) -> dict[str, str]:
+    def get_user_creds(self) -> dict[str, str]:
         """Convert user secrets to dictionary for encryption."""
         pass
 
     @abstractmethod
-    def update_user_creds(
+    def update_secret_schema(
         self, secrets: SecretSchema, encrypted_data: dict[str, str]
     ) -> SecretSchema:
-        """Update user secrets record with newly encrypted secrets."""
+        """Update user secrets schema with newly encrypted secrets."""
         pass
 
     @abstractmethod
     def verify_creds(self) -> Tuple[bool, MessageSchema]:
         """Verify that user provided credentials properly authenticate to a provider account."""
-        pass
-
-    @abstractmethod
-    def get_message(self) -> MessageSchema:
-        """Provide specific message for successful verification and updadting of credentials in the database."""
         pass
