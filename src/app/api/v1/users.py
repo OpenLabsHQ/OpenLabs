@@ -220,7 +220,7 @@ async def update_user_secrets(
 
     if not verified:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=msg.message,
         )
 
@@ -232,7 +232,7 @@ async def update_user_secrets(
         )
 
     # Convert provided credentials to dictionary for encryption
-    user_creds = creds_obj.convert_user_creds()
+    user_creds = creds_obj.get_user_creds()
 
     # Encrypt with the user's public key
     encrypted_data = encrypt_with_public_key(
@@ -240,14 +240,16 @@ async def update_user_secrets(
     )
 
     # Update the secrets with encrypted values
-    secrets = creds_obj.update_user_creds(
+    secrets = creds_obj.update_secret_schema(
         secrets=secrets, encrypted_data=encrypted_data
     )
 
     # Add new secrets to database
-    await upsert_user_secrets(db, current_user.id, secrets)
+    await upsert_user_secrets(db, secrets, current_user.id)
 
-    return creds_obj.get_message()
+    return MessageSchema(
+        message=f"{str(creds.provider.value).upper()} credentials successfully verified and updated"
+    )
 
 
 @router.post("/me/secrets/aws")
