@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
-from src.app.models.secret_model import SecretModel
 from src.app.schemas.message_schema import MessageSchema
+from src.app.schemas.secret_schema import SecretSchema
 
 
 class AbstractBaseCreds(ABC):
@@ -14,24 +14,23 @@ class AbstractBaseCreds(ABC):
         pass
 
     @abstractmethod
-    def update_user_secrets(
-        self, secrets: SecretModel, current_user_public_key: str
-    ) -> MessageSchema:
-        """Add encrypted user credentials to secrets record in database.
+    def convert_user_creds(self) -> dict[str, str]:
+        """Convert user secrets to dictionary for encryption."""
+        pass
 
-        Args:
-        ----
-            secrets (SecretModel): SQLAlchemy ORM object loaded from the database to update with verified provider credentials.
-            current_user_public_key (str): Public key of the current user to encrypt the credentials with before uploading to the database.
-
-        Returns:
-        -------
-            MessageSchema.
-
-        """
+    @abstractmethod
+    def update_user_creds(
+        self, secrets: SecretSchema, encrypted_data: dict[str, str]
+    ) -> SecretSchema:
+        """Update user secrets record with newly encrypted secrets."""
         pass
 
     @abstractmethod
     def verify_creds(self) -> Tuple[bool, MessageSchema]:
         """Verify that user provided credentials properly authenticate to a provider account."""
+        pass
+
+    @abstractmethod
+    def get_message(self) -> MessageSchema:
+        """Provide specific message for successful verification and updadting of credentials in the database."""
         pass

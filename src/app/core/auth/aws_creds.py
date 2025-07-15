@@ -5,10 +5,8 @@ from typing import Any, List, Tuple
 import boto3
 from botocore.exceptions import ClientError
 
-from src.app.models.secret_model import SecretModel
 from src.app.schemas.message_schema import AWSUpdateSecretMessageSchema, MessageSchema
-from src.app.schemas.secret_schema import AWSSecrets
-from src.app.utils.crypto import encrypt_with_public_key
+from src.app.schemas.secret_schema import AWSSecrets, SecretSchema
 
 from .base_creds import AbstractBaseCreds
 
@@ -23,29 +21,29 @@ class AWSCreds(AbstractBaseCreds):
 
     def __init__(self, credentials: dict[str, Any]) -> None:
         """Initialize AWS credentials verification object."""
+        # Check for missing fields
+        required_fields = ["aws_access_key", "aws_secret_key"]
+        if not all(field in credentials for field in required_fields):
+            msg = "Missing credentials. Please ensure you are providing proper AWS credentials."
+            raise ValueError(msg)
+
         self.credentials = AWSSecrets.model_validate(credentials)
 
-    def update_user_secrets(
-        self, secrets: SecretModel, current_user_public_key: str
-    ) -> MessageSchema:
-        """Update user AWS secrets in user record."""
-        # Convert to dictionary for encryption
-        aws_data = {
+    def convert_user_creds(self) -> dict[str, str]:
+        """Convert user AWS secrets to dictionary for encryption."""
+        return {
             "aws_access_key": self.credentials.aws_access_key,
             "aws_secret_key": self.credentials.aws_secret_key,
         }
 
-        # Encrypt with the user's public key
-        encrypted_data = encrypt_with_public_key(aws_data, current_user_public_key)
-
-        # Update the secrets with encrypted values
+    def update_user_creds(
+        self, secrets: SecretSchema, encrypted_data: dict[str, str]
+    ) -> SecretSchema:
+        """Update user secrets record with newly encrypted secrets."""
         secrets.aws_access_key = encrypted_data["aws_access_key"]
         secrets.aws_secret_key = encrypted_data["aws_secret_key"]
         secrets.aws_created_at = datetime.now(UTC)
-
-        return AWSUpdateSecretMessageSchema(
-            message="AWS credentials updated successfully"
-        )
+        return secrets
 
     def verify_creds(self) -> Tuple[bool, MessageSchema]:
         """Verify credentials authenticate to an AWS account."""
@@ -165,3 +163,9 @@ class AWSCreds(AbstractBaseCreds):
                 False,
                 MessageSchema(message=message),
             )
+
+    def get_message(self) -> MessageSchema:
+        """Provide specific message for successful verification and updadting of credentials in the database."""
+        return MessageSchema(
+            message="AWS credentials successfully verified and updated"
+        )
