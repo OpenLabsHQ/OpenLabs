@@ -82,7 +82,10 @@ class AWSSecrets(BaseModel):
 
         """
         access_key_length = 20
-        if len(aws_access_key) != access_key_length:
+        if len(aws_access_key.strip()) == 0:
+            msg = "Partial credentials or no credentials provided.. Please ensure you are providing proper AWS credentials."
+            raise ValueError(msg)
+        if len(aws_access_key.strip()) != access_key_length:
             msg = "Invalid credential format. Please ensure your AWS credentials are of proper length."
             raise ValueError(msg)
         return aws_access_key
@@ -103,7 +106,10 @@ class AWSSecrets(BaseModel):
 
         """
         secret_key_length = 40
-        if len(aws_secret_key) != secret_key_length:
+        if len(aws_secret_key.strip()) == 0:
+            msg = "Partial credentials or no credentials provided. Please ensure you are providing proper AWS credentials."
+            raise ValueError(msg)
+        if len(aws_secret_key.strip()) != secret_key_length:
             msg = "Invalid credential format. Please ensure your AWS credentials are of proper length."
             raise ValueError(msg)
         return aws_secret_key
