@@ -31,7 +31,7 @@ git clone https://github.com/OpenLabsHQ/OpenLabs.git
 Copy the ENV example:
 
 ```bash
-cd API/
+cd OpenLabs/
 cp .env.example .env
 ```
 
@@ -42,7 +42,7 @@ docker compose up --build
 ```
 
 Congrats! It's working! 🎉 
-* API Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* API Documentation: [http://localhost:8000/docs](http://127.0.0.1:8000/docs)
 * OpenLabs Docs: [https://docs.openlabs.sh/](https://docs.openlabs.sh/)
 
 
@@ -159,12 +159,12 @@ The app will only be started once you run the debugger in VScode using the `Pyth
 
 ### Quality Gates
 
-* `black.yml` - Runs the Black code formatter in check mode to verify code formatting.
-* `ruff.yml` - Runs the Ruff linter to check for code quality issues.
-* `mypy.yml` - Performs static type checking with MyPy.
-* `unit_tests.yml` - Runs all unit tests.
-* `integration_tests.yml` Runs integration tests that do **not** deploy live infrastructure.
-* `aws_tests.yml` - Run all AWS specific tests including live deploy tests.
+* `api-black.yml` - Runs the Black code formatter in check mode to verify code formatting.
+* `api-ruff.yml` - Runs the Ruff linter to check for code quality issues.
+* `api-mypy.yml` - Performs static type checking with MyPy.
+* `api-unit_tests.yml` - Runs all unit tests.
+* `api-integration_tests.yml` Runs integration tests that do **not** deploy live infrastructure.
+* `api-aws_tests.yml` - Run all AWS specific tests including live deploy tests.
 
 ### Release Management
 
