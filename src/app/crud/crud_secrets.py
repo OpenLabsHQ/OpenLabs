@@ -38,7 +38,7 @@ async def get_user_secrets(db: AsyncSession, user_id: int) -> SecretSchema | Non
 
 
 async def upsert_user_secrets(
-    db: AsyncSession, user_id: int, secrets: SecretSchema
+    db: AsyncSession, secrets: SecretSchema, user_id: int
 ) -> None:
     """Update user provider secrets.
 
