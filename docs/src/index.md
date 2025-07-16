@@ -1,31 +1,40 @@
-# Introduction
+# 🔬 Welcome to OpenLabs!
 
 > [!WARNING]
-> This is a new project. It is not yet ready
+> This is a new project and does not have a stable release yet!
 
-OpenLabs is a platform for the easy creation of vulnerable cyber environments.
+OpenLabs is an open-source platform for rapidly designing and deploying complex lab environments on any cloud.
 
+Go from a simple blueprint to a fully deployed lab environment in *minutes*. Building on Terraform and Ansible, OpenLabs empowers you to define an entire environment in YAML and deploy consistent, on-demand sandboxes for development, testing, or cybersecurity training.
 
-## Features
+---
 
-- **Automation**: Intentionally or randomly create any network with any operating system
+### 🚀 Getting Started
 
+Ready to dive in? Our Quick Start guide will get your first lab running in minutes.
 
-## Quick Start
+1.  **[Installation](guides/installation.md)**
+2.  **[Deploying Your First Lab](tutorials/quick-start.md)**
 
-```bash
-git clone https://github.com/OpenLabsX/Setup OpenLabsSetup
-cd OpenLabsSetup
-docker-compose up
-```
+---
 
-## Acknowledgments
+### ✨ Features
 
-**Core Developers**
-- [@adamkadaban](https://github.com/adamkadaban)
-- [@alexchristy](https://github.com/alexchristy)
-- [@nareshp1](https://github.com/nareshp1)
+* **Blueprints:** Design anything from a single VM to complex, multi-VPC network topologies in one simple YAML file.
+* **Automation:** Deploy and destroy entire cloud environments with a single click, managing all resources from creation to cleanup.
+* **Cloud Agnostic:** Define your lab once and deploy it to any supported provider, starting with AWS and Azure.
+* **Centralized Control:** Manage all active labs, monitor deployment jobs in real-time, and access connection details from a single dashboard.
+* **Extensible API & CLI:** Integrate OpenLabs into your existing workflows and build custom tooling with a full-featured REST API and command-line interface.
 
-**Thanks**
-- This project took much inspiration from [Ludus](https://gitlab.com/badsectorlabs/ludus) of Bad Sector Labs.
-- Our plugins are built on many open-source Ansible playbooks written by fantastic developers!
+### 🗺️ Roadmap
+
+* **Snapshots & Cloning:** Save the state of any host or an entire lab to roll back changes or deploy perfect, pre-configured clones.
+* **Ansible Provisioning:** Automatically configure your VMs post-deployment by attaching Ansible roles directly to your blueprints.
+* **Dynamic Environments:** Add or remove hosts from a live lab, then export the updated configuration back into a new blueprint to codify your changes.
+* **Integrated Remote Access:** Connect to your lab hosts securely via automated VPN setup and in-browser terminal/desktop access with Apache Guacamole.
+
+### 🤝 Acknowledgments
+
+* **Core Developers:** A huge thanks to the core development team: [@adamkadaban](https://github.com/adamkadaban), [@alexchristy](https://github.com/alexchristy), and [@nareshp1](https://github.com/nareshp1).
+* **Inspiration:** This project took much inspiration from the fantastic [Ludus](https://gitlab.com/badsectorlabs/ludus) project by Bad Sector Labs.
+* **Built On Open Source:** OpenLabs stands on the shoulders of giants, using countless open-source libraries and Ansible roles from the community.

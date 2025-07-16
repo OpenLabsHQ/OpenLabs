@@ -39,3 +39,5 @@ docker compose --profile frontend up
 
 Navigate to: https://localhost:3000
 
+> [!WARNING]
+> This 
