@@ -7,9 +7,7 @@ OpenLabs is an open-source platform for rapidly designing and deploying complex 
 
 Go from a simple blueprint to a fully deployed lab environment in *minutes*. Building on Terraform and Ansible, OpenLabs empowers you to define an entire environment in YAML and deploy consistent, on-demand sandboxes for development, testing, or cybersecurity training.
 
----
-
-### 🚀 Getting Started
+## 🚀 Getting Started
 
 Ready to dive in? Our Quick Start guide will get your first lab running in minutes.
 
