@@ -47,4 +47,4 @@ Visit: [http://localhost:3000](http://localhost:3000). You should see the OpenLa
 
 Congratulations, OpenLabs is now running!
 
-Now you're ready to deploy your first lab. Head back to the [Quick Start Tutorial](../tutorials/quick-start.md) to continue.
+Now you're ready to deploy your first lab. Head back to the [Deploy Your First Range](../tutorials/deploy-your-first-range.md) to continue.

@@ -12,7 +12,7 @@ Go from a simple blueprint to a fully deployed lab environment in *minutes*. Bui
 Ready to dive in? Our Quick Start guide will get your first lab running in minutes.
 
 1.  **[Installation](guides/installation.md)**
-2.  **[Deploying Your First Lab](tutorials/quick-start.md)**
+2.  **[Deploying Your First Lab](tutorials/deploy-your-first-range.md)**
 
 ---
 
