@@ -16,24 +16,24 @@ Open your terminal and run the following command to clone the repository onto yo
 git clone https://github.com/OpenLabsHQ/OpenLabs
 ```
 
-## 🛠️ Step 2: Demo Configuration
+## 🛠️ Step 2: Configure the App
 
-Navigate into the new directory. OpenLabs requires a `.env` file for configuration, even if it's empty.
+Navigate into the new directory. OpenLabs requires a `.env` file for configuration.
 
 ```bash
 cd OpenLabs/
-touch .env
-```
+cp .env.example .env
 
-> [!WARNING]
-> This quick setup uses **insecure** default values suitable only for local testing. For production, please see our [Configuration](guides/configuration.md) guide.
+# Set credentials
+nano .env
+```
 
 ## 🚀 Step 3: Launch OpenLabs
 
 Run Docker Compose to build and start all the OpenLabs services. 
 
 ```bash
-docker compose --profile frontend up
+docker compose --profile frontend up -d
 ```
 
 > [!NOTE]
