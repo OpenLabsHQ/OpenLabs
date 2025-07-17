@@ -3,6 +3,7 @@
 - [🎯 Introduction](index.md)
 - [🚀 Tutorials](tutorials/index.md)
   - [Deploy Your First Range](tutorials/deploy-your-first-range.md)
+  - [Starting with the CLI](tutorials/starting-with-the-cli.md)
 - [🛠️ How-To Guides](guides/index.md)
   - [Installation](guides/installation.md)
   - [Configuration](guides/configuration.md)
