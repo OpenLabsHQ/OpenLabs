@@ -1,9 +1,6 @@
 # Summary
 
-- [Introduction](index.md)
-
----
-
+- [🎯 Introduction](index.md)
 - [🚀 Tutorials](tutorials/index.md)
   - [Deploy Your First Range](tutorials/deploy-your-first-range.md)
 - [🛠️ How-To Guides](guides/index.md)
