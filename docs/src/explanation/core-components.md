@@ -2,7 +2,7 @@
 
 At its heart, the OpenLabs lifecycle is simple: you define a **Blueprint**, deploy it to create a live **Range**, and can later save that Range as a **Snapshot**.
 
-* 🏗️ **Blueprint**: The YAML file that acts as a recipe for your lab. It defines every part of your environment: VPCs, subnets, hosts, and their configurations. A Blueprint doesn't represent any live cloud resources and doesn't cost anything.
+* 🏗️ **Blueprint**: The YAML/JSON file that acts as a recipe for your lab. It defines every part of your environment: VPCs, subnets, hosts, and their configurations. A Blueprint doesn't represent any live cloud resources and doesn't cost anything.
 
 * ☁️ **Range**: The live, running version of a Blueprint. When you deploy a Blueprint, OpenLabs creates a Range, which consists of all the actual cloud resources (VMs, networks, etc.). This is the environment you interact with, and it is what incurs costs from your cloud provider.
 
