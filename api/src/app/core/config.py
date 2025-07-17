@@ -22,10 +22,10 @@ class AppSettings(BaseSettings):
         "APP_VERSION",
         default=get_version(root=str(find_git_root())),
     )  # Latest tagged release
-    LICENSE_NAME: str | None = config("LICENSE", default="GPLv3")
+    LICENSE_NAME: str | None = config("LICENSE", default="AGPL-3.0")
     LICENSE_URL: str | None = config(
         "LICENSE_URL",
-        default="https://github.com/OpenLabsHQ/OpenLabs?tab=GPL-3.0-1-ov-file#readme",
+        default="https://github.com/OpenLabsHQ/OpenLabs/blob/main/LICENSE",
     )
     CONTACT_NAME: str | None = config("CONTACT_NAME", default="OpenLabs Support")
     CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default="support@openlabs.sh")
