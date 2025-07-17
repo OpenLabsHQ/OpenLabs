@@ -1,12 +1,6 @@
-# 🧠 Core Concepts
-
-This page explains the fundamental building blocks of the platform.
+# 🧠 Core Components
 
 At its heart, the OpenLabs lifecycle is simple: you define a **Blueprint**, deploy it to create a live **Range**, and can later save that Range as a **Snapshot**.
-
-## Main Components
-
-These are the three primary objects you will interact with in OpenLabs.
 
 * 🏗️ **Blueprint**: The YAML file that acts as a recipe for your lab. It defines every part of your environment: VPCs, subnets, hosts, and their configurations. A Blueprint doesn't represent any live cloud resources and doesn't cost anything.
 
@@ -16,16 +10,5 @@ These are the three primary objects you will interact with in OpenLabs.
 
 Below is a visualization of how these relate to each other:
 
-<img src="../assets/images/3-openlabs_state_flow.drawio.svg" style="width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto;" alt="Screenshot of user settings button location.">
+<img src="../assets/images/3-openlabs_component_lifecycle_diagram.drawio.svg" style="width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto;" alt="Flowchart of the OpenLabs object lifecycle: A Blueprint is deployed into a Range; a Range can be exported back to a Blueprint or saved as a Snapshot, which can in turn be deployed to create a Range.">
 
-## Lab Hierarchy
-
-Every lab you build follows a logical network hierarchy. This structure helps you organize even the most complex environments.
-
-* **Range**: The top-level container for your entire deployed lab.
-
-* **VPC**: (Virtual Private Cloud) An isolated network within your Range. A Range can have multiple VPCs.
-
-* **Subnet**: A subdivision of a VPC's IP address range where hosts live.
-
-* **Host**: An individual virtual machine (VM) running within a Subnet.

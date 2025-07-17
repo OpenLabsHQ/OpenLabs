@@ -10,4 +10,5 @@
   - [Installation](guides/installation.md)
   - [Configuration](guides/configuration.md)
 - [🧠 Explanation](explanation/index.md)
-  - [Core Concepts](explanation/core-concepts.md)
+  - [Core Components](explanation/core-components.md)
+  - [Lab Hierarchy](explanation/lab-hierarchy.md)

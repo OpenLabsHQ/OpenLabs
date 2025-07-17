@@ -1,0 +1,22 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36 Edg/138.0.0.0" version="28.0.5">
+  <diagram name="Page-1" id="2R1WEjlCbHq0XeLIwMJ6">
+    <mxGraphModel dx="1034" dy="636" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="vTYQy4GK1JfMhADjidua-1" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;font style=&quot;font-size: 32px;&quot;&gt;Range&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E51400;fontColor=#ffffff;strokeColor=#B20000;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="145" y="250" width="560" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="vTYQy4GK1JfMhADjidua-2" value="&lt;div&gt;&lt;font style=&quot;font-size: 32px;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;font style=&quot;font-size: 32px;&quot;&gt;VPC&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=light-dark(#0050EF,#6DB2FF);fontColor=#ffffff;strokeColor=#001DBC;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="225" y="380" width="400" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="NZfHBoxpjRVK1S_9SPHq-1" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;font style=&quot;font-size: 32px;&quot;&gt;Subnet&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=light-dark(#A0522D,#FFE066);strokeColor=#6D1F00;fontColor=#ffffff;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="305" y="510" width="240" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="NZfHBoxpjRVK1S_9SPHq-3" value="&lt;font style=&quot;color: light-dark(rgb(0, 0, 0), rgb(0, 0, 0)); font-size: 24px;&quot;&gt;Host&lt;/font&gt;" style="verticalLabelPosition=bottom;sketch=0;aspect=fixed;html=1;verticalAlign=top;strokeColor=none;align=center;outlineConnect=0;shape=mxgraph.citrix.desktop;" vertex="1" parent="1">
+          <mxGeometry x="381" y="600" width="89" height="98" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
