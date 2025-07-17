@@ -1,6 +1,5 @@
 ![OpenLabs Banner](https://github.com/user-attachments/assets/752fab1b-8414-4529-a162-1b3275f3c2ee)
 
-
 <p align="center">
 <a href="https://github.com/OpenLabsHQ/API"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
 <a href="https://github.com/OpenLabsHQ/API"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/mdbook.yml?branch=main&label=Docs"></a>
@@ -13,31 +12,23 @@
 
 ---
 
+### ✨ OpenLabs Demo
+
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/2e1d59f8-bc79-41bd-b04c-757c8af94ee9" alt="OpenLabs Demo" width="920"/>
+  <img src="https://github.com/user-attachments/assets/2e1d59f8-bc79-41bd-b04c-757c8af94ee9" alt="OpenLabs Demo" width="920"/>
 </p>
-
-Documentation: https://docs.openlabs.sh
-
-Source Code: https://github.com/OpenLabsHQ/OpenLabs
 
 ---
 
-## Quickstart
+### 🚀 Simplify Your Lab Environments
 
-```bash
-# Clone
-git clone https://github.com/OpenLabsHQ/OpenLabs
+OpenLabs is an open-source platform that helps you rapidly design and deploy complex, consistent lab environments on any cloud using simple YAML blueprints. Go from concept to a fully deployed lab in minutes.
 
-# Configure
-cd OpenLabs/
-touch .env
+---
 
-# Launch
-docker compose --profile frontend up
-```
+### ⚙️ Installation
 
-Navigate to: https://localhost:3000
+Ready to get started? Find detailed instructions on how to set up OpenLabs with Docker Compose in our documentation:
 
-> [!WARNING]
-> This 
+**[➡️ OpenLabs Installation Guide](https://docs.openlabs.sh/guides/installation.html)**
+
