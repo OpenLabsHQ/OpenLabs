@@ -9,3 +9,5 @@
 - [🧠 Explanation](explanation/index.md)
   - [Core Components](explanation/core-components.md)
   - [Lab Hierarchy](explanation/lab-hierarchy.md)
+- [📚 Reference](reference/index.md)
+  - [Architecture Diagram](reference/architecture-diagram.md)
