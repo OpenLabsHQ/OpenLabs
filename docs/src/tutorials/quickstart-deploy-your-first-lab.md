@@ -1,4 +1,4 @@
-# 🚀 Quickstart: Your First Lab
+# 🚀 Quickstart: Deploy Your First Lab
 
 This guide will walk you through deploying a simple two-host lab environment in under 5 minutes.
 

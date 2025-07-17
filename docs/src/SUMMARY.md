@@ -5,7 +5,7 @@
 ---
 
 - [🚀 Tutorials](tutorials/index.md)
-  - [Quickstart: Your First Lab](tutorials/quick-start.md)
+  - [Quickstart: Deploy Your First Lab](tutorials/quickstart-deploy-your-first-lab.md)
 - [🛠️ How-To Guides](guides/index.md)
   - [Installation](guides/installation.md)
   - [Configuration](guides/configuration.md)
