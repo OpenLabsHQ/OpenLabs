@@ -2,18 +2,16 @@ services:
   postgres:
     image: postgres:17
     container_name: postgres_db_openlabs
-    env_file:
-      - .env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-openlabs}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe123!}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - fastapi_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-openlabs}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,15 +19,13 @@ services:
   redis:
     image: redis:alpine
     container_name: redis_queue_openlabs
-    env_file:
-      - .env
-    command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD:-ChangeMe123!}"]
+    command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD}"]
     volumes:
       - redis_data:/data
     networks:
       - fastapi_network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_QUEUE_PASSWORD:-ChangeMe123!}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_QUEUE_PASSWORD}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -57,7 +53,7 @@ services:
     env_file:
       - .env
     ports:
-      - "${API_LISTEN_ADDR:-127.0.0.1}:${API_LISTEN_PORT:-8000}:80"
+      - "${API_BIND_ADDR}:${API_PORT}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,9 +82,9 @@ services:
       context: frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${API_URL:-http://localhost:8000}
+        VITE_API_URL: ${API_URL}
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT}:3000"
     environment:
       NODE_ENV: production
     depends_on:
