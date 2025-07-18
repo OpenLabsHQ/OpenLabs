@@ -68,7 +68,7 @@ jobs:
       - name: Run End-to-End Tests
         run: |
           cd e2e
-          pytest -n auto --output testing-out --browser webkit --browser chromium --browser firefox --tracing retain-on-failure --video retain-on-failure --reruns 2
+          pytest --output testing-out --browser webkit --browser chromium --browser firefox --tracing retain-on-failure --video retain-on-failure
 
       - name: Upload test logs on failure
         if: failure()
