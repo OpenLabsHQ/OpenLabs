@@ -1,0 +1,14 @@
+services:
+  postgres:
+    volumes:
+      # Use a temp volume for postgres test data
+      - postgres_test_data:/var/lib/postgresql/data
+      
+  redis:
+    volumes:
+      # Use a temp volume for redis test data
+      - redis_test_data:/data
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
