@@ -1,67 +1,69 @@
 import os
 
-from pydantic_settings import BaseSettings
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from setuptools_scm import get_version
-from starlette.config import Config
 
 from ..utils.cdktf_utils import create_cdktf_dir
 from ..utils.path_utils import find_git_root
 
 env_path = os.path.join(str(find_git_root()), ".env")
-config = Config(env_path)
+settings_config = SettingsConfigDict(
+    # Provide the full, absolute path to your file
+    env_file=env_path,
+    env_file_encoding="utf-8",
+    extra="ignore",
+)
 
 
 class AppSettings(BaseSettings):
     """FastAPI app settings."""
 
-    APP_NAME: str = config("APP_NAME", default="OpenLabs API")
-    APP_DESCRIPTION: str | None = config(
-        "APP_DESCRIPTION", default="OpenLabs backend API."
-    )
-    APP_VERSION: str | None = config(
-        "APP_VERSION",
-        default=get_version(root=str(find_git_root())),
+    model_config = settings_config
+
+    APP_NAME: str = "OpenLabs API"
+    APP_DESCRIPTION: str | None = "OpenLabs backend API."
+    APP_VERSION: str | None = get_version(
+        root=str(find_git_root())
     )  # Latest tagged release
-    LICENSE_NAME: str | None = config("LICENSE", default="AGPL-3.0")
-    LICENSE_URL: str | None = config(
-        "LICENSE_URL",
-        default="https://github.com/OpenLabsHQ/OpenLabs/blob/main/LICENSE",
-    )
-    CONTACT_NAME: str | None = config("CONTACT_NAME", default="OpenLabs Support")
-    CONTACT_EMAIL: str | None = config("CONTACT_EMAIL", default="support@openlabs.sh")
+    LICENSE_NAME: str | None = "AGPL-3.0"
+    LICENSE_URL: str | None = "https://github.com/OpenLabsHQ/OpenLabs/blob/main/LICENSE"
+    CONTACT_NAME: str | None = "OpenLabs Support"
+    CONTACT_EMAIL: str | None = "support@openlabs.sh"
 
     # CORS settings
-    CORS_ORIGINS: str = config(
-        "CORS_ORIGINS", default="http://localhost:3000,http://localhost:3001"
-    )
-    CORS_CREDENTIALS: bool = config("CORS_CREDENTIALS", default=True)
-    CORS_METHODS: str = config("CORS_METHODS", default="*")
-    CORS_HEADERS: str = config("CORS_HEADERS", default="*")
+    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_CREDENTIALS: bool = True
+    CORS_METHODS: str = "*"
+    CORS_HEADERS: str = "*"
 
 
 class AuthSettings(BaseSettings):
     """Authentication settings."""
 
-    SECRET_KEY: str = config("SECRET_KEY", default="ChangeMe123!")
-    ALGORITHM: str = config("ALGORITHM", default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = config(
-        "ACCESS_TOKEN_EXPIRE_MINUTES", default=60 * 24 * 7
-    )  # One week
+    model_config = settings_config
 
-    # Admin user settings
-    ADMIN_EMAIL: str = config("ADMIN_EMAIL", default="admin@test.com")
-    ADMIN_PASSWORD: str = config("ADMIN_PASSWORD", default="admin123")
-    ADMIN_NAME: str = config("ADMIN_NAME", default="Administrator")
+    SECRET_KEY: str = "ChangeMe123!"  # noqa: S105 (Default)
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # One week
+
+    ADMIN_EMAIL: str = "admin@test.com"
+    ADMIN_PASSWORD: str = "admin123"  # noqa: S105 (Default)
+    ADMIN_NAME: str = "Administrator"
 
 
 class CDKTFSettings(BaseSettings):
     """CDKTF settings."""
 
-    CDKTF_DIR: str = config("CDKTF_DIR", default=create_cdktf_dir())
+    model_config = settings_config
+
+    CDKTF_DIR: str = create_cdktf_dir()
 
 
 class DatabaseSettings(BaseSettings):
     """Base class for database settings."""
+
+    model_config = settings_config
 
     pass
 
@@ -69,31 +71,36 @@ class DatabaseSettings(BaseSettings):
 class PostgresSettings(DatabaseSettings):
     """Postgres database settings."""
 
-    POSTGRES_USER: str = config("POSTGRES_USER", default="postgres")
-    POSTGRES_PASSWORD: str = config("POSTGRES_PASSWORD", default="ChangeMe123!")
-    POSTGRES_SERVER: str = config(
-        "POSTGRES_SERVER", default="postgres"  # Internal compose DNS
-    )
-    POSTGRES_PORT: int = config("POSTGRES_PORT", default=5432)
-    POSTGRES_DB: str = config("POSTGRES_DB", default="openlabs")
-    POSTGRES_SYNC_PREFIX: str = config("POSTGRES_SYNC_PREFIX", default="postgresql://")
-    POSTGRES_ASYNC_PREFIX: str = config(
-        "POSTGRES_ASYNC_PREFIX", default="postgresql+asyncpg://"
-    )
-    POSTGRES_URI: str = (
-        f"{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    )
-    POSTGRES_URL: str | None = config("POSTGRES_URL", default=None)
+    model_config = settings_config
+
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "ChangeMe123!"  # noqa: S105 (Default)
+    POSTGRES_SERVER: str = "postgres"  # Internal compose DNS
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "openlabs"
+    POSTGRES_SYNC_PREFIX: str = "postgresql://"
+    POSTGRES_ASYNC_PREFIX: str = "postgresql+asyncpg://"
+
+    # Built after .env loaded to prevent only using defaults
+    @computed_field
+    def POSTGRES_URI(self) -> str:  # noqa: N802
+        """Postgres connection string."""
+        return (
+            f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
+            f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    POSTGRES_URL: str | None = None
 
 
 class RedisQueueSettings(BaseSettings):
     """Redis queue settings."""
 
-    REDIS_QUEUE_HOST: str = config(
-        "REDIS_QUEUE_HOST", default="redis"  # Internal compose DNS
-    )
-    REDIS_QUEUE_PORT: int = config("REDIS_QUEUE_PORT", default=6379)
-    REDIS_QUEUE_PASSWORD: str = config("REDIS_QUEUE_PASSWORD", default="ChangeMe123!")
+    model_config = settings_config
+
+    REDIS_QUEUE_HOST: str = "redis"  # Internal compose DNS
+    REDIS_QUEUE_PORT: int = 6379
+    REDIS_QUEUE_PASSWORD: str = "ChangeMe123!"  # noqa: S105 (Default)
 
 
 class Settings(
