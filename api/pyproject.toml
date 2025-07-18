@@ -93,13 +93,13 @@ markers = [
 ]
 
 # Enable and configure file logging
-log_file = ".testing-out/pytest_run.log"
+log_file = "testing-out/pytest_run.log"
 log_file_level = "INFO"
 log_file_mode = "w"  # Overwrite log file on each run
 log_file_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 [tool.coverage.run]
-data_file = ".testing-out/.coverage" 
+data_file = "testing-out/.coverage" 
 parallel = true
 source = ["src"]
 omit = [
