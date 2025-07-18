@@ -185,14 +185,14 @@ class TestRange:
         ), f"Could not retrieve key for range with ID: {range_info.id}"
 
         # Extract all private IPs and their OS from range_info
-        host_info = []
+        host_info: list[dict[str, str]] = []
         for vpc in range_info.vpcs:
             for subnet in vpc.subnets:
                 for host in subnet.hosts:
                     host_info.append(
                         {
                             "ip": str(host.ip_address),
-                            "os": host.os,
+                            "os": host.os.value,
                             "hostname": host.hostname,
                         }
                     )
@@ -218,11 +218,12 @@ class TestRange:
 
             # Get jumpbox transport for tunneling
             jumpbox_transport = ssh_client.get_transport()
+            assert jumpbox_transport is not None, "Failed to get SSH transport"
 
-            for host in host_info:
-                ip = host["ip"]
-                os_name = host["os"]
-                hostname = host["hostname"]
+            for host_data in host_info:
+                ip = host_data["ip"]
+                os_name = host_data["os"]
+                hostname = host_data["hostname"]
 
                 target_client = None
                 try:
