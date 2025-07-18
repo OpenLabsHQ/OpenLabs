@@ -413,7 +413,7 @@ def test_env_file() -> Generator[Path, None, None]:
     new_env_path = shutil.copy(example_path, env_path)
 
     try:
-        yield new_env_path
+        yield Path(new_env_path)
     finally:
         if original_env_existed:
             backup_path.replace(env_path)
