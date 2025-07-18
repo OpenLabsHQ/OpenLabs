@@ -5,6 +5,7 @@ import paramiko
 import pytest
 from httpx import AsyncClient
 
+from src.app.enums.operating_systems import OS_SSH_USERNAME_MAP, OpenLabsOS
 from src.app.schemas.range_schemas import DeployedRangeSchema
 from tests.api_test_utils import get_range, get_range_key, login_user
 from tests.deploy_test_utils import (
@@ -148,6 +149,131 @@ class TestRange:
                 range_info.jumpbox_public_ip
             ), f"Internet check failed: Expected IP '{range_info.jumpbox_public_ip}', but got '{public_ip_output}'"
 
+        except paramiko.AuthenticationException:
+            pytest.fail(
+                "SSH authentication failed for jumpbox. Check username and private key.",
+            )
+        finally:
+            if ssh_client:
+                ssh_client.close()
+
+    async def test_jumpbox_to_vm_connections(
+        self,
+        integration_client: AsyncClient,
+        provider_deployed_ranges_for_provider: dict[
+            RangeType, tuple[DeployedRangeSchema, str, str]
+        ],
+        range_type: RangeType,
+    ) -> None:
+        """Test SSH connection from the jumpbox to all VMs in the range.
+
+        This test verifies:
+        1. Successful SSH authentication to the jumpbox.
+        2. SSH tunneling capability from jumpbox to all VMs in the range.
+        3. Command execution on all accessible VMs through the jumpbox.
+        """
+        deployed_range = provider_deployed_ranges_for_provider[range_type]
+        range_info, email, password = deployed_range
+
+        assert await login_user(
+            integration_client, email, password
+        ), "Failed to login to the deployed range account."
+
+        private_key_str = await get_range_key(integration_client, range_info.id)
+        assert (
+            private_key_str
+        ), f"Could not retrieve key for range with ID: {range_info.id}"
+
+        # Extract all private IPs and their OS from range_info
+        host_info = []
+        for vpc in range_info.vpcs:
+            for subnet in vpc.subnets:
+                for host in subnet.hosts:
+                    host_info.append(
+                        {
+                            "ip": str(host.ip_address),
+                            "os": host.os,
+                            "hostname": host.hostname,
+                        }
+                    )
+
+        ssh_client = None
+        try:
+            private_key_file = io.StringIO(private_key_str)
+            private_key = paramiko.RSAKey.from_private_key(private_key_file)
+
+            ssh_client = paramiko.SSHClient()
+            ssh_client.set_missing_host_key_policy(
+                paramiko.AutoAddPolicy()  # noqa: S507
+            )
+
+            # Connect to the jumpbox using its public IP
+            await asyncio.to_thread(
+                ssh_client.connect,
+                hostname=str(range_info.jumpbox_public_ip),
+                username="ubuntu",
+                pkey=private_key,
+                timeout=10,
+            )
+
+            # Get jumpbox transport for tunneling
+            jumpbox_transport = ssh_client.get_transport()
+
+            for host in host_info:
+                ip = host["ip"]
+                os_name = host["os"]
+                hostname = host["hostname"]
+
+                target_client = None
+                try:
+                    # Create a tunnel channel through the jumpbox
+                    src_addr = (str(range_info.jumpbox_public_ip), 22)
+                    dest_addr = (ip, 22)
+                    jumpbox_channel = jumpbox_transport.open_channel(
+                        "direct-tcpip", dest_addr, src_addr
+                    )
+
+                    target_client = paramiko.SSHClient()
+                    target_client.set_missing_host_key_policy(
+                        paramiko.AutoAddPolicy()  # noqa: S507
+                    )
+
+                    # Get the appropriate SSH username for this OS
+                    os_enum = OpenLabsOS(os_name)
+                    username = OS_SSH_USERNAME_MAP.get(os_enum, "ubuntu")
+
+                    await asyncio.to_thread(
+                        target_client.connect,
+                        hostname=ip,
+                        username=username,
+                        pkey=private_key,
+                        sock=jumpbox_channel,
+                        timeout=10,
+                    )
+
+                    # Validate command execution with 'id' command
+                    _, stdout, stderr = await asyncio.to_thread(
+                        target_client.exec_command, "id"
+                    )
+                    command_output = stdout.read().decode("utf-8").strip()
+                    error_output = stderr.read().decode("utf-8").strip()
+
+                    assert (
+                        username in command_output
+                    ), f"Expected username '{username}' not found in output: {command_output}"
+                    assert (
+                        not error_output
+                    ), f"Error executing 'id' command on {hostname} ({ip}): {error_output}"
+                    print(
+                        f"Successfully verified user identity on {hostname} ({ip}) with username '{username}'"
+                    )
+                except Exception as e:
+                    pytest.fail(
+                        f"Exception connecting to {hostname} ({ip}) with username '{username}': {e}"
+                    )
+                finally:
+                    if target_client:
+                        target_client.close()
         except paramiko.AuthenticationException:
             pytest.fail(
                 "SSH authentication failed for jumpbox. Check username and private key.",

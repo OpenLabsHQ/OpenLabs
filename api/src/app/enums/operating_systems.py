@@ -80,3 +80,18 @@ OS_SIZE_THRESHOLD = {
     OpenLabsOS.WINDOWS_2019: 32,
     OpenLabsOS.WINDOWS_2022: 32,
 }
+
+# SSH username mapping for each OS
+OS_SSH_USERNAME_MAP = {
+    OpenLabsOS.DEBIAN_11: "admin",
+    OpenLabsOS.DEBIAN_12: "admin",
+    OpenLabsOS.UBUNTU_20: "ubuntu",
+    OpenLabsOS.UBUNTU_22: "ubuntu",
+    OpenLabsOS.UBUNTU_24: "ubuntu",
+    OpenLabsOS.SUSE_12: "ec2-user",
+    OpenLabsOS.SUSE_15: "ec2-user",
+    OpenLabsOS.KALI: "kali",
+    OpenLabsOS.WINDOWS_2016: "Administrator",
+    OpenLabsOS.WINDOWS_2019: "Administrator",
+    OpenLabsOS.WINDOWS_2022: "Administrator",
+}
