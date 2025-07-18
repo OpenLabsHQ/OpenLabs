@@ -2,11 +2,12 @@ import logging
 import os
 import shutil
 import socket
-import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Generator, Iterator
 from unittest.mock import MagicMock
 
+import dotenv
 import pytest
 import pytest_asyncio
 from dotenv import load_dotenv
@@ -65,6 +66,10 @@ from tests.unit.api.v1.config import (
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# Config
+COMPOSE_DIR = find_git_root()
+API_PORT_VAR_NAME = "API_PORT"
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -381,7 +386,7 @@ def create_test_output_dir() -> str:
         str: Path to test output dir.
 
     """
-    test_output_dir = "./.testing-out/"
+    test_output_dir = "./testing-out/"
     if not os.path.exists(test_output_dir):
         os.makedirs(test_output_dir)
 
@@ -389,23 +394,65 @@ def create_test_output_dir() -> str:
 
 
 @pytest.fixture(scope="session")
+def test_env_file() -> Generator[Path, None, None]:
+    """Create a test .env file."""
+    env_path = Path(f"{COMPOSE_DIR}/.env")
+    backup_path = env_path.with_suffix(env_path.suffix + ".bak")
+    example_path = Path(f"{COMPOSE_DIR}/.env.example")
+
+    if not example_path.is_file():
+        pytest.fail(f"Required example .env file not found: {example_path}")
+
+    # Back up the original .env if it exists
+    original_env_existed = env_path.exists()
+    if original_env_existed:
+        env_path.rename(backup_path)
+        logger.info("Backed up existing .env file to: %s.", backup_path)
+
+    # Create the test .env from the example
+    new_env_path = shutil.copy(example_path, env_path)
+
+    try:
+        yield new_env_path
+    finally:
+        if original_env_existed:
+            backup_path.replace(env_path)
+            logger.info("Restored .env file from backup.")
+        else:
+            # If no backup, cleanup our test .env
+            env_path.unlink()
+            logger.info("Removed temporary .env file.")
+
+
+def configure_integration_test_app(test_env_file: Path, api_port: int) -> None:
+    """Configure a .env file for integration testing.
+
+    Args:
+        test_env_file: Path to test .env file
+        api_port: Free port that API will listen on
+
+    Returns:
+        None
+
+    """
+    if not test_env_file.is_file():
+        pytest.fail("Failed to configure .env file for testing. Env file not found!")
+
+    # Set env variables
+    dotenv.set_key(test_env_file, API_PORT_VAR_NAME, str(api_port))
+
+
+@pytest.fixture(scope="session")
 def docker_services(
-    get_free_port: int,
-    create_test_output_dir: str,
+    get_free_port: int, create_test_output_dir: str, test_env_file: Path
 ) -> Generator[DockerCompose, None, None]:
     """Spin up docker compose environment using `docker-compose.yml` in project root."""
-    ip_var_name = "API_LISTEN_ADDR"
-    port_var_name = "API_LISTEN_PORT"
+    configure_integration_test_app(test_env_file, api_port=get_free_port)
 
-    # Export test config
-    os.environ[ip_var_name] = "127.127.127.127"
-    os.environ[port_var_name] = str(get_free_port)
-
-    compose_dir = str(find_git_root())
-    compose_files = ["docker-compose.yml"]
+    compose_files = ["docker-compose.yml", "docker-compose.test.yml"]
 
     with DockerCompose(
-        context=compose_dir,
+        context=COMPOSE_DIR,
         compose_file_name=compose_files,
         pull=True,
         build=True,
@@ -418,13 +465,8 @@ def docker_services(
         finally:
             logger.info("Saving container logs...")
 
-            # Check if the test run failed by seeing if an exception was raised
-            exc_type, _, _ = sys.exc_info()
-            did_fail = exc_type is not None
-
-            status = "FAILED" if did_fail else "PASSED"
             timestamp = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-            log_filename = f"docker_compose_test_{status}_{timestamp}.log"
+            log_filename = f"docker_compose_test_{timestamp}.log"
             log_path = os.path.join(create_test_output_dir, log_filename)
 
             stdout, stderr = compose.get_logs()
@@ -441,8 +483,6 @@ def docker_services(
             # Rotate and clear old logs
             rotate_docker_compose_test_log_files(create_test_output_dir)
 
-    del os.environ[ip_var_name]
-    del os.environ[port_var_name]
     logger.info("Docker Compose environment stopped.")
 
 
@@ -451,7 +491,7 @@ async def docker_compose_api_url(
     docker_services: DockerCompose, get_free_port: int
 ) -> str:
     """Spin up the Docker environment, waits for the API to be live, and returns the base URL of the running service."""
-    base_url = f"http://127.127.127.127:{get_free_port}"
+    base_url = f"http://127.0.0.1:{get_free_port}"
     await wait_for_fastapi_service(
         f"{base_url}{get_api_base_route(version=1)}", timeout=60
     )
