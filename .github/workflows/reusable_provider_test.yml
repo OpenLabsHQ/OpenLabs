@@ -1,33 +1,31 @@
-name: API - Integration Tests
+name: Reusable Provider Test
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'api/**'
-  pull_request:
-    branches:
-      - '**'
-    paths:
-      - 'api/**'
+  workflow_call:
+    inputs:
+      provider:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY:
+        required: false
+      AWS_SECRET_KEY:
+        required: false
 
 jobs:
-  run:
+  run-provider-test:
     runs-on: ubuntu-latest
     env:
       TESTCONTAINERS_RYUK_DISABLED: "true"
-      
-    steps:
-      # Install docker
-      - name: Set up Docker
-        uses: docker/setup-docker-action@v4
+      # AWS
+      INTEGRATION_TEST_AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+      INTEGRATION_TEST_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
 
-      # Checkout the code
+
+    steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -37,7 +35,6 @@ jobs:
             api/requirements.txt
             api/dev-requirements.txt
 
-      # Install dependencies
       - name: Install dependencies
         run: |
           cd api
@@ -45,15 +42,14 @@ jobs:
           pip install -r requirements.txt
           pip install -r dev-requirements.txt
 
-      # Run Tests
-      - name: Run Integration Tests
+      - name: Run ${{ inputs.provider }} Tests
         run: |
           cd api
-          pytest -m "integration and not deploy" --no-cov
+          pytest -m ${{ inputs.provider }} --no-cov
 
       - name: Upload test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: api-integration-test-logs
+          name: api-${{ inputs.provider }}-test-logs
           path: api/testing-out/
