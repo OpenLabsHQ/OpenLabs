@@ -58,14 +58,15 @@ HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
 # Adds worker dependencies
 FROM builder AS worker
     
-RUN wget -O- https://apt.releases.hashicorp.com/gpg | \
-    gpg --dearmor | \
-    tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-
-RUN echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
-    https://apt.releases.hashicorp.com bookworm main" | \
-    tee /etc/apt/sources.list.d/hashicorp.list
-RUN apt-get update && apt-get install -y terraform
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends wget gpg ca-certificates && \
+    wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor > /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com bookworm main" > /etc/apt/sources.list.d/hashicorp.list && \
+    apt-get update && \
+    apt-get install -y terraform && \
+    # Clean up to keep the image size down
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set up terraform cache
 WORKDIR src/app/core/cdktf

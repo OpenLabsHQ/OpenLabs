@@ -1,16 +1,12 @@
-name: API - Integration Tests
+name: End-to-End Tests
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'api/**'
   pull_request:
     branches:
       - '**'
-    paths:
-      - 'api/**'
 
 jobs:
   run:
@@ -33,27 +29,25 @@ jobs:
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
           cache: 'pip'
-          cache-dependency-path: |
-            api/requirements.txt
-            api/dev-requirements.txt
+          cache-dependency-path: e2e/requirements.txt
 
       # Install dependencies
       - name: Install dependencies
         run: |
-          cd api
+          cd e2e
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r dev-requirements.txt
+          sudo playwright install-deps
 
       # Run Tests
-      - name: Run Integration Tests
+      - name: Run End-to-End Tests
         run: |
-          cd api
-          pytest -m "integration and not deploy" --no-cov
+          cd e2e
+          pytest -n auto --browser webkit --browser chromium --browser firefox --tracing retain-on-failure --video retain-on-failure --reruns 2
 
       - name: Upload test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: api-integration-test-logs
-          path: api/testing-out/
+          name: end-to-end-test-logs
+          path: e2e/testing-out/

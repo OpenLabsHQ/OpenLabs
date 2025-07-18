@@ -165,8 +165,3 @@ The app will only be started once you run the debugger in VScode using the `Pyth
 * `api-unit_tests.yml` - Runs all unit tests.
 * `api-integration_tests.yml` Runs integration tests that do **not** deploy live infrastructure.
 * `api-aws_tests.yml` - Run all AWS specific tests including live deploy tests.
-
-### Release Management
-
-- `check_pr_labels.yml` - Checks for properly labeled PRs required by *auto_release.yml*.
-- `auto_release.yml` - Creates GitHub tagged releases based on the tag of the PR. 

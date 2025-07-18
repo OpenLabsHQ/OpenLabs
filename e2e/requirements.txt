@@ -1,0 +1,7 @@
+pytest~=8.4
+pytest-playwright~=0.7
+playwright~=1.53
+testcontainers~=4.10
+python-dotenv~=1.1
+pytest-rerunfailures>=15.1
+pytest-xdist~=3.8

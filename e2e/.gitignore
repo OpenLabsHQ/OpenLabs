@@ -1,0 +1,12 @@
+# Python test environment
+venv/
+
+# Python
+__pycache__/
+
+# Pytest
+.pytest_cache/
+
+# Logs
+logs/
+testing-out/

@@ -1,9 +1,6 @@
 [tool.black]
 line-length = 88
 target-version = ['py312']
-extend-exclude='''
-(src/app/enums/.*)
-'''
 
 [tool.mypy]
 packages = ["."]
@@ -11,7 +8,6 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 disallow_untyped_decorators = false
-plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
@@ -55,7 +51,7 @@ exclude = [
     "*.json",
     ".terraform*",
     ]
-lint.per-file-ignores = { "tests/**/*.py" = ["S101"] } # S101 - assert used
+lint.per-file-ignores = { "./**/*.py" = ["S101"] } # S101 - assert used
 
 # Same as Black.
 line-length = 88
@@ -68,66 +64,17 @@ lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 target-version = "py312"
 
 [tool.pytest.ini_options]
+addopts = "--log-level=INFO --output testing-out --tracing retain-on-failure --video retain-on-failure"
 pythonpath = ["."]
-addopts = [
-    "--cov=.",
-    "--cov-report=html",
-    "--cov-fail-under=85",   # Fail if coverage is below 85%
-]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
-filterwarnings = [
-    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning"
-]
 
-# Register markers to easily select unit or integration tests.
-markers = [
-    "slow: marks tests that are slow for any reason.",
-    "unit: marks tests as unit tests.",
-    "integration: marks tests as integration tests.",
-    "api: marks tests that interact with API endpoints.",
-    "worker: marks tests that cover the ARQ worker code.",
-    "deploy: marks tests that deploy live infrastructure.",
-    "cdktf: marks tests related to or that import cdktf code.",
-    "aws: marks tests related to AWS specific functionality."
-]
+# Register markers to easily select different tests.
+markers = []
 
 # Enable and configure file logging
 log_file = "testing-out/pytest_run.log"
 log_file_level = "INFO"
 log_file_mode = "w"  # Overwrite log file on each run
 log_file_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-[tool.coverage.run]
-data_file = "testing-out/.coverage" 
-parallel = true
-source = ["src"]
-omit = [
-    "*/.local/*",
-    "tests/*",
-    "*/tests/*",
-    "test_*",
-    "venv/*",
-    "*logger*",
-    "*.tf*",
-    "__init__.py",
-    "/code/tests/*"
-]
-concurrency = ["gevent"]
-
-[tool.coverage.paths]
-source = [
-    "src",
-    "/code/src",
-]
-
-[tool.coverage.report]
-fail_under = 85
-show_missing = true # Show lines that are missing in reports
-skip_empty = true
-
-[tool.coverage.html]
-directory = "htmlcov"   # Directory to output the HTML report
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
