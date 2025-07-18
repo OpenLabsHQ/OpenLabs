@@ -107,7 +107,7 @@ jobs:
 
   aws-tests:
     needs: [unit-tests, integration-tests] # Prevent wasteful test deployments
-    uses: ./.github/workflows/reusable-provider-test.yml
+    uses: ./.github/workflows/reusable_provider_test.yml
     with:
       provider: aws
     secrets:
