@@ -27,16 +27,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Create .env file with defaults
-      - name: Set default ENV values
-        run: |
-          cp .env.example .env
-
       # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            api/requirements.txt
+            api/dev-requirements.txt
 
       # Install dependencies
       - name: Install dependencies
@@ -50,4 +49,11 @@ jobs:
       - name: Run Integration Tests
         run: |
           cd api
-          pytest -m "integration and not deploy" --no-cov 
+          pytest -m "integration and not deploy" --no-cov
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-integration-test-logs
+          path: api/testing-out/
