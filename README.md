@@ -1,10 +1,10 @@
 ![OpenLabs Banner](https://github.com/user-attachments/assets/752fab1b-8414-4529-a162-1b3275f3c2ee)
 
 <p align="center">
-<a href="https://github.com/OpenLabsHQ/API"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
-<a href="https://github.com/OpenLabsHQ/API"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/mdbook.yml?branch=main&label=Docs"></a>
-<a href="https://github.com/OpenLabsHQ/API"><img alt="API Tests" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/api-unit_tests.yml?branch=main&label=API%20Tests"></a>
-<a href="https://github.com/OpenLabsHQ/API"><img alt="API Build" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/api-integration_tests.yml?branch=main&label=API%20Build"></a>
+<a href="https://github.com/OpenLabsHQ/OpenLabs/releases"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
+<a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="E2E Tests" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/e2e_tests.yml?branch=main&label=E2E%20Tests"></a>
+<a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="API Tests" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/api_tests.yml?branch=main&label=API%20Tests"></a>
+<a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/mdbook.yml?branch=main&label=Docs"></a>
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 <a href="https://github.com/astral-sh/ruff"><img alt="Linting: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 <a href="https://mypy-lang.org/"><img alt="Checked with mypy" src="https://www.mypy-lang.org/static/mypy_badge.svg"></a>
