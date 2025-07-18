@@ -58,11 +58,11 @@ jobs:
           pip install -r requirements.txt
           
           # Install system dependencies
-          sudo -E playwright install-deps
+          sudo -E python -m playwright install-deps
 
           # Install browser binaries if cache missed
           if [[ steps.cache-playwright.outputs.cache-hit != 'true' ]]; then
-            playwright install
+            python -m playwright install
           fi
 
       - name: Run End-to-End Tests
