@@ -5,7 +5,12 @@ import paramiko
 import pytest
 from httpx import AsyncClient
 
-from src.app.enums.operating_systems import OS_SSH_USERNAME_MAP, OpenLabsOS
+from src.app.enums.operating_systems import (
+    AWS_SSH_USERNAME_MAP,
+    AZURE_SSH_USERNAME_MAP,
+    OpenLabsOS,
+)
+from src.app.enums.providers import OpenLabsProvider
 from src.app.schemas.range_schemas import DeployedRangeSchema
 from tests.api_test_utils import get_range, get_range_key, login_user
 from tests.deploy_test_utils import (
@@ -114,10 +119,18 @@ class TestRange:
             )
 
             # Connect directly to the jumpbox using its public IP
+            # Jumpbox typically uses Ubuntu, so get the Ubuntu username for the provider
+            if range_info.provider == OpenLabsProvider.AWS:
+                jumpbox_username = AWS_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
+            elif range_info.provider == OpenLabsProvider.AZURE:
+                jumpbox_username = AZURE_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
+            else:
+                pytest.fail(f"Unsupported provider: {range_info.provider}")
+
             await asyncio.to_thread(
                 ssh_client.connect,
                 hostname=str(range_info.jumpbox_public_ip),
-                username="ubuntu",
+                username=jumpbox_username,
                 pkey=private_key,
                 timeout=10,
             )
@@ -127,7 +140,7 @@ class TestRange:
             command_output = stdout.read().decode("utf-8").strip()
             error_output = stderr.read().decode("utf-8").strip()
 
-            assert "ubuntu" in command_output
+            assert jumpbox_username in command_output
             assert (
                 not error_output
             ), f"Error executing 'id' command on jumpbox: {error_output}"
@@ -208,10 +221,18 @@ class TestRange:
             )
 
             # Connect to the jumpbox using its public IP
+            # Jumpbox typically uses Ubuntu, so get the Ubuntu username for the provider
+            if range_info.provider == OpenLabsProvider.AWS:
+                jumpbox_username = AWS_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
+            elif range_info.provider == OpenLabsProvider.AZURE:
+                jumpbox_username = AZURE_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
+            else:
+                pytest.fail(f"Unsupported provider: {range_info.provider}")
+
             await asyncio.to_thread(
                 ssh_client.connect,
                 hostname=str(range_info.jumpbox_public_ip),
-                username="ubuntu",
+                username=jumpbox_username,
                 pkey=private_key,
                 timeout=10,
             )
@@ -239,9 +260,14 @@ class TestRange:
                         paramiko.AutoAddPolicy()  # noqa: S507
                     )
 
-                    # Get the appropriate SSH username for this OS
+                    # Get the appropriate SSH username for this OS based on provider
                     os_enum = OpenLabsOS(os_name)
-                    username = OS_SSH_USERNAME_MAP.get(os_enum, "ubuntu")
+                    if range_info.provider == OpenLabsProvider.AWS:
+                        username = AWS_SSH_USERNAME_MAP[os_enum]
+                    elif range_info.provider == OpenLabsProvider.AZURE:
+                        username = AZURE_SSH_USERNAME_MAP[os_enum]
+                    else:
+                        pytest.fail(f"Unsupported provider: {range_info.provider}")
 
                     await asyncio.to_thread(
                         target_client.connect,
