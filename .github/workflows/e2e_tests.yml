@@ -1,0 +1,53 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      
+    steps:
+      # Install docker
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: e2e/requirements.txt
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          cd e2e
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          sudo playwright install-deps
+
+      # Run Tests
+      - name: Run End-to-End Tests
+        run: |
+          cd e2e
+          pytest -n auto --browser webkit --browser chromium --browser firefox --tracing retain-on-failure --video retain-on-failure --reruns 2
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: end-to-end-test-logs
+          path: e2e/testing-out/
