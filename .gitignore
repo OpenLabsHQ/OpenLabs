@@ -1,3 +1,15 @@
 # Configuration
 .env
 .env.tests
+.env.bak
+
+# Testing
+testing-out/
+
+# Tools
+.mypy_cache/
+.pytest_cache/
+
+# Misc
+.vscode/
+
