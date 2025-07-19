@@ -23,9 +23,6 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write # Required for OIDC
-
     steps:
       # Checkout the code
       - name: Checkout code
@@ -58,14 +55,14 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd api
-          pytest -m unit --cov --cov-branch --cov-report=xml
+          pytest -m unit --cov-report=lcov
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
         with:
-          use_oidc: true
-          working-directory: ./api
-          flags: unittests,api
+          file: api/coverage.lcov
+          flag-name: api-unittests
+          base-path: ./api 
 
       - name: Upload test logs on failure
         if: failure()
