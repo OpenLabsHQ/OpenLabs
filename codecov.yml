@@ -1,0 +1,34 @@
+flags:
+  api:
+    # Prepends 'api/' to all file paths found in the coverage report
+    paths:
+      - api/
+    patch:
+      default:
+        # Require 85% min coverage on new/changed API code to match
+        # pytest coverage requirements.
+        target: 85%
+
+coverage:
+  status:
+    project:
+      default:
+        # Ensure that new overall project coverage >= old project coverage
+        target: auto
+        # Project check based on reports from all flagged components
+        flags:
+          - api
+
+      api:
+        flags:
+          - api
+        # Ensure that new overall api coverage >= old api coverage
+        target: auto
+
+# PR comment config
+comment:
+  layout: "diff, flags, files"
+  behavior: default
+  # Only post a comment if the coverage percentage actually changes
+  # to prevent cluttering PRs.
+  require_changes: true
