@@ -49,7 +49,7 @@ class TestRangesAuth:
         non_existent_range_deploy_payload["blueprint_id"] = random_id
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/ranges/deploy",
-            json=valid_range_deploy_payload,
+            json=non_existent_range_deploy_payload,
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
