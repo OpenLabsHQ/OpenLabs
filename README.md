@@ -2,6 +2,7 @@
 
 <p align="center">
 <a href="https://github.com/OpenLabsHQ/OpenLabs/releases"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
+<a href="https://coveralls.io/github/OpenLabsHQ/OpenLabs"><img src="https://coveralls.io/repos/github/OpenLabsHQ/OpenLabs/badge.svg?branch=main" alt="Coverage Status" /></a>
 <a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="E2E Tests" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/e2e_tests.yml?branch=main&label=E2E%20Tests"></a>
 <a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="API Tests" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/api_tests.yml?branch=main&label=API%20Tests"></a>
 <a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/OpenLabsHQ/OpenLabs/mdbook.yml?branch=main&label=Docs"></a>
