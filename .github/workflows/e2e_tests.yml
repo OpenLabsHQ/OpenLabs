@@ -1,0 +1,82 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'e2e/**'
+      - 'api/**'
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - 'frontend/**'
+      - 'e2e/**'
+      - 'api/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: "true"
+      
+    steps:
+      # Install docker
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ vars.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: e2e/requirements.txt
+
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/e2e/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install dependencies
+        run: |
+          cd e2e
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          
+          # Install system dependencies
+          playwright install-deps
+
+          # Install browser binaries if cache missed
+          if [[ steps.cache-playwright.outputs.cache-hit != 'true' ]]; then
+            playwright install
+          fi
+
+      - name: Run End-to-End Tests
+        run: |
+          cd e2e
+          pytest --output testing-out --browser webkit --browser chromium --browser firefox --tracing retain-on-failure --video retain-on-failure
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: end-to-end-test-logs
+          path: e2e/testing-out/

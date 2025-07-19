@@ -4,10 +4,33 @@ services:
       target: api_debug
     container_name: fastapi_app_dev
     volumes:
-      - .:/code
+      - ./api:/code
     ports:
       - "5678:5678"
     command: [
       "python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client",
       "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--reload", "--workers", "4"
     ]
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      target: builder
+      args:
+        VITE_API_URL: ${API_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+      - "3001:3001"  # Dev server port
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - fastapi
+    networks:
+      - fastapi_network
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/static:/app/static:ro
+    command: ["bun", "run", "dev", "--host", "0.0.0.0"]
+    profiles:
+      - frontend

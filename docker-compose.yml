@@ -2,10 +2,10 @@ services:
   postgres:
     image: postgres:17
     container_name: postgres_db_openlabs
-    env_file:
-      - .env
-    ports:
-      - "${POSTGRES_DEBUG_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -19,11 +19,9 @@ services:
   redis:
     image: redis:alpine
     container_name: redis_queue_openlabs
-    env_file:
-      - .env
     command: ["redis-server", "--loglevel", "warning", "--requirepass", "${REDIS_QUEUE_PASSWORD}"]
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     networks:
       - fastapi_network
     healthcheck:
@@ -36,7 +34,7 @@ services:
     build:
       target: worker
       context: .
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     env_file:
       - .env
     depends_on:
@@ -50,12 +48,12 @@ services:
   fastapi:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     container_name: fastapi_app_openlabs
     env_file:
       - .env
     ports:
-      - "${API_IP_ADDR:-127.0.0.1}:${API_PORT:-8000}:80"
+      - "${API_BIND_ADDR}:${API_PORT}:80"
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,7 +65,7 @@ services:
   init:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     container_name: fastapi_init_openlabs
     env_file:
       - .env
@@ -79,9 +77,27 @@ services:
       - fastapi_network
     restart: on-failure
 
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${API_URL}
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      fastapi:
+        condition: service_healthy
+    networks:
+      - fastapi_network
+    profiles:
+      - frontend
+
 volumes:
   postgres_data:
-  redis-data:
+  redis_data:
 
 networks:
   fastapi_network:

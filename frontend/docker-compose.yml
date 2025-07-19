@@ -1,0 +1,35 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - openlabs-network
+      - api_fastapi_network
+
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bun run proxy
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://fastapi_app:80
+      - PROXY_PORT=3001
+    restart: unless-stopped
+    networks:
+      - openlabs-network
+      - api_fastapi_network
+
+networks:
+  openlabs-network:
+    driver: bridge
+  api_fastapi_network:
+    external: true

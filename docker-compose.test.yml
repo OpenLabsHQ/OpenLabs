@@ -1,12 +1,14 @@
 services:
-  fastapi:
-    build:
-      target: api_test
-    command: ["uvicorn", "tests.integration.main_test:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+  postgres:
     volumes:
-      - ./.testing-out:/code/.testing-out
-    environment:
-      - COVERAGE_PROCESS_START=/code/pyproject.toml
-      - COVERAGE_FILE=/code/.testing-out/.coverage
-    logging:
-      driver: "local"
+      # Use a temp volume for postgres test data
+      - postgres_test_data:/var/lib/postgresql/data
+      
+  redis:
+    volumes:
+      # Use a temp volume for redis test data
+      - redis_test_data:/data
+
+volumes:
+  postgres_test_data:
+  redis_test_data:

@@ -1,0 +1,5 @@
+# Ignore built docs
+book
+
+# Ignore draw.io save files
+src/assets/**/*.Identifier
