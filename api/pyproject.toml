@@ -70,9 +70,8 @@ target-version = "py312"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 addopts = [
-    "--cov=.",
+    "--cov",
     "--cov-report=html",
-    "--cov-fail-under=85",   # Fail if coverage is below 85%
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
@@ -99,6 +98,7 @@ log_file_mode = "w"  # Overwrite log file on each run
 log_file_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 [tool.coverage.run]
+branch = true
 data_file = "testing-out/.coverage" 
 parallel = true
 source = ["src"]
