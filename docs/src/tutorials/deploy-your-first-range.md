@@ -32,10 +32,6 @@ First, let's connect your cloud provider account to OpenLabs.
 
 ## 📘 Step 2: Create a Blueprint
 
-Now lets create our first [Blueprint](../explanation/core-components.md). This will define the structure of our lab environment.
-
-## 📘 Step 2: Create a Blueprint
-
 Next, you'll define the structure of your lab using a [Blueprint](../explanation/core-components.md).
 
 1.  Navigate to the **Blueprints** dashboard from the main menu.
