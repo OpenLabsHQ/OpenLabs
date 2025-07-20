@@ -208,8 +208,8 @@ async def update_user_secrets(
         creds_obj = CredsFactory.create_creds_verification(
             provider=creds.provider, credentials=creds.credentials
         )
-    except ValidationError as e:
-        # Handles Pydantic schema validation errors (e.g., bad format/length of credentials)
+    except (ValidationError, ValueError) as e:
+        # Handles Pydantic schema validation errors (e.g., bad format/length of credentials) or invalid providers in payload
         error_msg = f"Invalid {creds.provider.value.upper()} credentials payload."
         raise HTTPException(status_code=400, detail=error_msg) from e
 
