@@ -3,18 +3,24 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
+
+from src.app.cloud.creds_factory import CredsFactory
+from src.app.schemas.creds_verify_schema import CredsVerifySchema
 
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
+from ...crud.crud_secrets import get_user_secrets, upsert_user_secrets
 from ...crud.crud_users import get_user_by_id, update_user_password
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
 from ...schemas.message_schema import (
     AWSUpdateSecretMessageSchema,
     AzureUpdateSecretMessageSchema,
+    MessageSchema,
     UpdatePasswordMessageSchema,
 )
 from ...schemas.secret_schema import (
@@ -116,7 +122,7 @@ async def update_password(
 
 
 @router.get("/me/secrets")
-async def get_user_secrets(
+async def fetch_user_secrets(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> UserSecretResponseSchema:
@@ -167,6 +173,82 @@ async def get_user_secrets(
             ),
             created_at=azure_created_at,
         ),
+    )
+
+
+@router.post("/me/secrets")
+async def update_user_secrets(
+    creds: CredsVerifySchema,
+    current_user: UserModel = Depends(get_current_user),  # noqa: B008
+    db: AsyncSession = Depends(async_get_db),  # noqa: B008
+) -> MessageSchema:
+    """Update the current user's secrets.
+
+    Args:
+    ----
+        creds (CredsVerifySchema): The provider credentials to store.
+        current_user (UserModel): The authenticated user.
+        db (Session): Database connection.
+
+    Returns:
+    -------
+        MessageSchema: Status message of updating user secrets.
+
+    """
+    # Fetch secrets from the database
+    secrets = await get_user_secrets(db, current_user.id)
+    if not secrets:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User secrets record not found",
+        )
+
+    # Verify credentials are valid before storing
+    try:
+        creds_obj = CredsFactory.create_creds_verification(
+            provider=creds.provider, credentials=creds.credentials
+        )
+    except ValueError as e:
+        # Handles missing credential fields in request
+        raise HTTPException(status_code=422, detail=str(e)) from None
+    except ValidationError as e:
+        # Handles Pydantic schema validation errors (e.g., bad format/length of credentials)
+        error_msg = e.errors()[0]["msg"].split(", ", 1)[-1]
+        raise HTTPException(status_code=422, detail=error_msg) from None
+
+    verified, msg = creds_obj.verify_creds()
+
+    if not verified:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=msg.message,
+        )
+
+    # Encrypt the AWS credentials using the user's public key
+    if not current_user.public_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User encryption keys not set up. Please register a new account.",
+        )
+
+    # Convert provided credentials to dictionary for encryption
+    user_creds = creds_obj.get_user_creds()
+
+    # Encrypt with the user's public key
+    encrypted_data = encrypt_with_public_key(
+        data=user_creds, public_key_b64=current_user.public_key
+    )
+
+    # Update the secrets with encrypted values
+    secrets = creds_obj.update_secret_schema(
+        secrets=secrets, encrypted_data=encrypted_data
+    )
+
+    # Add new secrets to database
+    await upsert_user_secrets(db, secrets, current_user.id)
+
+    return MessageSchema(
+        message=f"{str(creds.provider.value).upper()} credentials successfully verified and updated"
     )
 
 
