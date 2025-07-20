@@ -36,7 +36,7 @@ async def test_update_secrets_database_fetch_failure(
 ) -> None:
     """Test that attempting to update user provider credentials fails when user record is not found in the database"""
     response = await auth_client.post(
-        f"{BASE_ROUTE}/me/secrets",
+        f"{BASE_ROUTE}/users/me/secrets",
         json=aws_secrets_payload,
     )
     assert response.status_code == status.HTTP_200_OK
