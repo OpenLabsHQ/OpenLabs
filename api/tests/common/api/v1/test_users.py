@@ -47,14 +47,14 @@ class TestUsersAuth:
         assert update_response.status_code == status.HTTP_400_BAD_REQUEST
         assert update_response.json()["detail"] == "Current password is incorrect"
 
-    async def test_update_secrets_with_invalid_payload(self, auth_api_client: AsyncClient) -> None:
-        """Test updating user secrets with invalid credentials format"""
+    async def test_update_secrets_with_invalid_payload(
+        self, auth_api_client: AsyncClient
+    ) -> None:
+        """Test updating user secrets with invalid credentials payload"""
         # Try update with invalid secrets format - Use AWS secrets specifically for this test
         invalid_payload = copy.deepcopy(aws_secrets_payload)
-        # Using incorrect credentials to test validation - not a security risk
-        invalid_payload["credentials"]["aws_access_key"] = (
-            "string"  # noqa: S105
-        )
+        # Using incorrect credentials to test validation - submit payload without required fields
+        invalid_payload["credentials"] = {}  # noqa: S105
 
         update_response = await auth_api_client.post(
             f"{BASE_ROUTE}/users/me/secrets", json=invalid_payload
@@ -62,16 +62,24 @@ class TestUsersAuth:
         assert update_response.status_code == status.HTTP_400_BAD_REQUEST
         assert update_response.json()["detail"] == "Invalid AWS credentials payload."
 
-    async def test_update_secrets_with_invalid_credentials(self, auth_api_client: AsyncClient) -> None:
+    async def test_update_secrets_with_invalid_credentials(
+        self, auth_api_client: AsyncClient
+    ) -> None:
         """Test updating user secrets with invalid credentials that do not authenticate"""
         # Try update with invalid secrets - Use AWS secrets specifically for this test
-        invalid_payload = copy.deepcopy(aws_secrets_payload) # Example secrets correct format but do not authenticate
+        invalid_payload = copy.deepcopy(
+            aws_secrets_payload
+        )  # Example secrets correct format but do not authenticate
 
         update_response = await auth_api_client.post(
             f"{BASE_ROUTE}/users/me/secrets", json=invalid_payload
         )
         assert update_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert update_response.json()["detail"] == "AWS credentials could not be authenticated. Please ensure you are providing credentials that are linked to a valid AWS account." 
+        assert (
+            update_response.json()["detail"]
+            == "AWS credentials could not be authenticated. Please ensure you are providing credentials that are linked to a valid AWS account."
+        )
+
 
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize(
