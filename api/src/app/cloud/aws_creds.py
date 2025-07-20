@@ -21,12 +21,6 @@ class AWSCreds(AbstractBaseCreds):
 
     def __init__(self, credentials: dict[str, Any]) -> None:
         """Initialize AWS credentials verification object."""
-        # Check for missing fields
-        required_fields = ["aws_access_key", "aws_secret_key"]
-        if not all(field in credentials for field in required_fields):
-            msg = "Partial credentials or no credentials provided. Please ensure you are providing proper AWS credentials."
-            raise ValueError(msg)
-
         self.credentials = AWSSecrets.model_validate(credentials)
 
     def get_user_creds(self) -> dict[str, str]:

@@ -208,13 +208,10 @@ async def update_user_secrets(
         creds_obj = CredsFactory.create_creds_verification(
             provider=creds.provider, credentials=creds.credentials
         )
-    except ValueError as e:
-        # Handles missing credential fields in request
-        raise HTTPException(status_code=422, detail=str(e)) from None
     except ValidationError as e:
         # Handles Pydantic schema validation errors (e.g., bad format/length of credentials)
-        error_msg = e.errors()[0]["msg"].split(", ", 1)[-1]
-        raise HTTPException(status_code=422, detail=error_msg) from None
+        error_msg = f"Invalid {creds.provider.value.upper()} credentials payload."
+        raise HTTPException(status_code=422, detail=error_msg) from e
 
     verified, msg = creds_obj.verify_creds()
 
@@ -248,7 +245,7 @@ async def update_user_secrets(
     await upsert_user_secrets(db, secrets, current_user.id)
 
     return MessageSchema(
-        message=f"{str(creds.provider.value).upper()} credentials successfully verified and updated"
+        message=f"{creds.provider.value.upper()} credentials successfully verified and updated"
     )
 
 
