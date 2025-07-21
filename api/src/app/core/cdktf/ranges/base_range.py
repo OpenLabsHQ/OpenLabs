@@ -21,6 +21,7 @@ from ....schemas.range_schemas import (
     DeployedRangeSchema,
 )
 from ....schemas.secret_schema import SecretSchema
+from ....utils.cdktf_utils import normalize_resource_name
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
@@ -70,10 +71,15 @@ class AbstractBaseRange(ABC):
 
         # Initial values
         self.unique_str = uuid.uuid4()
+
         # Remove spaces to avoid CDKTF errors
-        self.stack_name = f"{self.range_obj.name.replace(' ', '')}-{self.unique_str}"
+        self.stack_name = (
+            f"{normalize_resource_name(self.range_obj.name)}-{self.unique_str}"
+        )
         self._is_synthesized = False
-        self.deployed_range_name = f"{self.name.replace(' ', '')}-{self.unique_str}"
+        self.deployed_range_name = (
+            f"{normalize_resource_name(self.name)}-{self.unique_str}"
+        )
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -421,38 +427,46 @@ class AbstractBaseRange(ABC):
             dumped_schema["range_private_key"] = raw_outputs[private_key]["value"]
 
             for x, vpc in enumerate(self.range_obj.vpcs):
+
+                normalized_vpc_name = normalize_resource_name(vpc.name)
+
                 current_vpc = dumped_schema["vpcs"][x]
                 vpc_key = next(
                     (
                         key
                         for key in raw_outputs
-                        if key.endswith(f"-{vpc.name}-resource-id")
+                        if key.endswith(f"-{normalized_vpc_name}-resource-id")
                     ),
                     None,
                 )
                 if not vpc_key:
                     logger.error(
                         "Could not find VPC resource ID key for %s in Terraform output",
-                        vpc.name,
+                        normalized_vpc_name,
                     )
                     return None
                 current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
 
                 for y, subnet in enumerate(vpc.subnets):  # type: ignore
+
+                    normalized_subnet_name = normalize_resource_name(subnet.name)
+
                     current_subnet = current_vpc["subnets"][y]
                     subnet_key = next(
                         (
                             key
                             for key in raw_outputs
-                            if key.endswith(f"-{vpc.name}-{subnet.name}-resource-id")
+                            if key.endswith(
+                                f"-{normalized_vpc_name}-{normalized_subnet_name}-resource-id"
+                            )
                         ),
                         None,
                     )
                     if not subnet_key:
                         logger.error(
                             "Could not find subnet resource ID key for %s in %s in Terraform output",
-                            subnet.name,
-                            vpc.name,
+                            normalized_subnet_name,
+                            normalized_vpc_name,
                         )
                         return None
                     current_subnet["resource_id"] = raw_outputs[subnet_key]["value"]
@@ -464,7 +478,7 @@ class AbstractBaseRange(ABC):
                                 key
                                 for key in raw_outputs
                                 if key.endswith(
-                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-resource-id"
+                                    f"-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-resource-id"
                                 )
                             ),
                             None,
@@ -474,7 +488,7 @@ class AbstractBaseRange(ABC):
                                 key
                                 for key in raw_outputs
                                 if key.endswith(
-                                    f"-{vpc.name}-{subnet.name}-{host.hostname}-private-ip"
+                                    f"-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-private-ip"
                                 )
                             ),
                             None,
@@ -484,8 +498,8 @@ class AbstractBaseRange(ABC):
                             logger.error(
                                 "Could not find host keys for %s in %s/%s in Terraform output",
                                 host.hostname,
-                                vpc.name,
-                                subnet.name,
+                                normalized_vpc_name,
+                                normalized_subnet_name,
                             )
                             return None
 
