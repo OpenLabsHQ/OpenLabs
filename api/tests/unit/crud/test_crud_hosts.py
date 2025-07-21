@@ -20,7 +20,7 @@ from src.app.schemas.host_schemas import (
     BlueprintHostSchema,
     DeployedHostCreateSchema,
 )
-from tests.unit.api.v1.config import (
+from tests.common.api.v1.config import (
     valid_blueprint_host_create_payload,
     valid_deployed_host_data,
 )

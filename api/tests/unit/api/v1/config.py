@@ -7,43 +7,10 @@ from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.range_states import RangeState
 from src.app.enums.regions import OpenLabsRegion
-from tests.common.api.v1.config import (
-    valid_blueprint_range_create_payload,
-    valid_blueprint_range_multi_create_payload,
-)
 
 # Base route
 BASE_ROUTE = "/api/v1"
 
-
-# ==============================
-#       Blueprint Payloads
-# ==============================
-
-# Valid range payload for deployment
-valid_range_deploy_payload: dict[str, Any] = {
-    "name": "test-deploy-range-1",
-    "description": "test range to deploy",
-    "blueprint_id": str(random.randint(1, 100)),  # noqa: S311
-    "region": OpenLabsRegion.US_EAST_1.value,
-}
-
-valid_blueprint_vpc_create_payload = copy.deepcopy(
-    valid_blueprint_range_create_payload["vpcs"][0]
-)
-valid_blueprint_subnet_create_payload = copy.deepcopy(
-    valid_blueprint_vpc_create_payload["subnets"][0]
-)
-valid_blueprint_host_create_payload = copy.deepcopy(
-    valid_blueprint_subnet_create_payload["hosts"][0]
-)
-
-valid_blueprint_vpc_multi_create_payload: dict[str, Any] = copy.deepcopy(
-    valid_blueprint_range_multi_create_payload["vpcs"][0]
-)
-valid_blueprint_subnet_multi_create_payload: dict[str, Any] = copy.deepcopy(
-    valid_blueprint_vpc_multi_create_payload["subnets"][0]
-)
 
 # ==============================
 #       Deployed Payloads
