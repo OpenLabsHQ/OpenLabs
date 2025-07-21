@@ -95,7 +95,7 @@ valid_blueprint_range_multi_create_payload: dict[str, Any] = {
     "vpcs": [
         {
             "cidr": "10.0.0.0/16",
-            "name": "dev-vpc",
+            "name": "Dev VPC",  # NOTE: Do not remove the spaces. These are required to prevent testing regression.
             "subnets": [
                 {
                     "cidr": "10.0.1.0/24",
@@ -138,7 +138,7 @@ valid_blueprint_range_multi_create_payload: dict[str, Any] = {
             "subnets": [
                 {
                     "cidr": "172.16.1.0/24",
-                    "name": "prod-subnet-dmz",
+                    "name": "Prod Subnet-DMZ",  # NOTE: Do not remove the spaces. These are required to prevent testing regression.
                     "hosts": [
                         {
                             "hostname": "prod-gateway-01",
