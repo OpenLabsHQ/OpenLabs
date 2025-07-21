@@ -9,10 +9,10 @@ Our vision for OpenLabs is ambitious. The table below outlines the major outcome
 
 **Timeline:** Provides a general estimate. As an open-source project, these are targets, not promises.
 
-| Feature                | Description                                                                                                                   | Status          | Estimated Timeline   |
+| Feature/Outcome                | Description                                                                                                                   | Status          | Estimated Timeline   |
 | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------- |
-| **Live Environment Management** | Dynamically add/remove hosts, power them on/off, and manage firewall rules in a deployed Range without a full redeploy.       | 🏗️ In Progress      | Q3 2025              |
-| **Lab Snapshots & Cloning** | Save the complete state of a running host or an entire Range. Deploy perfect, pre-configured clones from a snapshot.           | 🗓️ Planned | Q3 2025              |
+| [**Live Environment Management**](https://github.com/OpenLabsHQ/OpenLabs/milestone/1) | Dynamically add/remove hosts, power them on/off, and manage firewall rules in a deployed Range without a full redeploy.       | 🏗️ In Progress      | Q3 2025              |
+| [**Lab Snapshots & Cloning**](https://github.com/OpenLabsHQ/OpenLabs/milestone/2) | Save the complete state of a running host or an entire Range. Deploy perfect, pre-configured clones from a snapshot.           | 🗓️ Planned | Q3 2025              |
 | **Azure Cloud Provider** | Define your lab once and deploy it to Microsoft Azure, in addition to our existing AWS support.                               | 🗓️ Planned      | Q3 2025    |
 | **Workspaces for Teams** | Create shared workspaces for teams to collaborate on Blueprints and manage deployed Ranges with role-based permissions.         | 🧪 Exploring    | Q3 2025               |
 | **Custom & Pre-Built Images** | Use Packer integration to build your own "golden images" or use official pre-built ones.                  | 🧪 Exploring    | Q3 2025 - Q4 2025             |
