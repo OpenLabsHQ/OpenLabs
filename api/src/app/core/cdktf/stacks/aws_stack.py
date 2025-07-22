@@ -22,8 +22,8 @@ from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
-from ....utils.cdktf_utils import normalize_resource_name
 from ....utils.crypto import generate_range_rsa_key_pair
+from ....utils.name_utils import normalize_resource_name
 from .base_stack import AbstractBaseStack
 
 

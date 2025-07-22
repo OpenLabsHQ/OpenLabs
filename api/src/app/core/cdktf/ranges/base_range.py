@@ -21,7 +21,7 @@ from ....schemas.range_schemas import (
     DeployedRangeSchema,
 )
 from ....schemas.secret_schema import SecretSchema
-from ....utils.cdktf_utils import normalize_resource_name
+from ....utils.name_utils import normalize_resource_name
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
