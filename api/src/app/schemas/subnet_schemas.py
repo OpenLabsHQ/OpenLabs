@@ -2,6 +2,7 @@ from ipaddress import IPv4Network
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
+from ..validators.names import OPENLABS_NAME_REGEX
 from ..validators.network import max_num_hosts_in_subnet
 from .host_schemas import (
     BlueprintHostCreateSchema,
@@ -17,8 +18,7 @@ class SubnetCommonSchema(BaseModel):
     name: str = Field(
         ...,
         description="Subnet name.",
-        min_length=1,
-        max_length=63,  # GCP max
+        pattern=OPENLABS_NAME_REGEX,
         examples=["example-subnet-1"],
     )
 
