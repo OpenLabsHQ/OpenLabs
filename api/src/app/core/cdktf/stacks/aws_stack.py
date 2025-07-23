@@ -23,7 +23,7 @@ from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....utils.crypto import generate_range_rsa_key_pair
-from ....utils.name_utils import normalize_resource_name
+from ....utils.name_utils import normalize_name
 from .base_stack import AbstractBaseStack
 
 
@@ -269,7 +269,7 @@ class AWSStack(AbstractBaseStack):
         # Create Range vpcs, subnets, hosts
         for vpc in range_obj.vpcs:
 
-            normalized_vpc_name = normalize_resource_name(vpc.name)
+            normalized_vpc_name = normalize_name(vpc.name)
 
             # Step 14: Create a VPC
             new_vpc = Vpc(
@@ -333,7 +333,7 @@ class AWSStack(AbstractBaseStack):
             # Step 16: Create private subnets with their respecitve EC2 instances
             for subnet in vpc.subnets:
 
-                normalized_subnet_name = normalize_resource_name(subnet.name)
+                normalized_subnet_name = normalize_name(subnet.name)
 
                 new_subnet = Subnet(
                     self,

@@ -21,7 +21,7 @@ from ....schemas.range_schemas import (
     DeployedRangeSchema,
 )
 from ....schemas.secret_schema import SecretSchema
-from ....utils.name_utils import normalize_resource_name
+from ....utils.name_utils import normalize_name
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
 
@@ -73,13 +73,9 @@ class AbstractBaseRange(ABC):
         self.unique_str = uuid.uuid4()
 
         # Remove spaces to avoid CDKTF errors
-        self.stack_name = (
-            f"{normalize_resource_name(self.range_obj.name)}-{self.unique_str}"
-        )
+        self.stack_name = f"{normalize_name(self.range_obj.name)}-{self.unique_str}"
         self._is_synthesized = False
-        self.deployed_range_name = (
-            f"{normalize_resource_name(self.name)}-{self.unique_str}"
-        )
+        self.deployed_range_name = f"{normalize_name(self.name)}-{self.unique_str}"
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -428,7 +424,7 @@ class AbstractBaseRange(ABC):
 
             for x, vpc in enumerate(self.range_obj.vpcs):
 
-                normalized_vpc_name = normalize_resource_name(vpc.name)
+                normalized_vpc_name = normalize_name(vpc.name)
 
                 current_vpc = dumped_schema["vpcs"][x]
                 vpc_key = next(
@@ -449,7 +445,7 @@ class AbstractBaseRange(ABC):
 
                 for y, subnet in enumerate(vpc.subnets):  # type: ignore
 
-                    normalized_subnet_name = normalize_resource_name(subnet.name)
+                    normalized_subnet_name = normalize_name(subnet.name)
 
                     current_subnet = current_vpc["subnets"][y]
                     subnet_key = next(
