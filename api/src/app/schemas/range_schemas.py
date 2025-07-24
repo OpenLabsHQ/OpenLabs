@@ -234,7 +234,7 @@ class DeployRangeSchema(BaseModel):
     """Payload schema for deploying ranges."""
 
     name: str = Field(
-        ..., min_length=1, max_length=63, description="Name of deployed range."
+        ..., pattern=OPENLABS_NAME_REGEX, description="Name of deployed range."
     )
     description: str | None = Field(
         default=None,
