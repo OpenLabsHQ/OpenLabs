@@ -1,6 +1,6 @@
 # 🗺️ Roadmap
 
-Our vision for OpenLabs is ambitious. The table below outlines the major outcomes we are focused on delivering. It's a living document that will evolve based on project needs and community feedback.
+Our vision for OpenLabs is ambitious. The table below outlines the major outcomes we are focused on delivering. This is a living document that will evolve based on project needs and community feedback.
 
 **Status:** Shows the current stage of a feature.
 * `🧪 Exploring`: We are researching and designing the feature.
