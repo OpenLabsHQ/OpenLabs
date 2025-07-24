@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import shutil
-import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +21,7 @@ from ....schemas.range_schemas import (
 )
 from ....schemas.secret_schema import SecretSchema
 from ....utils.cdktf_utils import gen_resource_logical_ids
+from ....utils.hash_utils import generate_short_hash
 from ....utils.name_utils import normalize_name
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
@@ -48,6 +48,7 @@ class AbstractBaseRange(ABC):
         secrets: SecretSchema,
         description: str,
         state_file: dict[str, Any] | None = None,
+        deployment_id: str | None = None,
     ) -> None:
         """Initialize CDKTF base range object."""
         self.name = name
@@ -61,13 +62,16 @@ class AbstractBaseRange(ABC):
         else:
             self._is_deployed = True
 
-        # Initial values
-        self.unique_str = uuid.uuid4()
+        # A small hash to improve readability while
+        # maintaining uniqueness of the deployment
+        self.deployment_id = (
+            deployment_id if deployment_id else generate_short_hash()[:10]
+        )
 
-        # Remove spaces to avoid CDKTF errors
-        self.stack_name = f"{normalize_name(self.range_obj.name)}-{self.unique_str}"
+        # Format names to prevent CDKTF errors
+        self.stack_name = normalize_name(f"{self.range_obj.name}-{self.deployment_id}")
         self._is_synthesized = False
-        self.deployed_range_name = f"{normalize_name(self.name)}-{self.unique_str}"
+        self.deployed_range_name = normalize_name(f"{self.name}-{self.deployment_id}")
 
     @abstractmethod
     def get_provider_stack_class(self) -> type[AbstractBaseStack]:
@@ -124,6 +128,7 @@ class AbstractBaseRange(ABC):
                 cdktf_dir=settings.CDKTF_DIR,
                 region=self.region,
                 range_name=self.deployed_range_name,
+                deployment_id=self.deployment_id,
             )
 
             # Synthesize Terraform files

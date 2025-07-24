@@ -24,7 +24,10 @@ from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....utils.cdktf_utils import gen_resource_logical_ids
 from ....utils.crypto import generate_range_rsa_key_pair
+from ....utils.name_utils import CloudNamer
 from .base_stack import AbstractBaseStack
+
+AWS_MAX_NAME_LEN = 256
 
 
 class AWSStack(AbstractBaseStack):
@@ -35,6 +38,7 @@ class AWSStack(AbstractBaseStack):
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         range_name: str,
+        deployment_id: str,
     ) -> None:
         """Initialize AWS terraform stack.
 
@@ -43,12 +47,15 @@ class AWSStack(AbstractBaseStack):
             range_obj (BlueprintRangeSchema | DeployedRangeSchema): Blueprint range object to build terraform for.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             range_name (str): Name of range to deploy. Range name + unique ID.
+            deployment_id (str): ID unique to the deployment.
 
         Returns:
         -------
             None
 
         """
+        resource_namer = CloudNamer(deployment_id, range_name, max_len=AWS_MAX_NAME_LEN)
+
         AwsProvider(
             self,
             "AWS",
@@ -58,12 +65,13 @@ class AWSStack(AbstractBaseStack):
         # Step 1: Create the key access to all instances provisioned on AWS
         # Generate RSA key pair
         range_private_key, range_public_key = generate_range_rsa_key_pair()
+        key_name = resource_namer.gen_cloud_resource_name("key-pair", unique=True)
         key_pair = KeyPair(
             self,
             f"{range_name}-KeyPair",
-            key_name=f"{range_name}-cdktf-public-key",
+            key_name=key_name,
             public_key=range_public_key,
-            tags={"Name": "cdktf-public-key"},
+            tags={"Name": key_name},
         )
 
         TerraformOutput(
@@ -81,7 +89,11 @@ class AWSStack(AbstractBaseStack):
             cidr_block="10.255.0.0/16",
             enable_dns_support=True,
             enable_dns_hostnames=True,
-            tags={"Name": "JumpBoxVPC"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "jumpbox-vpc", unique=False
+                )
+            },
         )
 
         # Step 3: Create public subnet for jumpbox
@@ -92,7 +104,11 @@ class AWSStack(AbstractBaseStack):
             cidr_block="10.255.99.0/24",
             availability_zone="us-east-1a",
             map_public_ip_on_launch=True,
-            tags={"Name": "JumpBoxVPCPublicSubnet"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "jumpbox-public-subnet", unique=False
+                )
+            },
         )
 
         # Step 4: Create Security Group and Rules for Jump Box (only allow SSH directly into jump box, for now)
@@ -100,7 +116,11 @@ class AWSStack(AbstractBaseStack):
             self,
             f"{range_name}-RangeJumpBoxSecurityGroup",
             vpc_id=jumpbox_vpc.id,
-            tags={"Name": "RangeJumpBoxSecurityGroup"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-job-box-security-group", unique=False
+                )
+            },
         )
         SecurityGroupRule(
             self,
@@ -133,7 +153,9 @@ class AWSStack(AbstractBaseStack):
             vpc_security_group_ids=[jumpbox_sg.id],
             associate_public_ip_address=True,  # Ensures public IP is assigned
             key_name=key_pair.key_name,  # Use the generated key pair
-            tags={"Name": "JumpBox"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name("jumpbox", unique=False)
+            },
         )
 
         TerraformOutput(
@@ -156,19 +178,35 @@ class AWSStack(AbstractBaseStack):
             self,
             f"{range_name}-RangeInternetGateway",
             vpc_id=jumpbox_vpc.id,
-            tags={"Name": "RangeInternetGateway"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-internet-gateway", unique=False
+                )
+            },
         )
 
         # Step 7: Create a NAT Gateway for range network with EIP (allow the range to have internet access for downloading tools, etc.)
         # Elastic IP for NAT Gateway
-        eip = Eip(self, f"{range_name}-RangeNatEIP", tags={"Name": "RangeNatEIP"})
+        eip = Eip(
+            self,
+            f"{range_name}-RangeNatEIP",
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-nat-eip", unique=False
+                )
+            },
+        )
 
         nat_gateway = NatGateway(
             self,
             f"{range_name}-RangeNatGateway",
             subnet_id=jumpbox_public_subnet.id,  # NAT must be in a public subnet
             allocation_id=eip.id,
-            tags={"Name": "RangeNatGateway"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-nat-gateway", unique=False
+                )
+            },
         )
 
         # Step 8: Create Routing for Jumpbox (table, route, route assoication with jumpbox public subnet)
@@ -176,7 +214,11 @@ class AWSStack(AbstractBaseStack):
             self,
             f"{range_name}-JumpBoxRouteTable",
             vpc_id=jumpbox_vpc.id,
-            tags={"Name": "RangePublicRouteTable"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-public-route-table", unique=False
+                )
+            },
         )
 
         igw_route = Route(  # noqa: F841
@@ -203,7 +245,11 @@ class AWSStack(AbstractBaseStack):
             cidr_block="10.255.98.0/24",
             availability_zone="us-east-1a",
             map_public_ip_on_launch=False,
-            tags={"Name": "JumpBoxVPCPrivateSubnet"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "jumpbox-vpc-private-subnet", unique=False
+                )
+            },
         )
 
         # Step 10: Create Routing for range network (Using NAT gateway)
@@ -211,7 +257,11 @@ class AWSStack(AbstractBaseStack):
             self,
             f"{range_name}-RangePrivateRouteTable",
             vpc_id=jumpbox_vpc.id,
-            tags={"Name": "RangePrivateRouteTable"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "range-private-route-table", unique=False
+                )
+            },
         )
         nat_route = Route(  # noqa: F841
             self,
@@ -232,7 +282,11 @@ class AWSStack(AbstractBaseStack):
             self,
             f"{range_name}-TransitGateway",
             description="Transit Gateway for internal routing",
-            tags={"Name": "tgw"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "transit-gateway", unique=False
+                )
+            },
         )
 
         # --- TGW Route to NAT Gateway (via Public VPC Attachment) ---
@@ -252,7 +306,11 @@ class AWSStack(AbstractBaseStack):
             vpc_id=jumpbox_vpc.id,
             transit_gateway_default_route_table_association=True,
             transit_gateway_default_route_table_propagation=True,
-            tags={"Name": "public-vpc-tgw-attachment"},
+            tags={
+                "Name": resource_namer.gen_cloud_resource_name(
+                    "public-vpc-tgw-attachment", unique=False
+                )
+            },
         )
 
         # Step 13: Add Routing to the Transit Gateway
@@ -278,7 +336,11 @@ class AWSStack(AbstractBaseStack):
                 cidr_block=str(vpc.cidr),
                 enable_dns_support=True,
                 enable_dns_hostnames=True,
-                tags={"Name": vpc_logical_id},
+                tags={
+                    "Name": resource_namer.gen_cloud_resource_name(
+                        vpc.name, unique=False
+                    )
+                },
             )
 
             TerraformOutput(
@@ -296,7 +358,11 @@ class AWSStack(AbstractBaseStack):
                 self,
                 f"{range_name}-{vpc_logical_id}-SharedPrivateSG",
                 vpc_id=new_vpc.id,
-                tags={"Name": "RangePrivateInternalSecurityGroup"},
+                tags={
+                    "Name": resource_namer.gen_cloud_resource_name(
+                        "range-private-internal-security-group", unique=False
+                    )
+                },
             )
             SecurityGroupRule(  # Allow access from the Jumpbox - possibly not needed based on next rule
                 self,
@@ -343,7 +409,11 @@ class AWSStack(AbstractBaseStack):
                     vpc_id=new_vpc.id,
                     cidr_block=str(subnet.cidr),
                     availability_zone="us-east-1a",
-                    tags={"Name": subnet_logical_id},
+                    tags={
+                        "Name": resource_namer.gen_cloud_resource_name(
+                            subnet.name, unique=False
+                        )
+                    },
                 )
 
                 TerraformOutput(
@@ -366,7 +436,11 @@ class AWSStack(AbstractBaseStack):
                         subnet_id=new_subnet.id,
                         vpc_security_group_ids=[private_vpc_sg.id],
                         key_name=key_pair.key_name,  # Use the generated key pair
-                        tags={"Name": host.hostname},
+                        tags={
+                            "Name": resource_namer.gen_cloud_resource_name(
+                                host.hostname, unique=False
+                            )
+                        },
                     )
 
                     TerraformOutput(
@@ -395,7 +469,11 @@ class AWSStack(AbstractBaseStack):
                 vpc_id=new_vpc.id,
                 transit_gateway_default_route_table_association=True,
                 transit_gateway_default_route_table_propagation=True,
-                tags={"Name": f"{vpc_logical_id}-private-vpc-tgw-attachment"},
+                tags={
+                    "Name": resource_namer.gen_cloud_resource_name(
+                        f"{vpc.name}-private-vpc-tgw-attachment", unique=False
+                    )
+                },
             )
 
             # Step 18: Create Routing in range VPC (Routes to TGW to access other range VPCs or the internet via the NAT gateway)
@@ -403,7 +481,11 @@ class AWSStack(AbstractBaseStack):
                 self,
                 f"{range_name}-{vpc_logical_id}-PrivateRouteTable",
                 vpc_id=new_vpc.id,
-                tags={"Name": f"{vpc_logical_id}-private-route-table"},
+                tags={
+                    "Name": resource_namer.gen_cloud_resource_name(
+                        f"{vpc_logical_id}-private-route-table", unique=False
+                    )
+                },
             )
             # Default route for range VPC to Transit Gateway
             tgw_route = Route(  # noqa: F841

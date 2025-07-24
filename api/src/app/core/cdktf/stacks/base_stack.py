@@ -22,6 +22,7 @@ class AbstractBaseStack(TerraformStack):
         cdktf_dir: str,
         region: OpenLabsRegion,
         range_name: str,
+        deployment_id: str,
     ) -> None:
         """Initialize an abstract terraform stack.
 
@@ -34,6 +35,7 @@ class AbstractBaseStack(TerraformStack):
             cdktf_dir (str): Directory location for all terraform files.
             region (OpenLabsRegion): Supported OpenLabs cloud region.
             range_name (str): Name of range to deploy.
+            deployment_id (str): ID unique to the deployment.
 
         Returns:
         -------
@@ -55,6 +57,7 @@ class AbstractBaseStack(TerraformStack):
             range_obj=range_obj,
             region=region,
             range_name=range_name,
+            deployment_id=deployment_id,
         )
 
     def build_resources(
@@ -62,6 +65,7 @@ class AbstractBaseStack(TerraformStack):
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         range_name: str,
+        deployment_id: str,
     ) -> None:
         """'Psuedo-abtract' method to build the CDKTF resources.
 
@@ -70,6 +74,7 @@ class AbstractBaseStack(TerraformStack):
             range_obj (BlueprintRangeSchema | DeployedRangeSchema): Range object used to manipulate provider resources.
             region (OpenLabsRegion): Support OpenLabs cloud region.
             range_name (str): Name of range to deploy.
+            deployment_id (str): ID unique to the deployment.
 
         Returns:
         -------

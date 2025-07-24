@@ -8,7 +8,6 @@ from ....schemas.secret_schema import SecretSchema
 from .aws_range import AWSRange
 from .base_range import AbstractBaseRange
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +27,7 @@ class RangeFactory:
         secrets: SecretSchema,
         description: str | None,
         state_file: dict[str, Any] | None = None,
+        deployment_id: str | None = None,
     ) -> AbstractBaseRange:
         """Create range object.
 
@@ -43,6 +43,7 @@ class RangeFactory:
             secrets (SecretSchema): Cloud account secrets to use for deploying via terraform.
             description (str | None): Description of the range.
             state_file (dict[str, Any]): The statefile of the deployed resources.
+            deployment_id (str): ID unique to the range object.
 
         Returns:
         -------
@@ -67,4 +68,5 @@ class RangeFactory:
             secrets=secrets,
             description=description,
             state_file=state_file,
+            deployment_id=deployment_id,
         )
