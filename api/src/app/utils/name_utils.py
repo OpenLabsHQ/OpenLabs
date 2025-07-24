@@ -29,7 +29,7 @@ def normalize_name(name: str) -> str:
     return normalized_name
 
 
-class CloudNamer:
+class CloudResourceNamer:
     """Utility to streamline and standardize cloud resource naming."""
 
     # Convention configuration

@@ -14,16 +14,16 @@ from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.range_schemas import BlueprintRangeSchema
 from src.app.utils.hash_utils import generate_short_hash
-from src.app.utils.name_utils import CloudNamer
+from src.app.utils.name_utils import CloudResourceNamer
 from tests.unit.core.cdktf.config import one_all_blueprint
 
 
 @pytest.fixture(scope="module")
-def aws_one_all_synthesis_cloud_namer() -> CloudNamer:
+def aws_one_all_synthesis_cloud_namer() -> CloudResourceNamer:
     """Build the cloud namer object for the aws synth fixture."""
     range_name = "aws-one-all-synthesis"
     test_deployment_id = generate_short_hash()[:10]  # Max length allowed
-    return CloudNamer(
+    return CloudResourceNamer(
         deployment_id=test_deployment_id,
         range_name=range_name,
         max_len=AWS_MAX_NAME_LEN,
@@ -43,7 +43,7 @@ async def aws_one_all_synthesis(
         ],
         AbstractBaseRange,
     ],
-    aws_one_all_synthesis_cloud_namer: CloudNamer,
+    aws_one_all_synthesis_cloud_namer: CloudResourceNamer,
 ) -> str:
     """Synthesize AWS stack with one_all_blueprint."""
     # Call the factory with the desired stack, stack name, and region.
@@ -65,7 +65,7 @@ async def aws_one_all_synthesis(
 
 
 def test_aws_range_every_vpc_is_valid(
-    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudNamer
+    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudResourceNamer
 ) -> None:
     """Ensure every VPC is valid."""
     assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Vpc.TF_RESOURCE_TYPE)
@@ -86,7 +86,7 @@ def test_aws_range_every_vpc_is_valid(
 
 
 def test_aws_stack_has_a_public_subnet(
-    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudNamer
+    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudResourceNamer
 ) -> None:
     """Ensure each VPC has at least one public subnet."""
     assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
@@ -106,7 +106,7 @@ def test_aws_stack_has_a_public_subnet(
 
 
 def test_aws_stack_has_a_jumpbox_ec2_instance(
-    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudNamer
+    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudResourceNamer
 ) -> None:
     """Ensure each the range stack has a jumpbox EC2 instance."""
     assert CdktfTesting.to_have_resource(
@@ -127,7 +127,7 @@ def test_aws_stack_has_a_jumpbox_ec2_instance(
 
 
 def test_aws_stack_each_vpc_has_at_least_one_subnet(
-    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudNamer
+    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudResourceNamer
 ) -> None:
     """Ensure each VPC has at least one subnet."""
     assert CdktfTesting.to_have_resource(aws_one_all_synthesis, Subnet.TF_RESOURCE_TYPE)
@@ -149,7 +149,7 @@ def test_aws_stack_each_vpc_has_at_least_one_subnet(
 
 
 def test_aws_stack_each_subnet_has_at_least_one_ec2_instance(
-    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudNamer
+    aws_one_all_synthesis: str, aws_one_all_synthesis_cloud_namer: CloudResourceNamer
 ) -> None:
     """Ensure each subnet has at least one EC2 instance."""
     assert CdktfTesting.to_have_resource(

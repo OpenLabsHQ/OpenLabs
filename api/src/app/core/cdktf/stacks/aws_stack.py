@@ -24,7 +24,7 @@ from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....utils.cdktf_utils import gen_resource_logical_ids
 from ....utils.crypto import generate_range_rsa_key_pair
-from ....utils.name_utils import CloudNamer
+from ....utils.name_utils import CloudResourceNamer
 from .base_stack import AbstractBaseStack
 
 AWS_MAX_NAME_LEN = 256
@@ -54,7 +54,9 @@ class AWSStack(AbstractBaseStack):
             None
 
         """
-        resource_namer = CloudNamer(deployment_id, range_name, max_len=AWS_MAX_NAME_LEN)
+        resource_namer = CloudResourceNamer(
+            deployment_id, range_name, max_len=AWS_MAX_NAME_LEN
+        )
 
         AwsProvider(
             self,
