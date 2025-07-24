@@ -63,9 +63,20 @@ class CloudNamer:
             msg = "Range name cannot be empty."
             raise ValueError(msg)
 
-        self.deployment_id = deployment_id
-        self.range_name = range_name
+        # Store values in "private" attributes
+        self._deployment_id = deployment_id
+        self._range_name = range_name
         self.max_len = max_len
+
+    @property
+    def deployment_id(self) -> str:
+        """The unique identifier for the deployment (read-only)."""
+        return self._deployment_id
+
+    @property
+    def range_name(self) -> str:
+        """The name of the range containing the resources (read-only)."""
+        return self._range_name
 
     def gen_cloud_resource_name(
         self,
