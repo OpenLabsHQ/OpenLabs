@@ -59,6 +59,8 @@ def test_valid_names(test_name: str) -> None:
         "------",
         "",
         "a",
+        "My Lab 👌👌👌👌🤣",
+        "🅜🅨 🅠🅤🅘🅡🅚🅨 🅛🅐🅑",
     ],
     ids=[
         "too_short",
@@ -74,6 +76,8 @@ def test_valid_names(test_name: str) -> None:
         "only_delimiters",
         "empty_string",
         "single_char",
+        "emojis",
+        "unicode_text",
     ],
 )
 def test_invalid_names(test_name: str) -> None:
