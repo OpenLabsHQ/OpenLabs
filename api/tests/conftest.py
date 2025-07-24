@@ -194,42 +194,6 @@ def create_db_schema(postgres_container: str) -> Generator[str, None, None]:
 
 
 @pytest.fixture(scope="module")
-def synthesize_factory() -> (
-    Callable[[type[Any], BlueprintRangeSchema, str, OpenLabsRegion], str]
-):
-    """Get factory to generate CDKTF synthesis for different stack classes."""
-    # Import here to avoid CDKTF long loading phase
-    from cdktf import Testing  # noqa: PLC0415
-
-    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
-
-    def _synthesize(
-        stack_cls: type[AbstractBaseStack],
-        cyber_range: BlueprintRangeSchema,
-        stack_name: str = "test_range",
-        region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-    ) -> str:
-        """Synthesize generic stack using CDKTF testing library."""
-        app = Testing.app()
-
-        # Synthesize the stack using the provided stack class
-        return str(
-            Testing.synth(
-                stack_cls(
-                    app,
-                    cyber_range,
-                    stack_name,
-                    settings.CDKTF_DIR,
-                    region,
-                    "test-range",
-                )
-            )
-        )
-
-    return _synthesize
-
-
-@pytest.fixture(scope="module")
 def range_factory() -> Callable[
     [Any, BlueprintRangeSchema, OpenLabsRegion],
     Any,
