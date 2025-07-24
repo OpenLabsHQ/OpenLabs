@@ -32,15 +32,6 @@ logger = logging.getLogger(__name__)
 class AbstractBaseRange(ABC):
     """Abstract class to enforce common functionality across range cloud providers."""
 
-    name: str
-    range_obj: BlueprintRangeSchema | DeployedRangeSchema
-    state_file: dict[str, Any] | None  # Terraform state
-    region: OpenLabsRegion
-    stack_name: str
-    secrets: SecretSchema
-    deployed_range_name: str
-    description: str
-
     # Mutex for terraform init calls
     _init_lock = asyncio.Lock()
 
