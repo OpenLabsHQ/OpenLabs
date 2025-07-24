@@ -16,4 +16,5 @@ def test_abstract_stack_creation_not_implemented_error() -> None:
             cdktf_dir="/nonexistent/dir",
             region=OpenLabsRegion.US_EAST_1,
             range_name="test-range",
+            deployment_id="test-deployment-id",
         )

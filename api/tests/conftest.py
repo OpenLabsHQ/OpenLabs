@@ -195,32 +195,35 @@ def create_db_schema(postgres_container: str) -> Generator[str, None, None]:
 
 @pytest.fixture(scope="module")
 def range_factory() -> Callable[
-    [Any, BlueprintRangeSchema, OpenLabsRegion],
+    [Any, BlueprintRangeSchema, OpenLabsRegion, dict[str, Any] | None, str | None, str],
     Any,
 ]:
     """Get factory to generate range object sythesis output."""
     from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
     from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
 
-    def _range_synthesize(
+    def _create_range(  # noqa: PLR0913
         range_cls: type[AbstractBaseRange],
         range_blueprint: BlueprintRangeSchema,
         region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-        state_file: None = None,
+        state_file: dict[str, Any] | None = None,
+        deployment_id: str | None = None,
+        range_name: str = "test-range",
     ) -> AbstractBaseRange:
         """Create range object and return synth() output."""
         secrets = SecretSchema()
 
         return RangeFactory.create_range(
-            name="test-range",
+            name=range_name,
             description="Range for testing purposes!",
             range_obj=range_blueprint,
             region=region,
             secrets=secrets,
             state_file=state_file,
+            deployment_id=deployment_id,
         )
 
-    return _range_synthesize
+    return _create_range
 
 
 @pytest_asyncio.fixture(scope="session")
