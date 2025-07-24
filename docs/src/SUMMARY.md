@@ -1,7 +1,6 @@
 # Summary
 
 - [🎯 Introduction](index.md)
-- [🗺️ Roadmap](roadmap.md)
 - [🚀 Tutorials](tutorials/index.md)
   - [Deploy Your First Range](tutorials/deploy-your-first-range.md)
   - [Starting with the CLI](tutorials/starting-with-the-cli.md)
@@ -12,3 +11,4 @@
   - [Lab Hierarchy](explanation/lab-hierarchy.md)
 - [📚 Reference](reference/index.md)
   - [Architecture Diagram](reference/architecture-diagram.md)
+- [🗺️ Roadmap](roadmap.md)
