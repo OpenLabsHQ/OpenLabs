@@ -36,7 +36,7 @@ def gen_resource_logical_ids(resource_names: list[str]) -> dict[str, str]:
     if len(set(resource_names)) != len(resource_names):
         counts = Counter(resource_names)
         duplicates = [name for name, count in counts.items() if count > 1]
-        msg = f"Input list contains duplicate names: {', '.join(duplicates)}"
+        msg = f"Input list contains exact duplicate names: {', '.join(duplicates)}"
         raise ValueError(msg)
 
     logical_ids: dict[str, str] = {}
