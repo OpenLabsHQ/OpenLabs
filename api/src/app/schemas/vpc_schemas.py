@@ -2,6 +2,7 @@ from ipaddress import IPv4Network
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
+from ..validators.names import OPENLABS_NAME_REGEX
 from ..validators.network import all_subnets_contained, mutually_exclusive_networks_v4
 from .subnet_schemas import (
     BlueprintSubnetCreateSchema,
@@ -17,8 +18,7 @@ class VPCCommonSchema(BaseModel):
     name: str = Field(
         ...,
         description="VPC name.",
-        min_length=1,
-        max_length=63,  # GCP Max
+        pattern=OPENLABS_NAME_REGEX,
         examples=["example-vpc-1"],
     )
     cidr: IPv4Network = Field(

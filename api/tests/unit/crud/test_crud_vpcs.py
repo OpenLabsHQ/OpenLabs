@@ -21,7 +21,7 @@ from src.app.schemas.vpc_schemas import (
     BlueprintVPCSchema,
     DeployedVPCCreateSchema,
 )
-from tests.unit.api.v1.config import (
+from tests.common.api.v1.config import (
     valid_blueprint_vpc_create_payload,
     valid_deployed_vpc_data,
 )

@@ -7,7 +7,7 @@ from tests.api_test_utils import (
     login_user,
     register_user,
 )
-from tests.unit.api.v1.config import (
+from tests.common.api.v1.config import (
     BASE_ROUTE,
     valid_blueprint_range_create_payload,
 )
