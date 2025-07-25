@@ -200,7 +200,7 @@ async def update_user_secrets(
     if not secrets:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="User secrets record not found",
+            detail="User secrets record not found!",
         )
 
     # Verify credentials are valid before storing
@@ -245,5 +245,5 @@ async def update_user_secrets(
     await upsert_user_secrets(db, secrets, current_user.id)
 
     return MessageSchema(
-        message=f"{creds.provider.value.upper()} credentials successfully verified and updated"
+        message=f"{creds.provider.value.upper()} credentials successfully verified and updated."
     )
