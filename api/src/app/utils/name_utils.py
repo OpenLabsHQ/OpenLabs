@@ -21,7 +21,10 @@ def normalize_name(name: str) -> str:
     normalized_name = normalized_name.strip("-")
 
     if not normalized_name:
-        msg = f"Name is empty after normalization. Original name: '{name}'"
+        msg = (
+            f"Name is empty after normalization. Original name: '{name}'. "
+            "A valid name must contain at least one alphanumeric character after normalization."
+        )
         raise ValueError(msg)
 
     return normalized_name
