@@ -3,7 +3,7 @@ package auth
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/OpenLabsHQ/CLI/internal/progress"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/progress"
 )
 
 func newLogoutCommand() *cobra.Command {

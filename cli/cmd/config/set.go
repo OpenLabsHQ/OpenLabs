@@ -5,9 +5,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalConfig "github.com/OpenLabsHQ/CLI/internal/config"
-	"github.com/OpenLabsHQ/CLI/internal/progress"
-	"github.com/OpenLabsHQ/CLI/internal/utils"
+	internalConfig "github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/progress"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/utils"
 )
 
 func newSetCommand() *cobra.Command {

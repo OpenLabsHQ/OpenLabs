@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenLabsHQ/CLI/internal/client"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/client"
 )
 
 type JobTracker struct {
