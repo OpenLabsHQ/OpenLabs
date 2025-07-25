@@ -59,6 +59,3 @@ async def upsert_user_secrets(
     #    - If yes, it copies the new data onto the existing record.
     #    - If no, it stages a new record for insertion.
     await db.merge(db_object_to_merge)
-    # 3. Commit the transaction to save the changes.
-    #    This will execute either an UPDATE or INSERT statement.
-    await db.commit()
