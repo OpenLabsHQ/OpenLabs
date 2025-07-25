@@ -37,9 +37,7 @@ class CloudResourceNamer:
     MAX_DEPLOYMENT_ID_LEN = 10
     TRUNCATED_RANGE_NAME_LEN = 15
     SHORT_UID_LEN = 10
-    MIN_RESOURCE_NAME_LEN = (
-        5  # Reserve at least 5 chars for the resource name for readability.
-    )
+    MIN_RESOURCE_NAME_LEN = 5
 
     def __init__(self, deployment_id: str, range_name: str, max_len: int = 63) -> None:
         """Configure the cloud namer utility.
@@ -63,43 +61,61 @@ class CloudResourceNamer:
             msg = "Range name cannot be empty."
             raise ValueError(msg)
 
-        # Store values in "private" attributes
+        # Normalize input strings to ensure they don't normalize
+        # to empty strings
+        _ = normalize_name(range_name)
+        _ = normalize_name(deployment_id)
+
         self._deployment_id = deployment_id
         self._range_name = range_name
-        self.max_len = max_len
+        self._max_len = max_len
+
+        # Calculate the base length required for the worst-case (unique=True)
+        min_required_length = (
+            len(self.PREFIX)
+            + self.MAX_DEPLOYMENT_ID_LEN
+            + self.TRUNCATED_RANGE_NAME_LEN
+            + self.MIN_RESOURCE_NAME_LEN
+            + self.SHORT_UID_LEN
+            + 4  # For the hyphens separating 5 name sub parts
+        )
+
+        if self.max_len < min_required_length:
+            msg = (
+                f"max_len ({self.max_len}) is too short. It must be at least "
+                f"{min_required_length} to accommodate all parts."
+            )
+            raise ValueError(msg)
 
     @property
     def deployment_id(self) -> str:
-        """The unique identifier for the deployment (read-only)."""
+        """Read only access to the configured deployment_id."""
         return self._deployment_id
 
     @property
     def range_name(self) -> str:
-        """The name of the range containing the resources (read-only)."""
+        """Read only access to the configured range_name."""
         return self._range_name
 
-    def gen_cloud_resource_name(
-        self,
-        resource_name: str,
-        *,  # Make sure unique is a kwarg for clarity
-        unique: bool,
-    ) -> str:
+    @property
+    def max_len(self) -> int:
+        """Read only access to the configured max_len."""
+        return self._max_len
+
+    def gen_cloud_resource_name(self, resource_name: str, *, unique: bool) -> str:
         """Generate a standard length-constrained cloud resource name.
 
-        The final format is: "ol-{deployment_id}-{range_name}-{resource_name}-{uid}"
-
-        This format is designed to make it easy for users to identify resources and
-        provider a standard format across cloud providers.
+        Format: "ol-{deployment_id}-{range_name}-{resource_name}-{uid?}"
 
         Args:
-            resource_name: The name of the specific resource.
-            unique: If True, append a unique uid to ensure the name is unique across an entire cloud account.
+            resource_name: Name of the resource to generate a standard name for.
+            unique: Include a UID to make the name unique within a single cloud account.
 
         Returns:
-            A formatted and validated cloud resource name string.
+            str: The cloud compatible resource name.
 
         """
-        # Normalize all user-provided parts to ensure they are valid for cloud resource names
+        # Generate name parts
         norm_deployment_id = normalize_name(self.deployment_id)
         norm_range_name = normalize_name(self.range_name)
         norm_resource_name = normalize_name(resource_name)
@@ -112,7 +128,7 @@ class CloudResourceNamer:
         # The uid provides uniqueness for resources whose names might otherwise collide after normalization
         short_uid = generate_short_uid()[: self.SHORT_UID_LEN] if unique else ""
 
-        # Calculate Available Space for the Resource Name
+        # Calculate available space for the resource name
         fixed_parts_len = (
             len(self.PREFIX) + len(norm_deployment_id) + len(truncated_range_name)
         )
@@ -126,16 +142,6 @@ class CloudResourceNamer:
         # The remaining space is what's available for the resource name.
         available_len = self.max_len - fixed_parts_len - num_hyphens
 
-        if available_len < self.MIN_RESOURCE_NAME_LEN:
-            required = self.max_len - available_len + self.MIN_RESOURCE_NAME_LEN
-            msg = (
-                f"Cannot generate a name with max_len={self.max_len}. "
-                f"Not enough space for the resource name after accommodating other components. "
-                f"Required space is at least {required}."
-            )
-            raise ValueError(msg)
-
-        # Truncate the resource name to the exact calculated available length.
         truncated_resource_name = norm_resource_name[:available_len].strip("-")
 
         # Build final name
@@ -148,6 +154,4 @@ class CloudResourceNamer:
         if unique:
             name_parts.append(short_uid)
 
-        # User a join in case a part becomes empty after normalization
-        # and formatting changes
         return "-".join(part for part in name_parts if part)
