@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenLabsHQ/CLI/internal/output"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/output"
 )
 
 func newListCommand() *cobra.Command {

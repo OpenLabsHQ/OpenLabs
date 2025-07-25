@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/OpenLabsHQ/CLI/internal/logger"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
 )
 
 func (c *Client) Login(email, password string) error {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	internalConfig "github.com/OpenLabsHQ/CLI/internal/config"
-	"github.com/OpenLabsHQ/CLI/internal/output"
+	internalConfig "github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/output"
 )
 
 func newShowCommand() *cobra.Command {

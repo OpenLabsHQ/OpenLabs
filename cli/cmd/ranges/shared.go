@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/OpenLabsHQ/CLI/internal/client"
-	"github.com/OpenLabsHQ/CLI/internal/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/client"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
 )
 
 var globalConfig *config.Config
