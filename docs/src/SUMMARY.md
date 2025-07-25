@@ -11,3 +11,4 @@
   - [Lab Hierarchy](explanation/lab-hierarchy.md)
 - [📚 Reference](reference/index.md)
   - [Architecture Diagram](reference/architecture-diagram.md)
+- [🗺️ Roadmap](roadmap.md)
