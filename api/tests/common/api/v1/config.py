@@ -130,6 +130,21 @@ valid_blueprint_range_multi_create_payload: dict[str, Any] = {
                         }
                     ],
                 },
+                # This is here to test that we handle
+                # normalized name collisions
+                {
+                    "cidr": "10.0.3.0/24",
+                    "name": "dev_subnet_app",
+                    "hosts": [
+                        {
+                            "hostname": "dev-app-01",
+                            "os": "debian_11",
+                            "spec": "medium",
+                            "size": 30,
+                            "tags": ["app", "linux"],
+                        }
+                    ],
+                },
             ],
         },
         {
