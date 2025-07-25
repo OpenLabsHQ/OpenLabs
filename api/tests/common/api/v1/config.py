@@ -147,16 +147,19 @@ valid_blueprint_range_multi_create_payload: dict[str, Any] = {
                 },
             ],
         },
+        # All of the resource names in this VPC are intentionally long
+        # to test that we properly handle different name tag lengths
+        # constraints across cloud providers
         {
             "cidr": "172.16.0.0/16",
-            "name": "prod-vpc",
+            "name": "prod-vpc-with-a-really-long-name-because-why-not-the-devs-let-us",
             "subnets": [
                 {
                     "cidr": "172.16.1.0/24",
-                    "name": "Prod Subnet-DMZ",  # NOTE: Spaces are intentionally included to test space handling in subnet names and prevent regression of parsing issues
+                    "name": "Prod Subnet-DMZ which also happens to be long as well great",  # NOTE: Spaces are intentionally included to test space handling in subnet names and prevent regression of parsing issues
                     "hosts": [
                         {
-                            "hostname": "prod-gateway-01",
+                            "hostname": "my-supercalifragilisticexpialidocious-kali-attack-machine-yipee",
                             "os": "kali",
                             "spec": "small",
                             "size": 32,
