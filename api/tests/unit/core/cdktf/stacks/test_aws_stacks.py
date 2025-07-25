@@ -1,6 +1,7 @@
 from typing import Any, Callable
 
 import pytest
+from api.src.app.utils.id_utils import generate_short_uid
 from cdktf import Testing as CdktfTesting
 from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.subnet import Subnet
@@ -13,7 +14,6 @@ from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.range_schemas import BlueprintRangeSchema
-from src.app.utils.hash_utils import generate_short_hash
 from src.app.utils.name_utils import CloudResourceNamer
 from tests.unit.core.cdktf.config import one_all_blueprint
 
@@ -22,7 +22,7 @@ from tests.unit.core.cdktf.config import one_all_blueprint
 def aws_one_all_synthesis_cloud_namer() -> CloudResourceNamer:
     """Build the cloud namer object for the aws synth fixture."""
     range_name = "aws-one-all-synthesis"
-    test_deployment_id = generate_short_hash()[:10]  # Max length allowed
+    test_deployment_id = generate_short_uid()[:10]  # Max length allowed
     return CloudResourceNamer(
         deployment_id=test_deployment_id,
         range_name=range_name,

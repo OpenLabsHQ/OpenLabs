@@ -37,22 +37,26 @@ def base36_encode(number: int) -> str:
     return "".join(reversed(encoded_chars))
 
 
-def generate_short_hash(
-    uuid_obj: uuid.UUID | None = None,
-) -> str:
-    """Generate a short collision resistant hash from a UUID object.
-
-    This takes the integer value of a uuid object and then codes
+def encode_uuid(uuid_obj: uuid.UUID) -> str:
+    """Encode a UUID object into a shorter Base36 string.
 
     Args:
-        uuid_obj: An optional UUID object to be encoded.
-
+        uuid_obj: The UUID object to encode.
 
     Returns:
-        A short Base36 hash string.
+        A short Base36 encoded string.
 
     """
-    if uuid_obj is None:
-        uuid_obj = uuid.uuid4()
-
     return base36_encode(uuid_obj.int)
+
+
+def generate_short_uid() -> str:
+    """Generate a new, short, unique ID.
+
+    The ID is generated with a Base36 encoded UUID4.
+
+    Returns:
+        A new, short ID string.
+
+    """
+    return encode_uuid(uuid.uuid4())

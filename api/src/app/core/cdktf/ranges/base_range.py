@@ -21,7 +21,7 @@ from ....schemas.range_schemas import (
 )
 from ....schemas.secret_schema import SecretSchema
 from ....utils.cdktf_utils import gen_resource_logical_ids
-from ....utils.hash_utils import generate_short_hash
+from ....utils.id_utils import generate_short_uid
 from ....utils.name_utils import normalize_name
 from ...config import settings
 from ..stacks.base_stack import AbstractBaseStack
@@ -62,10 +62,10 @@ class AbstractBaseRange(ABC):
         else:
             self._is_deployed = True
 
-        # A small hash to improve readability while
-        # maintaining uniqueness of the deployment
+        # A small unique ID to improve readability while
+        # maintaining uniqueness
         self.deployment_id = (
-            deployment_id if deployment_id else generate_short_hash()[:10]
+            deployment_id if deployment_id else generate_short_uid()[:10]
         )
 
         # Format names to prevent CDKTF errors

@@ -1,6 +1,6 @@
 import re
 
-from .hash_utils import generate_short_hash
+from .id_utils import generate_short_uid
 
 
 def normalize_name(name: str) -> str:
@@ -36,7 +36,7 @@ class CloudResourceNamer:
     PREFIX = "ol"
     MAX_DEPLOYMENT_ID_LEN = 10
     TRUNCATED_RANGE_NAME_LEN = 15
-    SHORT_HASH_LEN = 10
+    SHORT_UID_LEN = 10
     MIN_RESOURCE_NAME_LEN = (
         5  # Reserve at least 5 chars for the resource name for readability.
     )
@@ -86,14 +86,14 @@ class CloudResourceNamer:
     ) -> str:
         """Generate a standard length-constrained cloud resource name.
 
-        The final format is: "ol-{deployment_id}-{range_name}-{resource_name}-{hash}"
+        The final format is: "ol-{deployment_id}-{range_name}-{resource_name}-{uid}"
 
         This format is designed to make it easy for users to identify resources and
         provider a standard format across cloud providers.
 
         Args:
             resource_name: The name of the specific resource.
-            unique: If True, append a unique hash to ensure the name is unique across an entire cloud account.
+            unique: If True, append a unique uid to ensure the name is unique across an entire cloud account.
 
         Returns:
             A formatted and validated cloud resource name string.
@@ -109,17 +109,17 @@ class CloudResourceNamer:
             "-"
         )
 
-        # The hash provides uniqueness for resources whose names might otherwise collide after normalization
-        short_hash = generate_short_hash()[: self.SHORT_HASH_LEN] if unique else ""
+        # The uid provides uniqueness for resources whose names might otherwise collide after normalization
+        short_uid = generate_short_uid()[: self.SHORT_UID_LEN] if unique else ""
 
         # Calculate Available Space for the Resource Name
         fixed_parts_len = (
             len(self.PREFIX) + len(norm_deployment_id) + len(truncated_range_name)
         )
         if unique:
-            fixed_parts_len += len(short_hash)
+            fixed_parts_len += len(short_uid)
 
-        # Calculate the number of hyphens needed. A name with 5 parts (e.g., prefix, id, range, resource, hash)
+        # Calculate the number of hyphens needed. A name with 5 parts (e.g., prefix, id, range, resource, uid)
         # will require 4 hyphens.
         num_hyphens = 3 + (1 if unique else 0)
 
@@ -146,7 +146,7 @@ class CloudResourceNamer:
             truncated_resource_name,
         ]
         if unique:
-            name_parts.append(short_hash)
+            name_parts.append(short_uid)
 
         # User a join in case a part becomes empty after normalization
         # and formatting changes
