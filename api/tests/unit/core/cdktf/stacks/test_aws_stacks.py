@@ -1,7 +1,6 @@
 from typing import Any, Callable
 
 import pytest
-from api.src.app.utils.id_utils import generate_short_uid
 from cdktf import Testing as CdktfTesting
 from cdktf_cdktf_provider_aws.instance import Instance
 from cdktf_cdktf_provider_aws.subnet import Subnet
@@ -14,6 +13,7 @@ from src.app.enums.operating_systems import AWS_OS_MAP
 from src.app.enums.regions import OpenLabsRegion
 from src.app.enums.specs import AWS_SPEC_MAP
 from src.app.schemas.range_schemas import BlueprintRangeSchema
+from src.app.utils.id_utils import generate_short_uid
 from src.app.utils.name_utils import CloudResourceNamer
 from tests.unit.core.cdktf.config import one_all_blueprint
 
