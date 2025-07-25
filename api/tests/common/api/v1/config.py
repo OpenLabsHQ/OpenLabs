@@ -139,7 +139,7 @@ valid_blueprint_range_multi_create_payload: dict[str, Any] = {
                         {
                             "hostname": "dev-app-01",
                             "os": "debian_11",
-                            "spec": "medium",
+                            "spec": "small",
                             "size": 30,
                             "tags": ["app", "linux"],
                         }
