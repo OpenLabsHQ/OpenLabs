@@ -1,6 +1,13 @@
 from ipaddress import IPv4Network
+from typing import Self, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from ..validators.names import OPENLABS_NAME_REGEX
 from ..validators.network import max_num_hosts_in_subnet
@@ -9,6 +16,7 @@ from .host_schemas import (
     BlueprintHostSchema,
     DeployedHostCreateSchema,
     DeployedHostSchema,
+    HostCommonSchema,
 )
 
 
@@ -27,21 +35,13 @@ class SubnetCommonSchema(BaseModel):
     )
 
 
-# ==================== Blueprints =====================
+class SubnetCreateValidationMixin(BaseModel):
+    """Mixin class with common validation for all subnet creation schemas."""
 
-
-class BlueprintSubnetBaseSchema(SubnetCommonSchema):
-    """Base pydantic class for all blueprint subnet objects."""
-
-    pass
-
-
-class BlueprintSubnetCreateSchema(BlueprintSubnetBaseSchema):
-    """Schema to create blueprint subnet objects."""
-
-    hosts: list[BlueprintHostCreateSchema] = Field(
-        ..., description="All blueprint hosts in the subnet."
-    )
+    # Forward references
+    name: str
+    cidr: IPv4Network
+    hosts: Sequence[HostCommonSchema]
 
     @field_validator("cidr")
     @classmethod
@@ -52,38 +52,48 @@ class BlueprintSubnetCreateSchema(BlueprintSubnetBaseSchema):
             raise ValueError(msg)
         return cidr
 
-    @field_validator("hosts")
-    @classmethod
-    def validate_unique_hostnames(
-        cls, hosts: list[BlueprintHostCreateSchema]
-    ) -> list[BlueprintHostCreateSchema]:
+    @model_validator(mode="after")
+    def validate_unique_hostnames(self) -> Self:
         """Check hostnames are unique."""
-        hostnames = [host.hostname for host in hosts]
+        if not self.hosts:
+            return self
+
+        hostnames = [host.hostname for host in self.hosts]
         if len(hostnames) != len(set(hostnames)):
-            msg = "All hostnames must be unique."
+            msg = f"All hostnames in subnet: {self.name} must be unique."
             raise ValueError(msg)
-        return hosts
 
-    @field_validator("hosts")
-    @classmethod
-    def validate_max_number_hosts(
-        cls, hosts: list[BlueprintHostCreateSchema], info: ValidationInfo
-    ) -> list[BlueprintHostCreateSchema]:
+        return self
+
+    @model_validator(mode="after")
+    def validate_max_number_hosts(self) -> Self:
         """Check that the number of hosts does not exceed subnet CIDR."""
-        subnet_cidr = info.data.get("cidr")
+        max_num_hosts = max_num_hosts_in_subnet(self.cidr)
 
-        if not subnet_cidr:
-            msg = "Subnet missing CIDR."
+        if len(self.hosts) > max_num_hosts:
+            msg = f"Too many hosts in subnet: {self.name}! Max: {max_num_hosts}, Requested: {len(self.hosts)}"
             raise ValueError(msg)
 
-        max_num_hosts = max_num_hosts_in_subnet(subnet_cidr)
-        num_requested_hosts = len(hosts)
+        return self
 
-        if num_requested_hosts > max_num_hosts:
-            msg = f"Too many hosts in subnet! Max: {max_num_hosts}, Requested: {num_requested_hosts}"
-            raise ValueError(msg)
 
-        return hosts
+# ==================== Blueprints =====================
+
+
+class BlueprintSubnetBaseSchema(SubnetCommonSchema):
+    """Base pydantic class for all blueprint subnet objects."""
+
+    pass
+
+
+class BlueprintSubnetCreateSchema(
+    BlueprintSubnetBaseSchema, SubnetCreateValidationMixin
+):
+    """Schema to create blueprint subnet objects."""
+
+    hosts: list[BlueprintHostCreateSchema] = Field(
+        ..., description="All blueprint hosts in the subnet."
+    )
 
 
 class BlueprintSubnetSchema(BlueprintSubnetBaseSchema):
@@ -119,54 +129,12 @@ class DeployedSubnetBaseSchema(SubnetCommonSchema):
     )
 
 
-class DeployedSubnetCreateSchema(DeployedSubnetBaseSchema):
+class DeployedSubnetCreateSchema(DeployedSubnetBaseSchema, SubnetCreateValidationMixin):
     """Schema to create deployed subnet objects."""
 
     hosts: list[DeployedHostCreateSchema] = Field(
         ..., description="Deployed hosts within subnet."
     )
-
-    @field_validator("cidr")
-    @classmethod
-    def validate_subnet_private_cidr_range(cls, cidr: IPv4Network) -> IPv4Network:
-        """Check subnet CIDR ranges are private."""
-        if not cidr.is_private:
-            msg = "Subnets should only use private CIDR ranges."
-            raise ValueError(msg)
-        return cidr
-
-    @field_validator("hosts")
-    @classmethod
-    def validate_unique_hostnames(
-        cls, hosts: list[DeployedHostCreateSchema]
-    ) -> list[DeployedHostCreateSchema]:
-        """Check hostnames are unique."""
-        hostnames = [host.hostname for host in hosts]
-        if len(hostnames) != len(set(hostnames)):
-            msg = "All hostnames must be unique."
-            raise ValueError(msg)
-        return hosts
-
-    @field_validator("hosts")
-    @classmethod
-    def validate_max_number_hosts(
-        cls, hosts: list[DeployedHostCreateSchema], info: ValidationInfo
-    ) -> list[DeployedHostCreateSchema]:
-        """Check that the number of hosts does not exceed subnet CIDR."""
-        subnet_cidr = info.data.get("cidr")
-
-        if not subnet_cidr:
-            msg = "Subnet missing CIDR."
-            raise ValueError(msg)
-
-        max_num_hosts = max_num_hosts_in_subnet(subnet_cidr)
-        num_requested_hosts = len(hosts)
-
-        if num_requested_hosts > max_num_hosts:
-            msg = f"Too many hosts in subnet! Max: {max_num_hosts}, Requested: {num_requested_hosts}"
-            raise ValueError(msg)
-
-        return hosts
 
     model_config = ConfigDict(from_attributes=True)
 
