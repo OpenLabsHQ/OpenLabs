@@ -65,7 +65,7 @@ func runStartCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create MCP server: %w", err)
 	}
 
-	logger.Success("Starting OpenLabs MCP server with %s transport", transport)
+	logger.Info("Starting OpenLabs MCP server with %s transport", transport)
 
 	switch transport {
 	case "stdio":

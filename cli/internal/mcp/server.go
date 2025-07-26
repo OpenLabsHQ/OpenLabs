@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -77,7 +76,7 @@ func (s *Server) reloadConfigIfChanged() bool {
 
 func (s *Server) RunStdio(ctx context.Context) error {
 	if s.debug {
-		log.Println("Starting MCP server with stdio transport")
+		logger.Debug("Starting MCP server with stdio transport")
 	}
 
 	errChan := make(chan error, 1)
@@ -95,7 +94,7 @@ func (s *Server) RunStdio(ctx context.Context) error {
 
 func (s *Server) RunSSE(ctx context.Context, addr string) error {
 	if s.debug {
-		log.Printf("Starting MCP server with SSE transport on %s", addr)
+		logger.Debug("Starting MCP server with SSE transport on %s", addr)
 	}
 
 	port := ":8080"
@@ -111,7 +110,7 @@ func (s *Server) RunSSE(ctx context.Context, addr string) error {
 		server.WithUseFullURLForMessageEndpoint(true),
 	)
 	
-	log.Printf("SSE server listening on %s with endpoints /sse and /message", port)
+	logger.Info("SSE server listening on %s with endpoints /sse and /message", port)
 	
 	errChan := make(chan error, 1)
 	go func() {
@@ -123,7 +122,7 @@ func (s *Server) RunSSE(ctx context.Context, addr string) error {
 		return err
 	case <-ctx.Done():
 		if err := sseServer.Shutdown(context.Background()); err != nil {
-			log.Printf("Error during SSE server shutdown: %v", err)
+			logger.Error("Error during SSE server shutdown: %v", err)
 		}
 		return ctx.Err()
 	}
