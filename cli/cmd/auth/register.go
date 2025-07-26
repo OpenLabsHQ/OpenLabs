@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
 	"github.com/OpenLabsHQ/OpenLabs/cli/internal/progress"
 	"github.com/OpenLabsHQ/OpenLabs/cli/internal/utils"
 )
@@ -66,7 +67,7 @@ func runRegister(cmd *cobra.Command, name, email, password string) error {
 	}
 
 	if cmd.Flag("password").Changed {
-		fmt.Println("Password provided via flag - skipping confirmation")
+		logger.Info("Password provided via flag - skipping confirmation")
 	} else {
 		confirmPassword, err := utils.PromptPassword("Confirm password")
 		if err != nil {

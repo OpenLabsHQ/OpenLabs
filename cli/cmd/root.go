@@ -10,6 +10,7 @@ import (
 	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/auth"
 	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/blueprints"
 	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/mcp"
 	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/ranges"
 	internalConfig "github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
 	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
@@ -96,6 +97,7 @@ func addSubcommands() {
 	rootCmd.AddCommand(ranges.NewRangeCommand())
 	rootCmd.AddCommand(blueprints.NewBlueprintsCommand())
 	rootCmd.AddCommand(config.NewConfigCommand())
+	rootCmd.AddCommand(mcp.NewMCPCommand())
 }
 
 func initializeGlobalConfig() error {
@@ -133,6 +135,7 @@ func applyGlobalFlags() {
 	auth.SetGlobalConfig(globalConfig)
 	ranges.SetGlobalConfig(globalConfig)
 	blueprints.SetGlobalConfig(globalConfig)
+	mcp.SetGlobalConfig(globalConfig)
 }
 
 func loadConfigFromPath(path string) (*internalConfig.Config, error) {

@@ -70,6 +70,11 @@ openlabs range destroy test-range
 - `openlabs config show` - Show current configuration
 - `openlabs config set <key> <value>` - Set configuration value
 
+### MCP (Model Context Protocol)
+- `openlabs mcp start` - Start MCP server for AI assistant integration
+- `openlabs mcp status` - Check MCP server status and connectivity
+- `openlabs mcp tools` - List available MCP tools
+
 ## Global Flags
 
 - `--format` - Output format (table, json, yaml)

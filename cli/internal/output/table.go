@@ -162,9 +162,9 @@ func formatFieldValue(val reflect.Value) string {
 		return val.String()
 	case reflect.Bool:
 		if val.Bool() {
-			return "✓"
+			return "true"
 		}
-		return "✗"
+		return "false"
 	case reflect.Slice:
 		if val.Len() == 0 {
 			return ""
@@ -186,4 +186,83 @@ func formatFieldValue(val reflect.Value) string {
 	default:
 		return fmt.Sprintf("%v", val.Interface())
 	}
+}
+
+// DisplayMCPTools displays MCP tools in a table format, excluding inputSchema and annotations
+func DisplayMCPTools(tools interface{}) error {
+	output, err := formatMCPToolsAsTable(tools)
+	if err != nil {
+		return err
+	}
+	fmt.Print(output)
+	return nil
+}
+
+func formatMCPToolsAsTable(data interface{}) (string, error) {
+	if data == nil {
+		return "", nil
+	}
+
+	val := reflect.ValueOf(data)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	if val.Kind() != reflect.Slice {
+		return "", fmt.Errorf("expected slice of tools")
+	}
+
+	if val.Len() == 0 {
+		return "No tools available\n", nil
+	}
+
+	var buf strings.Builder
+	table := tablewriter.NewWriter(&buf)
+
+	table.SetHeader([]string{"Name", "Description"})
+	table.SetColWidth(80)
+	table.SetRowLine(true)
+	table.SetAutoWrapText(false)
+
+	for i := 0; i < val.Len(); i++ {
+		item := val.Index(i)
+		if item.Kind() == reflect.Ptr {
+			item = item.Elem()
+		}
+
+		if item.Kind() != reflect.Struct {
+			continue
+		}
+
+		name := getStructFieldValue(item, "name")
+		description := getStructFieldValue(item, "description")
+
+		table.Append([]string{name, description})
+	}
+
+	table.Render()
+	return buf.String(), nil
+}
+
+func getStructFieldValue(val reflect.Value, fieldName string) string {
+	typ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		jsonTag := field.Tag.Get("json")
+		if jsonTag != "" {
+			tagName := strings.Split(jsonTag, ",")[0]
+			if tagName == fieldName {
+				return formatFieldValue(val.Field(i))
+			}
+		}
+
+		if strings.EqualFold(field.Name, fieldName) {
+			return formatFieldValue(val.Field(i))
+		}
+	}
+	return ""
 }
