@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -79,4 +80,22 @@ func Warnf(format string, args ...interface{}) {
 // Errorf is an alias for Error for consistency
 func Errorf(format string, args ...interface{}) {
 	Error(format, args...)
+}
+
+// Status logging functions with consistent indicators
+// These use stdout for status messages and stderr for errors
+
+// Success logs a success message with [+] indicator
+func Success(format string, args ...interface{}) {
+	fmt.Printf("[+] "+format+"\n", args...)
+}
+
+// Failure logs a failure message with [-] indicator  
+func Failure(format string, args ...interface{}) {
+	fmt.Printf("[-] "+format+"\n", args...)
+}
+
+// Notice logs a notice/warning message with [!] indicator
+func Notice(format string, args ...interface{}) {
+	fmt.Printf("[!] "+format+"\n", args...)
 }
