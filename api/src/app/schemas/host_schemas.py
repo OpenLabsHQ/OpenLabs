@@ -1,11 +1,12 @@
 from ipaddress import IPv4Address
+from typing import Self
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 from src.app.enums.operating_systems import OpenLabsOS
@@ -82,20 +83,14 @@ class HostCommonSchema(BaseModel):
             raise ValueError(msg)
         return hostname
 
-    @field_validator("size")
-    @classmethod
-    def validate_size(cls, size: int, info: ValidationInfo) -> int:
+    @model_validator(mode="after")
+    def validate_size(self) -> Self:
         """Check VM disk size is sufficient."""
-        os: OpenLabsOS | None = info.data.get("os")
-
-        if os is None:
-            msg = "OS field not set to OpenLabsOS type."
+        if not is_valid_disk_size(self.os, self.size):
+            msg = f"Disk size {self.size}GB too small for OS: {self.os.value}. Minimum disk size: {OS_SIZE_THRESHOLD[self.os]}GB."
             raise ValueError(msg)
 
-        if not is_valid_disk_size(os, size):
-            msg = f"Disk size {size}GB too small for OS: {os.value}. Minimum disk size: {OS_SIZE_THRESHOLD[os]}GB."
-            raise ValueError(msg)
-        return size
+        return self
 
 
 # ==================== Blueprints =====================
