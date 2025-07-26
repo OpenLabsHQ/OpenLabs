@@ -44,9 +44,9 @@ func runStatusCommand(cmd *cobra.Command, args []string) error {
 		logger.Debug("API ping failed: %v", err)
 
 		logger.Notice("Troubleshooting steps:")
-		fmt.Println("    1. Check your network connection")
-		fmt.Println("    2. Verify API URL with 'openlabs config show'")
-		fmt.Println("    3. Re-authenticate with 'openlabs auth login'")
+		logger.Notice("    1. Check your network connection")
+		logger.Notice("    2. Verify API URL with 'openlabs config show'")
+		logger.Notice("    3. Re-authenticate with 'openlabs auth login'")
 		return nil
 	}
 	logger.Success("API connectivity verified")
