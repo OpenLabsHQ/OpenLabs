@@ -25,11 +25,11 @@ OpenLabs allows users to:
 ## Authentication Best Practices
 1. **PREFERRED METHOD**: Always guide users to use CLI authentication first:
    - Ask user to run 'openlabs auth login' in their terminal
-   - This is the most secure method as credentials don't travel over MCP
+   - This is the most secure method as credentials don't pass through the LLM
    - Then retry the requested operation
 
 2. **Alternative method** (use only if CLI method fails):
-   - WARN the user: "For security, 'openlabs auth login' is preferred. MCP login sends credentials over the protocol."
+   - WARN the user: "For security, 'openlabs auth login' is preferred. MCP login sends credentials through the LLM."
    - Only proceed if user explicitly confirms they want to use MCP login
    - Call the 'login' tool with email and password parameters
 
