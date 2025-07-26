@@ -1,8 +1,13 @@
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
-from typing import Any
+from typing import Any, Self, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
 
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
@@ -14,6 +19,7 @@ from .vpc_schemas import (
     BlueprintVPCSchema,
     DeployedVPCCreateSchema,
     DeployedVPCSchema,
+    VPCCommonSchema,
 )
 
 
@@ -32,6 +38,36 @@ class RangeCommonSchema(BaseModel):
     vpn: bool = Field(default=False, description="Automatic VPN configuration.")
 
 
+class RangeCreateValidationMixin(BaseModel):
+    """Mixin class with common validation for all range creation schemas."""
+
+    vpcs: Sequence[VPCCommonSchema]
+
+    @model_validator(mode="after")
+    def validate_unique_vpc_names(self) -> Self:
+        """Check VPC names are unique."""
+        if not self.vpcs:
+            return self
+
+        vpc_names = [vpc.name for vpc in self.vpcs]
+        if len(vpc_names) != len(set(vpc_names)):
+            msg = "All VPCs in the range must have unique names."
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_mutually_exclusive_vpcs(self) -> Self:
+        """Check that VPCs do not overlap."""
+        if not self.vpcs:
+            return self
+
+        vpc_cidrs = [vpc.cidr for vpc in self.vpcs]
+        if not mutually_exclusive_networks_v4(vpc_cidrs):
+            msg = "All VPCs in the range must be mutually exclusive (not overlap)."
+            raise ValueError(msg)
+        return self
+
+
 # ==================== Blueprints =====================
 
 
@@ -48,41 +84,12 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
     pass
 
 
-class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
+class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema, RangeCreateValidationMixin):
     """Schema to create blueprint range objects."""
 
     vpcs: list[BlueprintVPCCreateSchema] = Field(
         ..., description="All blueprint VPCs in range."
     )
-
-    @field_validator("vpcs")
-    @classmethod
-    def validate_unique_vpc_names(
-        cls, vpcs: list[BlueprintVPCCreateSchema], info: ValidationInfo
-    ) -> list[BlueprintVPCCreateSchema]:
-        """Check VPC names are unique."""
-        vpc_names = [vpc.name for vpc in vpcs]
-
-        if len(vpc_names) != len(set(vpc_names)):
-            msg = "All VPCs in the range must have unique names."
-            raise ValueError(msg)
-
-        return vpcs
-
-    @field_validator("vpcs")
-    @classmethod
-    def validate_mutually_exclusive_vpcs(
-        cls, vpcs: list[BlueprintVPCCreateSchema], info: ValidationInfo
-    ) -> list[BlueprintVPCCreateSchema]:
-        """Check that VPCs do not overlap."""
-        vpc_cidrs = [vpc.cidr for vpc in vpcs]
-
-        if not mutually_exclusive_networks_v4(vpc_cidrs):
-
-            msg = "All VPCs in range should be mutually exclusive (not overlap)."
-            raise ValueError(msg)
-
-        return vpcs
 
 
 class BlueprintRangeSchema(BlueprintRangeBaseSchema):
@@ -152,41 +159,12 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
     )
 
 
-class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
+class DeployedRangeCreateSchema(DeployedRangeBaseSchema, RangeCreateValidationMixin):
     """Schema to create deployed range object."""
 
     vpcs: list[DeployedVPCCreateSchema] = Field(
         ..., description="Deployed VPCs in the range."
     )
-
-    @field_validator("vpcs")
-    @classmethod
-    def validate_unique_vpc_names(
-        cls, vpcs: list[DeployedVPCCreateSchema], info: ValidationInfo
-    ) -> list[DeployedVPCCreateSchema]:
-        """Check VPC names are unique."""
-        vpc_names = [vpc.name for vpc in vpcs]
-
-        if len(vpc_names) != len(set(vpc_names)):
-            msg = "All VPCs in the range must have unique names."
-            raise ValueError(msg)
-
-        return vpcs
-
-    @field_validator("vpcs")
-    @classmethod
-    def validate_mutually_exclusive_vpcs(
-        cls, vpcs: list[DeployedVPCCreateSchema], info: ValidationInfo
-    ) -> list[DeployedVPCCreateSchema]:
-        """Check that VPCs do not overlap."""
-        vpc_cidrs = [vpc.cidr for vpc in vpcs]
-
-        if not mutually_exclusive_networks_v4(vpc_cidrs):
-
-            msg = "All VPCs in range should be mutually exclusive (not overlap)."
-            raise ValueError(msg)
-
-        return vpcs
 
 
 class DeployedRangeSchema(DeployedRangeBaseSchema):
