@@ -5,7 +5,7 @@ import socket
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Generator, Iterator
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import dotenv
 import pytest
@@ -257,6 +257,115 @@ def range_factory() -> Callable[
         )
 
     return _range_synthesize
+
+
+@pytest.fixture(scope="function")
+def pulumi_range_factory() -> Callable[
+    [Any, BlueprintRangeSchema, OpenLabsRegion],
+    Any,
+]:
+    """Get factory to generate Pulumi range objects."""
+    from src.app.core.pulumi.ranges.base_range import AbstractBasePulumiRange  # noqa: PLC0415
+    from src.app.core.pulumi.ranges.range_factory import PulumiRangeFactory  # noqa: PLC0415
+
+    def _pulumi_range_create(
+        range_cls: type[AbstractBasePulumiRange],
+        range_blueprint: BlueprintRangeSchema,
+        region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
+        state_data: None = None,
+    ) -> AbstractBasePulumiRange:
+        """Create Pulumi range object."""
+        secrets = SecretSchema(
+            aws_access_key="test_access_key",
+            aws_secret_key="test_secret_key"
+        )
+
+        return PulumiRangeFactory.create_range(
+            name="test-range",
+            description="Range for testing purposes!",
+            range_obj=range_blueprint,
+            region=region,
+            secrets=secrets,
+            state_data=state_data,
+        )
+
+    return _pulumi_range_create
+
+
+@pytest.fixture
+def mock_pulumi_range_factory(
+    mocker: MockerFixture,
+) -> Iterator[Callable[..., MagicMock]]:
+    """Provide a factory function to create and patch a customizable Pulumi range mock.
+
+    This fixture patches `PulumiRangeFactory.create_range` to return a `MagicMock`
+    that is configured based on the arguments passed to the factory function.
+
+    Yields:
+        Callable[..., MagicMock]: A function to create and patch the mock.
+
+    """
+    from src.app.core.pulumi.ranges.base_range import AbstractBasePulumiRange  # noqa: PLC0415
+    from src.app.core.pulumi.ranges.range_factory import PulumiRangeFactory  # noqa: PLC0415
+
+    def _create_and_patch(  # noqa: D417, PLR0913
+        # Arguments for configuring the Pulumi mock
+        has_secrets: bool = True,
+        deploy: DeployedRangeCreateSchema | None = None,
+        destroy: bool = True,
+        get_config_values: dict[str, Any] | None = None,
+        get_cred_env_vars: dict[str, Any] | None = None,
+    ) -> MagicMock:
+        """Patch PulumiRangeFactory.create_range and configures the mock's behavior.
+
+        Args:
+            has_secrets: Whether the mock should return True for has_secrets().
+            deploy: The deployed range schema to return from deploy().
+            destroy: Whether destroy() should return True.
+            get_config_values: Config values to return from get_config_values().
+            get_cred_env_vars: Environment variables to return from get_cred_env_vars().
+
+        Returns:
+            MagicMock: The configured mock object.
+
+        """
+        deployed_create_schema = DeployedRangeCreateSchema.model_validate(
+            valid_deployed_range_data
+        )
+
+        if deploy is None:
+            deploy = deployed_create_schema
+
+        if get_config_values is None:
+            get_config_values = {"aws:region": {"value": "us-east-1"}}
+
+        if get_cred_env_vars is None:
+            get_cred_env_vars = {
+                "AWS_ACCESS_KEY_ID": "test_access_key",
+                "AWS_SECRET_ACCESS_KEY": "test_secret_key",
+            }
+
+        # Create a mock that acts like AbstractBasePulumiRange
+        mock_range = MagicMock()
+
+        # Configure mock methods
+        mock_range.has_secrets.return_value = has_secrets
+        mock_range.deploy = AsyncMock(return_value=deploy)
+        mock_range.destroy = AsyncMock(return_value=destroy)
+        mock_range.get_config_values.return_value = get_config_values
+        mock_range.get_cred_env_vars.return_value = get_cred_env_vars
+        mock_range.is_deployed.return_value = False
+        mock_range.get_state_data.return_value = None
+        mock_range.cleanup_workspace = AsyncMock(return_value=True)
+
+        # Patch the factory method
+        mocker.patch.object(
+            PulumiRangeFactory, "create_range", return_value=mock_range
+        )
+
+        return mock_range
+
+    yield _create_and_patch
 
 
 @pytest_asyncio.fixture(scope="session")

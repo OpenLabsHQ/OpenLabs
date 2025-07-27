@@ -9,7 +9,7 @@ from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_rang
 from src.app.enums.range_states import RangeState
 from src.app.schemas.user_schema import UserID
 
-from ..core.cdktf.ranges.range_factory import RangeFactory
+from ..core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ..core.db.database import get_db_session_context
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
 from ..schemas.range_schemas import (
@@ -83,7 +83,7 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
-    range_to_deploy = RangeFactory.create_range(
+    range_to_deploy = PulumiRangeFactory.create_range(
         name=deploy_request.name,
         range_obj=blueprint_range,
         region=deploy_request.region,
@@ -97,12 +97,7 @@ async def deploy_range(
         logger.info(msg)
         raise RuntimeError(msg)
 
-    # Synthesize range
-    successful_synth = await range_to_deploy.synthesize()
-    if not successful_synth:
-        msg = f"Failed to synthesize range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id}) for user: {user_email} ({user_id})"
-        logger.error(msg)
-        raise RuntimeError(msg)
+    # Note: Pulumi doesn't need separate synthesis step like CDKTF
 
     # Deploy range
     created_range = await range_to_deploy.deploy()
@@ -226,13 +221,13 @@ async def destroy_range(
         user_is_admin = user.is_admin
 
     # Build range object
-    range_to_destroy = RangeFactory.create_range(
+    range_to_destroy = PulumiRangeFactory.create_range(
         name=deployed_range.name,
         range_obj=deployed_range,
         region=deployed_range.region,
         description=deployed_range.description,
         secrets=decrypted_secrets,
-        state_file=deployed_range.state_file,
+        state_data=deployed_range.state_file,
     )
 
     # Validate deployment
@@ -245,13 +240,7 @@ async def destroy_range(
         logger.critical(msg)
         raise RuntimeError(msg)
 
-    # Destroy range
-    successful_synth = await range_to_destroy.synthesize()
-    if not successful_synth:
-        msg = f"Failed to synthesize range: {range_to_destroy.name} for user: {user_id}"
-        logger.error(msg)
-        raise RuntimeError(msg)
-
+    # Destroy range (no synthesis needed for Pulumi)
     successful_destroy = await range_to_destroy.destroy()
     if not successful_destroy:
         msg = f"Failed to deploy range: {range_to_destroy.name} for user: {user_id}"

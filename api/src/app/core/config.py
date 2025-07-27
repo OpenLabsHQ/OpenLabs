@@ -4,7 +4,7 @@ from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from setuptools_scm import get_version
 
-from ..utils.cdktf_utils import create_cdktf_dir
+from ..utils.pulumi_utils import create_pulumi_dir
 from ..utils.path_utils import find_git_root
 
 env_path = os.path.join(str(find_git_root()), ".env")
@@ -52,12 +52,12 @@ class AuthSettings(BaseSettings):
     ADMIN_NAME: str = "Administrator"
 
 
-class CDKTFSettings(BaseSettings):
-    """CDKTF settings."""
+class PulumiSettings(BaseSettings):
+    """Pulumi settings."""
 
     model_config = settings_config
 
-    CDKTF_DIR: str = create_cdktf_dir()
+    CDKTF_DIR: str = create_pulumi_dir()  # Keep same name for compatibility
 
 
 class DatabaseSettings(BaseSettings):
@@ -104,7 +104,7 @@ class RedisQueueSettings(BaseSettings):
 
 
 class Settings(
-    AppSettings, PostgresSettings, CDKTFSettings, AuthSettings, RedisQueueSettings
+    AppSettings, PostgresSettings, PulumiSettings, AuthSettings, RedisQueueSettings
 ):
     """FastAPI app settings."""
 

@@ -60,21 +60,14 @@ FROM builder AS worker
     
 RUN apt-get update && \
     apt-get install -y --no-install-recommends wget gpg ca-certificates && \
-    wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor > /usr/share/keyrings/hashicorp-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com bookworm main" > /etc/apt/sources.list.d/hashicorp.list && \
-    apt-get update && \
-    apt-get install -y terraform && \
+    # Install Pulumi CLI
+    curl -fsSL https://get.pulumi.com | sh && \
     # Clean up to keep the image size down
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set up terraform cache
-WORKDIR src/app/core/cdktf
-RUN mkdir -p "/root/.terraform.d/plugin-cache"
-COPY api/src/app/core/cdktf/.terraformrc /root/.terraformrc 
-RUN terraform init
-RUN rm -rf .terraform*
-WORKDIR /code
+# Add Pulumi to PATH
+ENV PATH="/root/.pulumi/bin:${PATH}"
 
 CMD ["arq", "src.app.worker.settings.WorkerSettings"]
 

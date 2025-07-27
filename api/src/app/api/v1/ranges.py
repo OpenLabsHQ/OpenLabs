@@ -5,7 +5,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
-from ...core.cdktf.ranges.range_factory import RangeFactory
+from ...core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ...core.db.database import async_get_db
 from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
@@ -251,7 +251,7 @@ async def deploy_range_from_blueprint_endpoint(
         )
 
     # Create deployable range object
-    range_to_deploy = RangeFactory.create_range(
+    range_to_deploy = PulumiRangeFactory.create_range(
         name=deploy_request.name,
         range_obj=blueprint_range,
         region=deploy_request.region,
@@ -389,13 +389,13 @@ async def delete_range_endpoint(
         )
 
     # Build range object
-    range_to_destroy = RangeFactory.create_range(
+    range_to_destroy = PulumiRangeFactory.create_range(
         name=deployed_range.name,
         range_obj=deployed_range,
         region=deployed_range.region,
         description=deployed_range.description,
         secrets=decrypted_secrets,
-        state_file=deployed_range.state_file,
+        state_data=deployed_range.state_file,
     )
 
     if not range_to_destroy.has_secrets():
