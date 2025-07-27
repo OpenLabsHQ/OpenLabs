@@ -499,35 +499,46 @@ async def test_get_non_existent_deployed_range() -> None:
 
 
 @pytest.mark.parametrize(
-    "is_admin, expect_owner_filter",
+    "is_admin, user_owns_range",
     [
-        (False, True),
-        (True, False),
+        (False, True),   # Regular user, owns range - should get key
+        (False, False),  # Regular user, doesn't own range - should not get key
+        (True, False),   # Admin user, doesn't own range - should get key
     ],
 )
-async def test_get_deployed_range_key_filters(
+async def test_get_deployed_range_key_permissions(
     is_admin: bool,
-    expect_owner_filter: bool,
+    user_owns_range: bool,
 ) -> None:
-    """Test the deployed range key crud function filters results appropriately."""
+    """Test the deployed range key crud function respects permissions."""
     dummy_db = DummyDB()
-
+    dummy_range = DummyDeployedRange()
+    
+    range_id = 1
+    user_id = 1
+    
+    # Set ownership based on test parameters
+    if user_owns_range:
+        dummy_range.owner_id = user_id
+    else:
+        dummy_range.owner_id = user_id + 1
+    
     # Configure return of mock result
+    dummy_db.get.return_value = dummy_range
     dummy_db.scalar.return_value = "fake_private_key"
 
-    range_id = random.randint(1, 100)  # noqa: S311
-    user_id = 1
-    await get_deployed_range_key(
+    result = await get_deployed_range_key(
         dummy_db, range_id=range_id, user_id=user_id, is_admin=is_admin
     )
 
-    # Build filter clauses
-    range_id_clause = str(DeployedRangeModel.id == range_id)
-    ownership_clause = str(DeployedRangeModel.owner_id == user_id)
-    where_clause = str(dummy_db.scalar.call_args[0][0].whereclause)
-
-    assert range_id_clause in where_clause  # Always only pull key of specified range
-    assert (ownership_clause in where_clause) == expect_owner_filter
+    # Check if we should expect a result
+    should_have_access = is_admin or user_owns_range
+    
+    if should_have_access:
+        assert result is not None
+        assert result.range_private_key == "fake_private_key"
+    else:
+        assert result is None
 
 
 async def test_get_non_existent_deployed_range_key() -> None:
