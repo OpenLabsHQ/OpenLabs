@@ -44,6 +44,8 @@ valid_blueprint_range_create_payload: dict[str, Any] = {
     "name": "example-range-1",
     "vnc": False,
     "vpn": False,
+    "readers": [],
+    "writers": [],
 }
 
 # Valid range payload for deployment
@@ -270,6 +272,9 @@ valid_deployed_range_data: dict[str, Any] = {
     "name": "openlabs-deployed-test-v2",
     "vnc": True,
     "vpn": False,
+    "readers": [],
+    "writers": [],
+    "executors": [],
 }
 
 valid_deployed_vpc_data: dict[str, Any] = copy.deepcopy(

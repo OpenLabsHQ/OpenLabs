@@ -593,6 +593,8 @@ class TestBlueprintRangeNoAuth:
         # Mimic the header response with the valid JSON
         valid_blueprint_copy = copy.deepcopy(valid_blueprint_range_create_payload)
         del valid_blueprint_copy["vpcs"]
+        del valid_blueprint_copy["readers"]
+        del valid_blueprint_copy["writers"]
         remove_key_recursively(
             recieved_range, "id"
         )  # Our creation payload doesn't have IDs

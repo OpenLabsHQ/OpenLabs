@@ -71,6 +71,8 @@ valid_blueprint_range_create_payload: dict[str, Any] = {
     "name": "example-range-1",
     "vnc": False,
     "vpn": False,
+    "readers": [],
+    "writers": [],
 }
 
 # Valid range payload for deployment
