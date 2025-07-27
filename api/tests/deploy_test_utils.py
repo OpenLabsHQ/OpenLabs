@@ -1,11 +1,20 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
 from enum import Enum
+from socket import error as SocketError  # noqa: N812
 from typing import AsyncGenerator
 
+import paramiko
 from httpx import AsyncClient
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
+from src.app.enums.operating_systems import (
+    AWS_SSH_USERNAME_MAP,
+    AZURE_SSH_USERNAME_MAP,
+    OpenLabsOS,
+)
 from src.app.enums.providers import OpenLabsProvider
 
 logger = logging.getLogger(__name__)
@@ -105,3 +114,75 @@ def range_test_id(range_type: RangeType) -> str | None:
         type(range_type),
     )
     return None
+
+
+RETRYABLE_EXCEPTIONS = (
+    paramiko.SSHException,
+    TimeoutError,
+    SocketError,
+)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(5),  # Wait 5 seconds between retries
+    retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+    reraise=True,  # Reraise the last exception if all retries fail
+)
+async def ssh_connect_to_host(
+    hostname: str,
+    username: str,
+    private_key: paramiko.PKey,
+    jumpbox_transport: paramiko.Transport | None = None,
+    jumpbox_public_ip: str | None = None,
+) -> paramiko.SSHClient:
+    """Establish a SSH connection to a host with retry logic.
+
+    This function can connect directly to a host or tunnel through a jumpbox
+    by providing an active `paramiko.Transport`.
+
+    Args:
+        hostname: The IP address or hostname of the target machine.
+        username: The SSH username for the target machine.
+        private_key: The paramiko private key object for authentication.
+        jumpbox_transport: Optional transport from an existing jumpbox client for tunneling.
+        jumpbox_public_ip: The jumpbox's public IP, required for tunneling.
+
+    Returns:
+        A connected `paramiko.SSHClient` instance.
+
+    """
+    target_client = paramiko.SSHClient()
+    target_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # noqa: S507
+
+    sock = None
+    if jumpbox_transport:
+        if not jumpbox_public_ip:
+            msg = "jumpbox_public_ip is required when using a jumpbox_transport."
+            raise ValueError(msg)
+
+        # Create a tunnel ("direct-tcpip" channel) through the jumpbox
+        src_addr = (str(jumpbox_public_ip), 22)
+        dest_addr = (str(hostname), 22)
+        sock = jumpbox_transport.open_channel("direct-tcpip", dest_addr, src_addr)
+
+    await asyncio.to_thread(
+        target_client.connect,
+        hostname=hostname,
+        username=username,
+        pkey=private_key,
+        sock=sock,
+        timeout=15,  # Extra timeout to improve reliability
+    )
+    return target_client
+
+
+def get_ssh_username(provider: OpenLabsProvider, os: OpenLabsOS) -> str:
+    """Get the default SSH username for a given provider and OS."""
+    if provider == OpenLabsProvider.AWS:
+        return AWS_SSH_USERNAME_MAP[os]
+    if provider == OpenLabsProvider.AZURE:
+        return AZURE_SSH_USERNAME_MAP[os]
+
+    msg = f"Unsupported provider-OS combination: {provider}-{os}"
+    raise ValueError(msg)
