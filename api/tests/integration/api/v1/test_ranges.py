@@ -1,24 +1,25 @@
 import asyncio
 import io
+import logging
 
 import paramiko
 import pytest
 from httpx import AsyncClient
 
-from src.app.enums.operating_systems import (
-    AWS_SSH_USERNAME_MAP,
-    AZURE_SSH_USERNAME_MAP,
-    OpenLabsOS,
-)
-from src.app.enums.providers import OpenLabsProvider
+from src.app.enums.operating_systems import OpenLabsOS
+from src.app.schemas.host_schemas import DeployedHostSchema
 from src.app.schemas.range_schemas import DeployedRangeSchema
 from tests.api_test_utils import get_range, get_range_key, login_user
 from tests.deploy_test_utils import (
     RangeType,
+    get_ssh_username,
     provider_test_id,
     range_test_id,
+    ssh_connect_to_host,
 )
 from tests.integration.api.v1.config import PROVIDER_PARAMS, RANGE_TYPE_PARAMS
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -99,40 +100,19 @@ class TestRange:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to the deployed range account."
-
+        assert await login_user(integration_client, email, password)
         private_key_str = await get_range_key(integration_client, range_info.id)
-        assert (
-            private_key_str
-        ), f"Could not retrieve key for range with ID: {range_info.id}"
+        assert private_key_str, "Could not retrieve key for range."
+
+        private_key = paramiko.RSAKey.from_private_key(io.StringIO(private_key_str))
+        jumpbox_username = get_ssh_username(range_info.provider, OpenLabsOS.UBUNTU_22)
 
         ssh_client = None
         try:
-            private_key_file = io.StringIO(private_key_str)
-            private_key = paramiko.RSAKey.from_private_key(private_key_file)
-
-            ssh_client = paramiko.SSHClient()
-            ssh_client.set_missing_host_key_policy(
-                paramiko.AutoAddPolicy()  # noqa: S507
-            )
-
-            # Connect directly to the jumpbox using its public IP
-            # Jumpbox typically uses Ubuntu, so get the Ubuntu username for the provider
-            if range_info.provider == OpenLabsProvider.AWS:
-                jumpbox_username = AWS_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
-            elif range_info.provider == OpenLabsProvider.AZURE:
-                jumpbox_username = AZURE_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
-            else:
-                pytest.fail(f"Unsupported provider: {range_info.provider}")
-
-            await asyncio.to_thread(
-                ssh_client.connect,
+            ssh_client = await ssh_connect_to_host(
                 hostname=str(range_info.jumpbox_public_ip),
                 username=jumpbox_username,
-                pkey=private_key,
-                timeout=10,
+                private_key=private_key,
             )
 
             # Validate command exexcution with 'id' command
@@ -188,94 +168,42 @@ class TestRange:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to the deployed range account."
-
+        assert await login_user(integration_client, email, password)
         private_key_str = await get_range_key(integration_client, range_info.id)
-        assert (
-            private_key_str
-        ), f"Could not retrieve key for range with ID: {range_info.id}"
+        assert private_key_str, "Could not retrieve key for range."
 
-        # Extract all private IPs and their OS from range_info
-        host_info: list[dict[str, str]] = []
-        for vpc in range_info.vpcs:
-            for subnet in vpc.subnets:
-                for host in subnet.hosts:
-                    host_info.append(
-                        {
-                            "ip": str(host.ip_address),
-                            "os": host.os.value,
-                            "hostname": host.hostname,
-                        }
-                    )
+        private_key = paramiko.RSAKey.from_private_key(io.StringIO(private_key_str))
+        jumpbox_username = get_ssh_username(range_info.provider, OpenLabsOS.UBUNTU_22)
+
+        hosts: list[DeployedHostSchema] = [
+            host
+            for vpc in range_info.vpcs
+            for subnet in vpc.subnets
+            for host in subnet.hosts
+        ]
 
         ssh_client = None
         try:
-            private_key_file = io.StringIO(private_key_str)
-            private_key = paramiko.RSAKey.from_private_key(private_key_file)
-
-            ssh_client = paramiko.SSHClient()
-            ssh_client.set_missing_host_key_policy(
-                paramiko.AutoAddPolicy()  # noqa: S507
-            )
-
-            # Connect to the jumpbox using its public IP
-            # Jumpbox typically uses Ubuntu, so get the Ubuntu username for the provider
-            if range_info.provider == OpenLabsProvider.AWS:
-                jumpbox_username = AWS_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
-            elif range_info.provider == OpenLabsProvider.AZURE:
-                jumpbox_username = AZURE_SSH_USERNAME_MAP[OpenLabsOS.UBUNTU_22]
-            else:
-                pytest.fail(f"Unsupported provider: {range_info.provider}")
-
-            await asyncio.to_thread(
-                ssh_client.connect,
+            ssh_client = await ssh_connect_to_host(
                 hostname=str(range_info.jumpbox_public_ip),
                 username=jumpbox_username,
-                pkey=private_key,
-                timeout=10,
+                private_key=private_key,
             )
 
             # Get jumpbox transport for tunneling
             jumpbox_transport = ssh_client.get_transport()
             assert jumpbox_transport is not None, "Failed to get SSH transport"
 
-            for host_data in host_info:
-                ip = host_data["ip"]
-                os_name = host_data["os"]
-                hostname = host_data["hostname"]
-
+            for host in hosts:
                 target_client = None
                 try:
-                    # Create a tunnel channel through the jumpbox
-                    src_addr = (str(range_info.jumpbox_public_ip), 22)
-                    dest_addr = (ip, 22)
-                    jumpbox_channel = jumpbox_transport.open_channel(
-                        "direct-tcpip", dest_addr, src_addr
-                    )
-
-                    target_client = paramiko.SSHClient()
-                    target_client.set_missing_host_key_policy(
-                        paramiko.AutoAddPolicy()  # noqa: S507
-                    )
-
-                    # Get the appropriate SSH username for this OS based on provider
-                    os_enum = OpenLabsOS(os_name)
-                    if range_info.provider == OpenLabsProvider.AWS:
-                        username = AWS_SSH_USERNAME_MAP[os_enum]
-                    elif range_info.provider == OpenLabsProvider.AZURE:
-                        username = AZURE_SSH_USERNAME_MAP[os_enum]
-                    else:
-                        pytest.fail(f"Unsupported provider: {range_info.provider}")
-
-                    await asyncio.to_thread(
-                        target_client.connect,
-                        hostname=ip,
+                    username = get_ssh_username(range_info.provider, host.os)
+                    target_client = await ssh_connect_to_host(
+                        hostname=str(host.ip_address),
                         username=username,
-                        pkey=private_key,
-                        sock=jumpbox_channel,
-                        timeout=10,
+                        private_key=private_key,
+                        jumpbox_transport=jumpbox_transport,
+                        jumpbox_public_ip=str(range_info.jumpbox_public_ip),
                     )
 
                     # Validate command execution with 'id' command
@@ -290,13 +218,16 @@ class TestRange:
                     ), f"Expected username '{username}' not found in output: {command_output}"
                     assert (
                         not error_output
-                    ), f"Error executing 'id' command on {hostname} ({ip}): {error_output}"
-                    print(
-                        f"Successfully verified user identity on {hostname} ({ip}) with username '{username}'"
+                    ), f"Error executing 'id' command on {host.hostname} ({host.ip_address}): {error_output}"
+                    logger.info(
+                        "Successfully verified user identity on %s (%s) with username '%s'",
+                        host.hostname,
+                        host.ip_address,
+                        username,
                     )
                 except Exception as e:
                     pytest.fail(
-                        f"Exception connecting to {hostname} ({ip}) with username '{username}': {e}"
+                        f"Exception connecting to {host.hostname} ({host.ip_address}) with username '{username}': {e}"
                     )
                 finally:
                     if target_client:
