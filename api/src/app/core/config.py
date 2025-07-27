@@ -4,8 +4,8 @@ from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from setuptools_scm import get_version
 
-from ..utils.pulumi_utils import create_pulumi_dir
 from ..utils.path_utils import find_git_root
+from ..utils.pulumi_utils import create_pulumi_dir
 
 env_path = os.path.join(str(find_git_root()), ".env")
 settings_config = SettingsConfigDict(
@@ -52,14 +52,6 @@ class AuthSettings(BaseSettings):
     ADMIN_NAME: str = "Administrator"
 
 
-class PulumiSettings(BaseSettings):
-    """Pulumi settings."""
-
-    model_config = settings_config
-
-    CDKTF_DIR: str = create_pulumi_dir()  # Keep same name for compatibility
-
-
 class DatabaseSettings(BaseSettings):
     """Base class for database settings."""
 
@@ -90,8 +82,6 @@ class PostgresSettings(DatabaseSettings):
             f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-    POSTGRES_URL: str | None = None
-
 
 class RedisQueueSettings(BaseSettings):
     """Redis queue settings."""
@@ -101,6 +91,15 @@ class RedisQueueSettings(BaseSettings):
     REDIS_QUEUE_HOST: str = "redis"  # Internal compose DNS
     REDIS_QUEUE_PORT: int = 6379
     REDIS_QUEUE_PASSWORD: str = "ChangeMe123!"  # noqa: S105 (Default)
+
+
+class PulumiSettings(BaseSettings):
+    """Pulumi settings."""
+
+    model_config = settings_config
+
+    PULUMI_DIR: str = create_pulumi_dir()
+    PULUMI_CONFIG_PASSPHRASE: str = "ChangeMe123!"  # noqa: S105
 
 
 class Settings(

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+import uuid
 from typing import Any
 
 import uvloop
@@ -9,8 +10,8 @@ from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_rang
 from src.app.enums.range_states import RangeState
 from src.app.schemas.user_schema import UserID
 
-from ..core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ..core.db.database import get_db_session_context
+from ..core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
@@ -83,12 +84,15 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
+    deployment_id = str(uuid.uuid4())[:8]  # or use your own short hash util
+
     range_to_deploy = PulumiRangeFactory.create_range(
         name=deploy_request.name,
         range_obj=blueprint_range,
         region=deploy_request.region,
         description=deploy_request.description,
         secrets=decrypted_secrets,
+        deployment_id=deployment_id,
     )
 
     # Validate deployment
@@ -221,13 +225,16 @@ async def destroy_range(
         user_is_admin = user.is_admin
 
     # Build range object
+    # If you store deployment_id in the deployed range, use it directly.
+    deployment_id = deployed_range.deployment_id
+
     range_to_destroy = PulumiRangeFactory.create_range(
         name=deployed_range.name,
         range_obj=deployed_range,
         region=deployed_range.region,
         description=deployed_range.description,
         secrets=decrypted_secrets,
-        state_data=deployed_range.state_file,
+        deployment_id=deployment_id,
     )
 
     # Validate deployment

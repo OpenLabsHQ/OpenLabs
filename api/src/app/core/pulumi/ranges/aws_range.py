@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Callable
 
 import pulumi
 import pulumi.automation as auto
@@ -28,10 +28,10 @@ class AWSPulumiRange(AbstractBasePulumiRange):
         region: OpenLabsRegion,
         secrets: SecretSchema,
         description: str,
-        state_data: dict[str, Any] | None = None,
+        unique_str: str,
     ) -> None:
         """Initialize AWS Pulumi range."""
-        super().__init__(name, range_obj, region, secrets, description, state_data)
+        super().__init__(name, range_obj, region, secrets, description, unique_str)
 
     def has_secrets(self) -> bool:
         """Check if AWS credentials are available."""
@@ -42,7 +42,7 @@ class AWSPulumiRange(AbstractBasePulumiRange):
             and self.secrets.aws_secret_key
         )
 
-    def get_cred_env_vars(self) -> dict[str, Any]:
+    def get_cred_env_vars(self) -> dict[str, str]:
         """Return AWS credential environment variables."""
         return {
             "AWS_ACCESS_KEY_ID": self.secrets.aws_access_key,
@@ -61,46 +61,51 @@ class AWSPulumiRange(AbstractBasePulumiRange):
             ),
         }
 
-    def get_pulumi_program(self) -> callable:
+    def get_pulumi_program(self) -> Callable[[], None]:
         """Return the Pulumi program function for AWS infrastructure."""
 
         def pulumi_program():
-            """Define AWS infrastructure using Pulumi."""
+            stack_name = self.stack_name
+
             # Step 1: Create the key access to all instances provisioned on AWS
             range_private_key, range_public_key = generate_range_rsa_key_pair()
+            key_pair_name = f"{stack_name}-key-pair"
             key_pair = aws.ec2.KeyPair(
-                f"{self.deployed_range_name}-KeyPair",
-                key_name=f"{self.deployed_range_name}-pulumi-public-key",
+                key_pair_name,
+                key_name=f"{stack_name}-pulumi-public-key",
                 public_key=range_public_key,
-                tags={"Name": "pulumi-public-key"},
+                tags={"Name": key_pair_name},
             )
 
-            pulumi.export(f"{self.deployed_range_name}-private-key", range_private_key)
+            pulumi.export(f"{stack_name}-range-private-key", range_private_key)
 
             # Step 2: Create public vpc for jumpbox
+            jumpbox_vpc_name = f"{stack_name}-jumpbox-vpc"
             jumpbox_vpc = aws.ec2.Vpc(
-                f"{self.deployed_range_name}-JumpBoxVPC",
+                jumpbox_vpc_name,
                 cidr_block="10.255.0.0/16",
                 enable_dns_support=True,
                 enable_dns_hostnames=True,
-                tags={"Name": "JumpBoxVPC"},
+                tags={"Name": jumpbox_vpc_name},
             )
 
             # Step 3: Create public subnet for jumpbox
+            jumpbox_public_subnet_name = f"{stack_name}-jumpbox-public-subnet"
             jumpbox_public_subnet = aws.ec2.Subnet(
-                f"{self.deployed_range_name}-JumpBoxPublicSubnet",
+                jumpbox_public_subnet_name,
                 vpc_id=jumpbox_vpc.id,
                 cidr_block="10.255.99.0/24",
                 availability_zone="us-east-1a",
                 map_public_ip_on_launch=True,
-                tags={"Name": "JumpBoxVPCPublicSubnet"},
+                tags={"Name": jumpbox_public_subnet_name},
             )
 
             # Step 4: Create Security Group and Rules for Jump Box
+            jumpbox_sg_name = f"{stack_name}-jumpbox-security-group"
             jumpbox_sg = aws.ec2.SecurityGroup(
-                f"{self.deployed_range_name}-RangeJumpBoxSecurityGroup",
+                jumpbox_sg_name,
                 vpc_id=jumpbox_vpc.id,
-                tags={"Name": "RangeJumpBoxSecurityGroup"},
+                tags={"Name": jumpbox_sg_name},
                 ingress=[
                     aws.ec2.SecurityGroupIngressArgs(
                         from_port=22,
@@ -120,251 +125,219 @@ class AWSPulumiRange(AbstractBasePulumiRange):
             )
 
             # Step 5: Create Jump Box
+            jumpbox_instance_name = f"{stack_name}-jumpbox-instance"
             jumpbox = aws.ec2.Instance(
-                f"{self.deployed_range_name}-JumpBoxInstance",
+                jumpbox_instance_name,
                 ami="ami-014f7ab33242ea43c",  # Amazon Ubuntu 20.04 AMI
                 instance_type="t2.micro",
                 subnet_id=jumpbox_public_subnet.id,
                 vpc_security_group_ids=[jumpbox_sg.id],
                 associate_public_ip_address=True,
                 key_name=key_pair.key_name,
-                tags={"Name": "JumpBox"},
+                tags={"Name": jumpbox_instance_name},
             )
 
-            pulumi.export(f"{self.deployed_range_name}-JumpboxPublicIp", jumpbox.public_ip)
-            pulumi.export(f"{self.deployed_range_name}-JumpboxInstanceId", jumpbox.id)
+            pulumi.export(f"{stack_name}-jumpbox-resource-id", jumpbox.id)
+            pulumi.export(f"{stack_name}-jumpbox-public-ip", jumpbox.public_ip)
 
             # Step 6: Create an Internet Gateway for Public jumpbox Subnet
+            igw_name = f"{stack_name}-internet-gateway"
             igw = aws.ec2.InternetGateway(
-                f"{self.deployed_range_name}-RangeInternetGateway",
+                igw_name,
                 vpc_id=jumpbox_vpc.id,
-                tags={"Name": "RangeInternetGateway"},
+                tags={"Name": igw_name},
             )
 
             # Step 7: Create a NAT Gateway for range network with EIP
+            eip_name = f"{stack_name}-nat-eip"
             eip = aws.ec2.Eip(
-                f"{self.deployed_range_name}-RangeNatEIP",
+                eip_name,
                 domain="vpc",
-                tags={"Name": "RangeNatEIP"},
+                tags={"Name": eip_name},
             )
 
+            nat_gateway_name = f"{stack_name}-nat-gateway"
             nat_gateway = aws.ec2.NatGateway(
-                f"{self.deployed_range_name}-RangeNatGateway",
+                nat_gateway_name,
                 subnet_id=jumpbox_public_subnet.id,
                 allocation_id=eip.id,
-                tags={"Name": "RangeNatGateway"},
+                tags={"Name": nat_gateway_name},
             )
 
             # Step 8: Create Routing for Jumpbox
+            jumpbox_route_table_name = f"{stack_name}-jumpbox-route-table"
             jumpbox_route_table = aws.ec2.RouteTable(
-                f"{self.deployed_range_name}-JumpBoxRouteTable",
+                jumpbox_route_table_name,
                 vpc_id=jumpbox_vpc.id,
-                tags={"Name": "RangePublicRouteTable"},
+                tags={"Name": jumpbox_route_table_name},
             )
 
             aws.ec2.Route(
-                f"{self.deployed_range_name}-RangePublicInternetRoute",
+                f"{stack_name}-public-internet-route",
                 route_table_id=jumpbox_route_table.id,
                 destination_cidr_block="0.0.0.0/0",
                 gateway_id=igw.id,
             )
 
             aws.ec2.RouteTableAssociation(
-                f"{self.deployed_range_name}-RangePublicRouteAssociation",
+                f"{stack_name}-public-route-association",
                 subnet_id=jumpbox_public_subnet.id,
                 route_table_id=jumpbox_route_table.id,
             )
 
             # Step 9: Create private subnet in the jumpbox vpc
+            jumpbox_private_subnet_name = f"{stack_name}-jumpbox-private-subnet"
             jumpbox_vpc_private_subnet = aws.ec2.Subnet(
-                f"{self.deployed_range_name}-JumpBoxVPCPrivateSubnet",
+                jumpbox_private_subnet_name,
                 vpc_id=jumpbox_vpc.id,
                 cidr_block="10.255.98.0/24",
                 availability_zone="us-east-1a",
                 map_public_ip_on_launch=False,
-                tags={"Name": "JumpBoxVPCPrivateSubnet"},
+                tags={"Name": jumpbox_private_subnet_name},
             )
 
             # Step 10: Create Routing for range network (Using NAT gateway)
+            nat_route_table_name = f"{stack_name}-private-route-table"
             nat_route_table = aws.ec2.RouteTable(
-                f"{self.deployed_range_name}-RangePrivateRouteTable",
+                nat_route_table_name,
                 vpc_id=jumpbox_vpc.id,
-                tags={"Name": "RangePrivateRouteTable"},
+                tags={"Name": nat_route_table_name},
             )
 
             aws.ec2.Route(
-                f"{self.deployed_range_name}-RangePrivateNatRoute",
+                f"{stack_name}-private-nat-route",
                 route_table_id=nat_route_table.id,
                 destination_cidr_block="0.0.0.0/0",
                 nat_gateway_id=nat_gateway.id,
             )
 
             aws.ec2.RouteTableAssociation(
-                f"{self.deployed_range_name}-RangePrivateRouteAssociation",
+                f"{stack_name}-private-route-association",
                 subnet_id=jumpbox_vpc_private_subnet.id,
                 route_table_id=nat_route_table.id,
             )
 
-            # Step 11: Create Transit Gateway
-            tgw = aws.ec2transitgateway.TransitGateway(
-                f"{self.deployed_range_name}-TransitGateway",
-                description="Transit Gateway for internal routing",
-                tags={"Name": "tgw"},
-            )
-
-            # Step 12: Attach the jumpbox private subnet to the transit gateway
-            jumpbox_vpc_tgw_attachment = aws.ec2transitgateway.VpcAttachment(
-                f"{self.deployed_range_name}-PublicVpcTgwAttachment",
-                subnet_ids=[jumpbox_vpc_private_subnet.id],
-                transit_gateway_id=tgw.id,
-                vpc_id=jumpbox_vpc.id,
-                transit_gateway_default_route_table_association=True,
-                transit_gateway_default_route_table_propagation=True,
-                tags={"Name": "public-vpc-tgw-attachment"},
-            )
-
-            # Step 13: Add Routing to the Transit Gateway
-            aws.ec2transitgateway.Route(
-                f"{self.deployed_range_name}-TgwInternetRoute",
-                destination_cidr_block="0.0.0.0/0",
-                transit_gateway_attachment_id=jumpbox_vpc_tgw_attachment.id,
-                transit_gateway_route_table_id=tgw.association_default_route_table_id,
-            )
-
-            # Create Range vpcs, subnets, hosts
+            # Step 11: Create range VPCs, Subnets, and Hosts
             for vpc in self.range_obj.vpcs:
-                normalized_vpc_name = normalize_name(vpc.name)
+                vpc_name = normalize_name(vpc.name)
+                vpc_prefix = f"{stack_name}-{vpc_name}"
+                vpc_resource_name = f"{vpc_prefix}-vpc"
 
-                # Step 14: Create a VPC
-                new_vpc = aws.ec2.Vpc(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}",
-                    cidr_block=str(vpc.cidr),
+                # Create VPC
+                range_vpc = aws.ec2.Vpc(
+                    vpc_resource_name,
+                    cidr_block=vpc.cidr_block,
                     enable_dns_support=True,
                     enable_dns_hostnames=True,
-                    tags={"Name": normalized_vpc_name},
+                    tags={"Name": vpc_resource_name},
                 )
 
-                pulumi.export(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-resource-id",
-                    new_vpc.id,
+                # Create Transit Gateway Attachment
+                tgw_attachment_name = f"{vpc_prefix}-tgw-attachment"
+                tgw_attachment = aws.ec2.Ec2TransitGatewayVpcAttachment(
+                    tgw_attachment_name,
+                    subnet_ids=[jumpbox_vpc_private_subnet.id],
+                    transit_gateway_id=aws.ec2.Ec2TransitGateway(
+                        f"{vpc_prefix}-tgw",
+                        description=f"Transit Gateway for {vpc_name}",
+                        tags={"Name": f"{vpc_prefix}-tgw"},
+                    ).id,
+                    vpc_id=range_vpc.id,
+                    tags={"Name": tgw_attachment_name},
                 )
 
-                # Step 15: Create security group for access to range hosts
-                private_vpc_sg = aws.ec2.SecurityGroup(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-SharedPrivateSG",
-                    vpc_id=new_vpc.id,
-                    tags={"Name": "RangePrivateInternalSecurityGroup"},
-                    ingress=[
-                        aws.ec2.SecurityGroupIngressArgs(
-                            from_port=0,
-                            to_port=0,
-                            protocol="-1",
-                            cidr_blocks=["10.255.99.0/24"],
-                        ),
-                        aws.ec2.SecurityGroupIngressArgs(
-                            from_port=0,
-                            to_port=0,
-                            protocol="-1",
-                            cidr_blocks=["0.0.0.0/0"],
-                        ),
-                    ],
-                    egress=[
-                        aws.ec2.SecurityGroupEgressArgs(
-                            from_port=0,
-                            to_port=0,
-                            protocol="-1",
-                            cidr_blocks=["0.0.0.0/0"],
-                        )
-                    ],
-                )
+                # Export VPC resource ID
+                pulumi.export(f"{vpc_prefix}-resource-id", range_vpc.id)
 
-                current_vpc_subnets = []
-                # Step 16: Create private subnets with their respective EC2 instances
                 for subnet in vpc.subnets:
-                    normalized_subnet_name = normalize_name(subnet.name)
+                    subnet_name = normalize_name(subnet.name)
+                    subnet_prefix = f"{vpc_prefix}-{subnet_name}"
+                    subnet_resource_name = f"{subnet_prefix}-subnet"
 
-                    new_subnet = aws.ec2.Subnet(
-                        f"{self.deployed_range_name}-{normalized_vpc_name}-{normalized_subnet_name}",
-                        vpc_id=new_vpc.id,
-                        cidr_block=str(subnet.cidr),
+                    # Create Subnet
+                    range_subnet = aws.ec2.Subnet(
+                        subnet_resource_name,
+                        vpc_id=range_vpc.id,
+                        cidr_block=subnet.cidr_block,
                         availability_zone="us-east-1a",
-                        tags={"Name": normalized_subnet_name},
+                        map_public_ip_on_launch=False,
+                        tags={"Name": subnet_resource_name},
                     )
 
-                    pulumi.export(
-                        f"{self.deployed_range_name}-{normalized_vpc_name}-{normalized_subnet_name}-resource-id",
-                        new_subnet.id,
+                    # Create Route Table for Subnet
+                    subnet_route_table_name = f"{subnet_prefix}-route-table"
+                    subnet_route_table = aws.ec2.RouteTable(
+                        subnet_route_table_name,
+                        vpc_id=range_vpc.id,
+                        tags={"Name": subnet_route_table_name},
                     )
 
-                    current_vpc_subnets.append(new_subnet)
+                    # Route to Transit Gateway
+                    aws.ec2.Route(
+                        f"{subnet_prefix}-tgw-route",
+                        route_table_id=subnet_route_table.id,
+                        destination_cidr_block="0.0.0.0/0",
+                        transit_gateway_id=tgw_attachment.transit_gateway_id,
+                    )
 
-                    # Create specified instances in the given subnet
-                    for host in subnet.hosts:
-                        ec2_instance = aws.ec2.Instance(
-                            f"{self.deployed_range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}",
-                            ami=AWS_OS_MAP[host.os],
-                            instance_type=AWS_SPEC_MAP[host.spec],
-                            subnet_id=new_subnet.id,
-                            vpc_security_group_ids=[private_vpc_sg.id],
-                            key_name=key_pair.key_name,
-                            tags={"Name": host.hostname},
-                        )
-
-                        pulumi.export(
-                            f"{self.deployed_range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-resource-id",
-                            ec2_instance.id,
-                        )
-                        pulumi.export(
-                            f"{self.deployed_range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-private-ip",
-                            ec2_instance.private_ip,
-                        )
-
-                # Step 17: Attach VPC to Transit Gateway
-                aws.ec2transitgateway.VpcAttachment(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-PrivateVpcTgwAttachment",
-                    subnet_ids=[current_vpc_subnets[0].id],
-                    transit_gateway_id=tgw.id,
-                    vpc_id=new_vpc.id,
-                    transit_gateway_default_route_table_association=True,
-                    transit_gateway_default_route_table_propagation=True,
-                    tags={"Name": f"{normalized_vpc_name}-private-vpc-tgw-attachment"},
-                )
-
-                # Step 18: Create Routing in range VPC
-                new_vpc_private_route_table = aws.ec2.RouteTable(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-PrivateRouteTable",
-                    vpc_id=new_vpc.id,
-                    tags={"Name": f"{normalized_vpc_name}-private-route-table"},
-                )
-
-                aws.ec2.Route(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-PrivateTgwRoute",
-                    route_table_id=new_vpc_private_route_table.id,
-                    destination_cidr_block="0.0.0.0/0",
-                    transit_gateway_id=tgw.id,
-                )
-
-                # Associate VPC subnets with Route Table
-                for i, created_subnet in enumerate(current_vpc_subnets):
+                    # Associate Route Table with Subnet
                     aws.ec2.RouteTableAssociation(
-                        f"{self.deployed_range_name}-{normalized_vpc_name}-PrivateSubnetRouteTableAssociation_{i+1}",
-                        subnet_id=created_subnet.id,
-                        route_table_id=new_vpc_private_route_table.id,
+                        f"{subnet_prefix}-route-association",
+                        subnet_id=range_subnet.id,
+                        route_table_id=subnet_route_table.id,
                     )
 
-                # Step 20: Create Routing in Jumpbox VPC
-                aws.ec2.Route(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-PublicRtbToPrivateVpcRoute",
-                    route_table_id=jumpbox_route_table.id,
-                    destination_cidr_block=new_vpc.cidr_block,
-                    transit_gateway_id=tgw.id,
-                )
+                    # Export Subnet resource ID
+                    pulumi.export(f"{subnet_prefix}-resource-id", range_subnet.id)
 
-                aws.ec2.Route(
-                    f"{self.deployed_range_name}-{normalized_vpc_name}-PublicVpcTgwSubnetRtbToPrivateVpcRoute",
-                    route_table_id=nat_route_table.id,
-                    destination_cidr_block=new_vpc.cidr_block,
-                    transit_gateway_id=tgw.id,
-                )
+                    for host in subnet.hosts:
+                        host_prefix = f"{subnet_prefix}-{host.hostname}"
+                        host_resource_name = f"{host_prefix}-instance"
+
+                        # Create Security Group for Host
+                        host_sg_name = f"{host_prefix}-security-group"
+                        host_sg = aws.ec2.SecurityGroup(
+                            host_sg_name,
+                            vpc_id=range_vpc.id,
+                            tags={"Name": host_sg_name},
+                            ingress=[
+                                aws.ec2.SecurityGroupIngressArgs(
+                                    from_port=22,
+                                    to_port=22,
+                                    protocol="tcp",
+                                    cidr_blocks=["10.255.0.0/16"],
+                                )
+                            ],
+                            egress=[
+                                aws.ec2.SecurityGroupEgressArgs(
+                                    from_port=0,
+                                    to_port=0,
+                                    protocol="-1",
+                                    cidr_blocks=["0.0.0.0/0"],
+                                )
+                            ],
+                        )
+
+                        # Get AMI and instance type
+                        ami = AWS_OS_MAP[host.operating_system]
+                        instance_type = AWS_SPEC_MAP[host.specs]
+
+                        # Create Host Instance
+                        host_instance = aws.ec2.Instance(
+                            host_resource_name,
+                            ami=ami,
+                            instance_type=instance_type,
+                            subnet_id=range_subnet.id,
+                            vpc_security_group_ids=[host_sg.id],
+                            associate_public_ip_address=False,
+                            key_name=key_pair.key_name,
+                            tags={"Name": host_resource_name},
+                        )
+
+                        # Export Host resource ID and private IP
+                        pulumi.export(f"{host_prefix}-resource-id", host_instance.id)
+                        pulumi.export(
+                            f"{host_prefix}-private-ip", host_instance.private_ip
+                        )
 
         return pulumi_program

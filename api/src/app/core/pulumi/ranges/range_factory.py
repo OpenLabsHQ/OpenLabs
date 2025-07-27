@@ -1,5 +1,5 @@
 import logging
-from typing import Any, ClassVar, Type
+from typing import ClassVar, Type
 
 from ....enums.providers import OpenLabsProvider
 from ....enums.regions import OpenLabsRegion
@@ -27,7 +27,7 @@ class PulumiRangeFactory:
         region: OpenLabsRegion,
         secrets: SecretSchema,
         description: str | None,
-        state_data: dict[str, Any] | None = None,
+        deployment_id: str,
     ) -> AbstractBasePulumiRange:
         """Create Pulumi range object.
 
@@ -39,7 +39,7 @@ class PulumiRangeFactory:
             region (OpenLabsRegion): Supported cloud region.
             secrets (SecretSchema): Cloud account secrets to use for deploying via Pulumi.
             description (str | None): Description of the range.
-            state_data (dict[str, Any]): The Pulumi state data of the deployed resources.
+            deployment_id (str): ID unique to the deployment.
 
         Returns:
         -------
@@ -63,5 +63,5 @@ class PulumiRangeFactory:
             region=region,
             secrets=secrets,
             description=description,
-            state_data=state_data,
+            deployment_id=deployment_id,
         )

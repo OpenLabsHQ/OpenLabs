@@ -13,3 +13,5 @@ testing-out/
 # Misc
 .vscode/
 
+# Modern dev time ;)
+.cursor/
