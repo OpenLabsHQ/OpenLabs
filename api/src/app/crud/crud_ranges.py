@@ -1,4 +1,5 @@
 import logging
+from typing import Union
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,7 +28,7 @@ from .crud_vpcs import build_blueprint_vpc_models, build_deployed_vpc_models
 logger = logging.getLogger(__name__)
 
 
-def get_permissions(model):
+def get_permissions(model: object) -> list[BlueprintRangePermissionModel | DeployedRangePermissionModel]:
     """Safely get permissions from a model, handling mocks."""
     permissions = getattr(model, 'permissions', [])
     if hasattr(permissions, '_mock_name'):
@@ -35,41 +36,41 @@ def get_permissions(model):
     return permissions or []
 
 
-def can_read_blueprint(range_model, user_id: int) -> bool:
+def can_read_blueprint(range_model: Union[BlueprintRangeModel, object], user_id: int) -> bool:
     """Check if user can read a blueprint range."""
-    if range_model.owner_id == user_id:
+    if getattr(range_model, 'owner_id', None) == user_id:
         return True
     return any(p.user_id == user_id and p.permission_type in ('read', 'write') 
                for p in get_permissions(range_model))
 
 
-def can_write_blueprint(range_model, user_id: int) -> bool:
+def can_write_blueprint(range_model: Union[BlueprintRangeModel, object], user_id: int) -> bool:
     """Check if user can write a blueprint range."""
-    if range_model.owner_id == user_id:
+    if getattr(range_model, 'owner_id', None) == user_id:
         return True
     return any(p.user_id == user_id and p.permission_type == 'write' 
                for p in get_permissions(range_model))
 
 
-def can_read_deployed(range_model, user_id: int) -> bool:
+def can_read_deployed(range_model: Union[DeployedRangeModel, object], user_id: int) -> bool:
     """Check if user can read a deployed range."""
-    if range_model.owner_id == user_id:
+    if getattr(range_model, 'owner_id', None) == user_id:
         return True
     return any(p.user_id == user_id and p.permission_type in ('read', 'write', 'execute') 
                for p in get_permissions(range_model))
 
 
-def can_write_deployed(range_model, user_id: int) -> bool:
+def can_write_deployed(range_model: Union[DeployedRangeModel, object], user_id: int) -> bool:
     """Check if user can write a deployed range."""
-    if range_model.owner_id == user_id:
+    if getattr(range_model, 'owner_id', None) == user_id:
         return True
     return any(p.user_id == user_id and p.permission_type == 'write' 
                for p in get_permissions(range_model))
 
 
-def can_execute_deployed(range_model, user_id: int) -> bool:
+def can_execute_deployed(range_model: Union[DeployedRangeModel, object], user_id: int) -> bool:
     """Check if user can execute a deployed range."""
-    if range_model.owner_id == user_id:
+    if getattr(range_model, 'owner_id', None) == user_id:
         return True
     return any(p.user_id == user_id and p.permission_type == 'execute' 
                for p in get_permissions(range_model))

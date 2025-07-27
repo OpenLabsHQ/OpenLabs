@@ -99,7 +99,6 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
     )
     
     @computed_field
-    @property  
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
         if not hasattr(self, 'permissions'):
@@ -110,7 +109,6 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
         ]
     
     @computed_field
-    @property
     def writers(self) -> list[int]:
         """Get list of user IDs with write access.""" 
         if not hasattr(self, 'permissions'):
@@ -234,7 +232,6 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
     )
     
     @computed_field
-    @property
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
         if not hasattr(self, 'permissions'):
@@ -245,7 +242,6 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
         ]
     
     @computed_field
-    @property
     def writers(self) -> list[int]:
         """Get list of user IDs with write access."""
         if not hasattr(self, 'permissions'):
@@ -256,7 +252,6 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
         ]
     
     @computed_field
-    @property
     def executors(self) -> list[int]:
         """Get list of user IDs with execute access."""
         if not hasattr(self, 'permissions'):
