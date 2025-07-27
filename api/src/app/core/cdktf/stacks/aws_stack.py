@@ -23,6 +23,7 @@ from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
 from ....enums.specs import AWS_SPEC_MAP
 from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....utils.crypto import generate_range_rsa_key_pair
+from ....utils.name_utils import normalize_name
 from .base_stack import AbstractBaseStack
 
 
@@ -268,19 +269,21 @@ class AWSStack(AbstractBaseStack):
         # Create Range vpcs, subnets, hosts
         for vpc in range_obj.vpcs:
 
+            normalized_vpc_name = normalize_name(vpc.name)
+
             # Step 14: Create a VPC
             new_vpc = Vpc(
                 self,
-                f"{range_name}-{vpc.name}",
+                f"{range_name}-{normalized_vpc_name}",
                 cidr_block=str(vpc.cidr),
                 enable_dns_support=True,
                 enable_dns_hostnames=True,
-                tags={"Name": vpc.name},
+                tags={"Name": normalized_vpc_name},
             )
 
             TerraformOutput(
                 self,
-                f"{range_name}-{vpc.name}-resource-id",
+                f"{range_name}-{normalized_vpc_name}-resource-id",
                 value=new_vpc.id,
                 description="Cloud resource id of the vpc created",
                 sensitive=True,
@@ -291,13 +294,13 @@ class AWSStack(AbstractBaseStack):
             # Every VPC will use the same secrutiy group but security groups are scoped to a single VPC, so they have to be added to each one
             private_vpc_sg = SecurityGroup(
                 self,
-                f"{range_name}-{vpc.name}-SharedPrivateSG",
+                f"{range_name}-{normalized_vpc_name}-SharedPrivateSG",
                 vpc_id=new_vpc.id,
                 tags={"Name": "RangePrivateInternalSecurityGroup"},
             )
             SecurityGroupRule(  # Allow access from the Jumpbox - possibly not needed based on next rule
                 self,
-                f"{range_name}-{vpc.name}-RangeAllowAllTrafficFromJumpBox-Rule",
+                f"{range_name}-{normalized_vpc_name}-RangeAllowAllTrafficFromJumpBox-Rule",
                 type="ingress",
                 from_port=0,
                 to_port=0,
@@ -307,7 +310,7 @@ class AWSStack(AbstractBaseStack):
             )
             SecurityGroupRule(
                 self,
-                f"{range_name}-{vpc.name}-RangeAllowInternalTraffic-Rule",  # Allow all internal subnets to communicate with each other
+                f"{range_name}-{normalized_vpc_name}-RangeAllowInternalTraffic-Rule",  # Allow all internal subnets to communicate with each other
                 type="ingress",
                 from_port=0,
                 to_port=0,
@@ -317,7 +320,7 @@ class AWSStack(AbstractBaseStack):
             )
             SecurityGroupRule(
                 self,
-                f"{range_name}-{vpc.name}-RangeAllowPrivateOutbound-Rule",
+                f"{range_name}-{normalized_vpc_name}-RangeAllowPrivateOutbound-Rule",
                 type="egress",
                 from_port=0,
                 to_port=0,
@@ -329,18 +332,21 @@ class AWSStack(AbstractBaseStack):
             current_vpc_subnets: list[Subnet] = []
             # Step 16: Create private subnets with their respecitve EC2 instances
             for subnet in vpc.subnets:
+
+                normalized_subnet_name = normalize_name(subnet.name)
+
                 new_subnet = Subnet(
                     self,
-                    f"{range_name}-{vpc.name}-{subnet.name}",
+                    f"{range_name}-{normalized_vpc_name}-{normalized_subnet_name}",
                     vpc_id=new_vpc.id,
                     cidr_block=str(subnet.cidr),
                     availability_zone="us-east-1a",
-                    tags={"Name": subnet.name},
+                    tags={"Name": normalized_subnet_name},
                 )
 
                 TerraformOutput(
                     self,
-                    f"{range_name}-{vpc.name}-{subnet.name}-resource-id",
+                    f"{range_name}-{normalized_vpc_name}-{normalized_subnet_name}-resource-id",
                     value=new_subnet.id,
                     description="Cloud resource id of the subnet created",
                     sensitive=True,
@@ -352,7 +358,7 @@ class AWSStack(AbstractBaseStack):
                 for host in subnet.hosts:
                     ec2_instance = Instance(
                         self,
-                        f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}",
+                        f"{range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}",
                         ami=AWS_OS_MAP[host.os],
                         instance_type=AWS_SPEC_MAP[host.spec],
                         subnet_id=new_subnet.id,
@@ -363,14 +369,14 @@ class AWSStack(AbstractBaseStack):
 
                     TerraformOutput(
                         self,
-                        f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}-resource-id",
+                        f"{range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-resource-id",
                         value=ec2_instance.id,
                         description="Cloud resource id of the ec2 instance created",
                         sensitive=True,
                     )
                     TerraformOutput(
                         self,
-                        f"{range_name}-{vpc.name}-{subnet.name}-{host.hostname}-private-ip",
+                        f"{range_name}-{normalized_vpc_name}-{normalized_subnet_name}-{host.hostname}-private-ip",
                         value=ec2_instance.private_ip,
                         description="Cloud private IP address of the ec2 instance created",
                         sensitive=True,
@@ -379,7 +385,7 @@ class AWSStack(AbstractBaseStack):
             # Step 17: Attach  VPC to Transit Gateway
             private_vpc_tgw_attachment = Ec2TransitGatewayVpcAttachment(  # noqa: F841
                 self,
-                f"{range_name}-{vpc.name}-PrivateVpcTgwAttachment",
+                f"{range_name}-{normalized_vpc_name}-PrivateVpcTgwAttachment",
                 subnet_ids=[
                     current_vpc_subnets[0].id
                 ],  # Attach TGW ENIs to all private subnets
@@ -387,20 +393,20 @@ class AWSStack(AbstractBaseStack):
                 vpc_id=new_vpc.id,
                 transit_gateway_default_route_table_association=True,
                 transit_gateway_default_route_table_propagation=True,
-                tags={"Name": f"{vpc.name}-private-vpc-tgw-attachment"},
+                tags={"Name": f"{normalized_vpc_name}-private-vpc-tgw-attachment"},
             )
 
             # Step 18: Create Routing in range VPC (Routes to TGW to access other range VPCs or the internet via the NAT gateway)
             new_vpc_private_route_table = RouteTable(
                 self,
-                f"{range_name}-{vpc.name}-PrivateRouteTable",
+                f"{range_name}-{normalized_vpc_name}-PrivateRouteTable",
                 vpc_id=new_vpc.id,
-                tags={"Name": f"{vpc.name}-private-route-table"},
+                tags={"Name": f"{normalized_vpc_name}-private-route-table"},
             )
             # Default route for range VPC to Transit Gateway
             tgw_route = Route(  # noqa: F841
                 self,
-                f"{range_name}-{vpc.name}-PrivateTgwRoute",
+                f"{range_name}-{normalized_vpc_name}-PrivateTgwRoute",
                 route_table_id=new_vpc_private_route_table.id,
                 destination_cidr_block="0.0.0.0/0",  # All traffic goes to TGW
                 transit_gateway_id=tgw.id,
@@ -409,7 +415,7 @@ class AWSStack(AbstractBaseStack):
             for i, created_subnet in enumerate(current_vpc_subnets):
                 RouteTableAssociation(
                     self,
-                    f"{range_name}-{vpc.name}-PrivateSubnetRouteTableAssociation_{i+1}",
+                    f"{range_name}-{normalized_vpc_name}-PrivateSubnetRouteTableAssociation_{i+1}",
                     subnet_id=str(created_subnet.id),
                     route_table_id=new_vpc_private_route_table.id,
                 )
@@ -419,7 +425,7 @@ class AWSStack(AbstractBaseStack):
             # Add route to the Jumpbox VPC's Public route table (for Jumpbox access & NAT Return Traffic)
             Route(
                 self,
-                f"{range_name}-{vpc.name}-PublicRtbToPrivateVpcRoute",
+                f"{range_name}-{normalized_vpc_name}-PublicRtbToPrivateVpcRoute",
                 route_table_id=jumpbox_route_table.id,  # Route in the public subnet's RT
                 destination_cidr_block=new_vpc.cidr_block,  # Traffic destined to the range VPCs will go through the transit gateway
                 transit_gateway_id=tgw.id,
@@ -428,7 +434,7 @@ class AWSStack(AbstractBaseStack):
             # This ensures traffic arriving *from* the TGW destined for another private VPC goes back *to* the TGW
             Route(
                 self,
-                f"{range_name}-{vpc.name}-PublicVpcTgwSubnetRtbToPrivateVpcRoute",
+                f"{range_name}-{normalized_vpc_name}-PublicVpcTgwSubnetRtbToPrivateVpcRoute",
                 route_table_id=nat_route_table.id,  # Route in the TGW attachment subnet's Route Table (jumpbox private subnet)
                 destination_cidr_block=new_vpc.cidr_block,  # Traffic destined to the range VPCs will go through the transit gateway
                 transit_gateway_id=tgw.id,

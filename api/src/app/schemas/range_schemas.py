@@ -14,6 +14,7 @@ from pydantic import (
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
+from ..validators.names import OPENLABS_NAME_REGEX
 from ..validators.network import mutually_exclusive_networks_v4
 from .vpc_schemas import (
     BlueprintVPCCreateSchema,
@@ -32,7 +33,7 @@ class RangeCommonSchema(BaseModel):
         examples=[OpenLabsProvider.AWS, OpenLabsProvider.AZURE],
     )
     name: str = Field(
-        ..., min_length=1, max_length=63, examples=["openlabs-practice-1"]
+        ..., pattern=OPENLABS_NAME_REGEX, examples=["openlabs-practice-1"]
     )
     vnc: bool = Field(default=False, description="Automatic VNC configuration.")
     vpn: bool = Field(default=False, description="Automatic VPN configuration.")
@@ -305,7 +306,7 @@ class DeployRangeSchema(BaseModel):
     """Payload schema for deploying ranges."""
 
     name: str = Field(
-        ..., min_length=1, max_length=63, description="Name of deployed range."
+        ..., pattern=OPENLABS_NAME_REGEX, description="Name of deployed range."
     )
     description: str | None = Field(
         default=None,

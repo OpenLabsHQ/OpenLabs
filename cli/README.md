@@ -6,7 +6,7 @@ A command-line interface for managing cyber ranges, blueprints, and cloud infras
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/OpenLabsHQ/CLI/releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/OpenLabsHQ/OpenLabs/releases).
 
 Available packages:
 - **Linux**: `openlabs-linux-amd64`

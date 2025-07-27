@@ -28,7 +28,7 @@ from src.app.schemas.range_schemas import (
     DeployedRangeHeaderSchema,
     DeployedRangeSchema,
 )
-from tests.unit.api.v1.config import (
+from tests.common.api.v1.config import (
     valid_blueprint_range_create_payload,
     valid_deployed_range_data,
 )

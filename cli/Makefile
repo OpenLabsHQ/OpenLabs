@@ -4,7 +4,7 @@
 BINARY_NAME=openlabs
 VERSION=$(shell git describe --tags --always 2>/dev/null | sed 's/^v//')
 BUILD_TIME=$(shell date +%FT%T%z)
-LDFLAGS=-ldflags "-X github.com/OpenLabsHQ/CLI/cmd.version=$(VERSION) -X github.com/OpenLabsHQ/CLI/cmd.buildTime=$(BUILD_TIME)"
+LDFLAGS=-ldflags "-X github.com/OpenLabsHQ/OpenLabs/cli/cmd.version=$(VERSION) -X github.com/OpenLabsHQ/OpenLabs/cli/cmd.buildTime=$(BUILD_TIME)"
 
 # Build for the current platform
 build:

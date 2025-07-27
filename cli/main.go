@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/OpenLabsHQ/CLI/cmd"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd"
 )
 
 func main() {

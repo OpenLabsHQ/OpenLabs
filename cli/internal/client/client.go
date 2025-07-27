@@ -9,8 +9,8 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 
-	"github.com/OpenLabsHQ/CLI/internal/config"
-	"github.com/OpenLabsHQ/CLI/internal/logger"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
 )
 
 type Client struct {

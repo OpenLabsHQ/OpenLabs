@@ -7,13 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenLabsHQ/CLI/cmd/auth"
-	"github.com/OpenLabsHQ/CLI/cmd/blueprints"
-	"github.com/OpenLabsHQ/CLI/cmd/config"
-	"github.com/OpenLabsHQ/CLI/cmd/ranges"
-	internalConfig "github.com/OpenLabsHQ/CLI/internal/config"
-	"github.com/OpenLabsHQ/CLI/internal/logger"
-	"github.com/OpenLabsHQ/CLI/internal/output"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/auth"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/blueprints"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/cmd/ranges"
+	internalConfig "github.com/OpenLabsHQ/OpenLabs/cli/internal/config"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/output"
 )
 
 var (

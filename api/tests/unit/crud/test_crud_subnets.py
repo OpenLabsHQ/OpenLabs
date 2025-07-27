@@ -21,7 +21,7 @@ from src.app.schemas.subnet_schemas import (
     BlueprintSubnetSchema,
     DeployedSubnetCreateSchema,
 )
-from tests.unit.api.v1.config import (
+from tests.common.api.v1.config import (
     valid_blueprint_subnet_create_payload,
     valid_deployed_subnet_data,
 )
