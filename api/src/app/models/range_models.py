@@ -1,9 +1,8 @@
 from datetime import datetime
 from ipaddress import IPv4Address
-from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Enum, String
-from sqlalchemy.dialects.postgresql import INET, JSONB
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from ..core.db.database import Base
@@ -63,11 +62,11 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
 
     __tablename__ = "deployed_ranges"
 
+    deployment_id: Mapped[str] = mapped_column(String, nullable=False)
     date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     readme: Mapped[str | None] = mapped_column(String, nullable=True)
-    state_file: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     state: Mapped[RangeState] = mapped_column(Enum(RangeState), nullable=False)
     region: Mapped[OpenLabsRegion] = mapped_column(Enum(OpenLabsRegion), nullable=False)
 

@@ -1,12 +1,13 @@
 import base64
 import logging
+import uuid
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
-from ...core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ...core.db.database import async_get_db
+from ...core.pulumi.ranges.range_factory import PulumiRangeFactory
 from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
     get_blueprint_range,
@@ -257,6 +258,7 @@ async def deploy_range_from_blueprint_endpoint(
         region=deploy_request.region,
         description=deploy_request.description,
         secrets=decrypted_secrets,
+        deployment_id=str(uuid.uuid4()),  # This is a placeholder
     )
 
     if not range_to_deploy.has_secrets():
@@ -308,9 +310,7 @@ async def deploy_range_from_blueprint_endpoint(
         )
         detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(
-        arq_job_id=arq_job_id, detail=detail_message.value
-    )
+    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)
 
 
 @router.delete("/{range_id}", status_code=status.HTTP_202_ACCEPTED)
@@ -395,7 +395,7 @@ async def delete_range_endpoint(
         region=deployed_range.region,
         description=deployed_range.description,
         secrets=decrypted_secrets,
-        state_data=deployed_range.state_file,
+        deployment_id=deployed_range.deployment_id,
     )
 
     if not range_to_destroy.has_secrets():
@@ -447,6 +447,4 @@ async def delete_range_endpoint(
         )
         detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(
-        arq_job_id=arq_job_id, detail=detail_message.value
-    )
+    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)

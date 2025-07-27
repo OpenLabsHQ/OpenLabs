@@ -28,10 +28,10 @@ class AWSPulumiRange(AbstractBasePulumiRange):
         region: OpenLabsRegion,
         secrets: SecretSchema,
         description: str,
-        unique_str: str,
+        deployment_id: str,
     ) -> None:
         """Initialize AWS Pulumi range."""
-        super().__init__(name, range_obj, region, secrets, description, unique_str)
+        super().__init__(name, range_obj, region, secrets, description, deployment_id)
 
     def has_secrets(self) -> bool:
         """Check if AWS credentials are available."""
@@ -226,24 +226,10 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                 # Create VPC
                 range_vpc = aws.ec2.Vpc(
                     vpc_resource_name,
-                    cidr_block=vpc.cidr_block,
+                    cidr_block=str(vpc.cidr),
                     enable_dns_support=True,
                     enable_dns_hostnames=True,
                     tags={"Name": vpc_resource_name},
-                )
-
-                # Create Transit Gateway Attachment
-                tgw_attachment_name = f"{vpc_prefix}-tgw-attachment"
-                tgw_attachment = aws.ec2.Ec2TransitGatewayVpcAttachment(
-                    tgw_attachment_name,
-                    subnet_ids=[jumpbox_vpc_private_subnet.id],
-                    transit_gateway_id=aws.ec2.Ec2TransitGateway(
-                        f"{vpc_prefix}-tgw",
-                        description=f"Transit Gateway for {vpc_name}",
-                        tags={"Name": f"{vpc_prefix}-tgw"},
-                    ).id,
-                    vpc_id=range_vpc.id,
-                    tags={"Name": tgw_attachment_name},
                 )
 
                 # Export VPC resource ID
@@ -258,26 +244,18 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                     range_subnet = aws.ec2.Subnet(
                         subnet_resource_name,
                         vpc_id=range_vpc.id,
-                        cidr_block=subnet.cidr_block,
+                        cidr_block=str(subnet.cidr),
                         availability_zone="us-east-1a",
                         map_public_ip_on_launch=False,
                         tags={"Name": subnet_resource_name},
                     )
 
-                    # Create Route Table for Subnet
+                    # Create Route Table for Subnet (basic local routing)
                     subnet_route_table_name = f"{subnet_prefix}-route-table"
                     subnet_route_table = aws.ec2.RouteTable(
                         subnet_route_table_name,
                         vpc_id=range_vpc.id,
                         tags={"Name": subnet_route_table_name},
-                    )
-
-                    # Route to Transit Gateway
-                    aws.ec2.Route(
-                        f"{subnet_prefix}-tgw-route",
-                        route_table_id=subnet_route_table.id,
-                        destination_cidr_block="0.0.0.0/0",
-                        transit_gateway_id=tgw_attachment.transit_gateway_id,
                     )
 
                     # Associate Route Table with Subnet
@@ -319,8 +297,8 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                         )
 
                         # Get AMI and instance type
-                        ami = AWS_OS_MAP[host.operating_system]
-                        instance_type = AWS_SPEC_MAP[host.specs]
+                        ami = AWS_OS_MAP[host.os]
+                        instance_type = AWS_SPEC_MAP[host.spec]
 
                         # Create Host Instance
                         host_instance = aws.ec2.Instance(
@@ -337,7 +315,7 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                         # Export Host resource ID and private IP
                         pulumi.export(f"{host_prefix}-resource-id", host_instance.id)
                         pulumi.export(
-                            f"{host_prefix}-private-ip", host_instance.private_ip
+                            f"{host_prefix}-ip-address", host_instance.private_ip
                         )
 
         return pulumi_program

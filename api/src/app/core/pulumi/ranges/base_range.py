@@ -5,7 +5,7 @@ import shutil
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
 import aiofiles.os as aio_os
 import pulumi.automation as auto
@@ -133,11 +133,33 @@ class AbstractBasePulumiRange(ABC):
             work_dir = self.get_work_dir()
             await aio_os.makedirs(work_dir, exist_ok=True)
 
-            # Create or select stack with postgres backend
-            env_vars: dict[str, str] = {
-                "PULUMI_BACKEND_URL": settings.POSTGRES_URI,  # type: ignore
-                "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
-            }
+            # 1. Set the passphrase, which is always needed from the environment
+            os.environ["PULUMI_CONFIG_PASSPHRASE"] = settings.PULUMI_CONFIG_PASSPHRASE
+
+            # 2. Configure Pulumi to use PostgreSQL as state backend
+            # The correct format for PostgreSQL state backend is different from file backend
+            backend_url = f"postgres://{settings.POSTGRES_URI}?sslmode=disable"
+            logger.info("Setting Pulumi PostgreSQL state backend: %s", backend_url)
+
+            # Set environment variable for Pulumi backend
+            os.environ["PULUMI_BACKEND_URL"] = backend_url
+
+            # 3. Force an *explicit* login to the correct PostgreSQL backend.
+            # This is more reliable than relying on PULUMI_BACKEND_URL inheritance.
+            login_url = backend_url
+            logger.info("Forcing explicit Pulumi login to: %s", login_url)
+
+            proc = await asyncio.create_subprocess_shell(
+                f"pulumi login {login_url}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await proc.communicate()
+
+            # Check if the explicit login command failed
+            if proc.returncode != 0:
+                logger.error("Pulumi login command failed. Stderr: %s", stderr.decode())
+                raise RuntimeError(f"Pulumi login failed: {stderr.decode()}")
 
             self._stack = await asyncio.to_thread(
                 auto.create_or_select_stack,
@@ -146,7 +168,10 @@ class AbstractBasePulumiRange(ABC):
                 program=self.get_pulumi_program(),
                 opts=auto.LocalWorkspaceOptions(
                     work_dir=str(work_dir),
-                    env_vars=env_vars,
+                    env_vars={
+                        "PULUMI_BACKEND_URL": backend_url,
+                        "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
+                    },
                 ),
             )
 
@@ -230,10 +255,6 @@ class AbstractBasePulumiRange(ABC):
             bool: True if destroy was successful. False otherwise.
 
         """
-        if not self.is_deployed():
-            logger.error("Can't destroy range that is not deployed!")
-            return False
-
         try:
             # Recreate stack if needed
             if not self._stack:
@@ -261,33 +282,15 @@ class AbstractBasePulumiRange(ABC):
             # Cleanup workspace
             await self.cleanup_workspace()
 
-    def _fill_missing_fields(
-        self,
-        schema: Any,  # noqa: ANN401
-        outputs: dict[str, auto.OutputValue],
-        prefix: str,
-    ) -> dict[str, Any]:
-        if not isinstance(schema, dict):
-            return schema
-
-        for key, value in schema.items():
-            if value is None:
-                kebab_key = f"{prefix}-{key.replace('_', '-')}"
-                if kebab_key in outputs:
-                    schema[key] = outputs[kebab_key].value
-                continue  # Done with this key
-
-            if isinstance(value, list):
-                for item in value:
-                    name_key = item.get("name") or item.get("hostname")
-                    new_prefix = (
-                        f"{prefix}-{normalize_name(name_key)}" if name_key else prefix
-                    )
-                    self._fill_missing_fields(item, outputs, new_prefix)
-                continue  # Done with this key
-
-            # If value is not None and not a list, do nothing (skip)
-        return schema
+    def _check_required_keys(
+        self, keys: list[str], outputs: dict[str, auto.OutputValue]
+    ) -> bool:
+        """Check if all required keys are present in Pulumi outputs."""
+        missing = set(keys) - set(outputs.keys())
+        if missing:
+            msg = f"Missing required keys in Pulumi outputs: {"".join(sorted(missing))}"
+            raise RuntimeError(msg)
+        return True
 
     async def _parse_pulumi_outputs(
         self, outputs: dict[str, auto.OutputValue]
@@ -309,17 +312,86 @@ class AbstractBasePulumiRange(ABC):
                 exclude_unset=False, exclude_none=False
             )
 
-            # Recursively fill only None fields from outputs
-            self._fill_missing_fields(dumped_schema, outputs, self.stack_name)
+            # Range keys
+            range_key_prefix = f"{self.stack_name}"
+            range_key_name = f"{range_key_prefix}-range-private-key"
+            jumpbox_resource_id_key = f"{range_key_prefix}-jumpbox-resource-id"
+            jumpbox_public_ip_key = f"{range_key_prefix}-jumpbox-public-ip"
+
+            # Check that all required keys are present
+            self._check_required_keys(
+                [range_key_name, jumpbox_resource_id_key, jumpbox_public_ip_key],
+                outputs,
+            )
+
+            # Populate range keys
+            dumped_schema["range_private_key"] = outputs[range_key_name].value
+            dumped_schema["jumpbox_resource_id"] = outputs[
+                jumpbox_resource_id_key
+            ].value
+            dumped_schema["jumpbox_public_ip"] = outputs[jumpbox_public_ip_key].value
+
+            # Populate VPCs
+            for i, vpc in enumerate(self.range_obj.vpcs):
+                vpc_name = normalize_name(vpc.name)
+                vpc_prefix = f"{self.stack_name}-{vpc_name}"
+
+                # Check all required keys are present
+                vpc_resource_id_key = f"{vpc_prefix}-resource-id"
+                self._check_required_keys(
+                    [vpc_resource_id_key],
+                    outputs,
+                )
+
+                # Populate VPC keys
+                dumped_schema["vpcs"][i]["resource_id"] = outputs[
+                    vpc_resource_id_key
+                ].value
+
+                # Populate subnets
+                for j, subnet in enumerate(vpc.subnets):  # type: ignore
+                    subnet_prefix = f"{vpc_prefix}-{normalize_name(subnet.name)}"
+                    subnet_resource_id_key = f"{subnet_prefix}-resource-id"
+
+                    # Check all required keys are present
+                    self._check_required_keys(
+                        [subnet_resource_id_key],
+                        outputs,
+                    )
+
+                    # Populate subnet keys
+                    dumped_schema["vpcs"][i]["subnets"][j]["resource_id"] = outputs[
+                        subnet_resource_id_key
+                    ].value
+
+                    # Populate hosts
+                    for k, host in enumerate(subnet.hosts):
+                        host_prefix = f"{subnet_prefix}-{normalize_name(host.hostname)}"
+                        host_resource_id_key = f"{host_prefix}-resource-id"
+                        host_ip_address_key = f"{host_prefix}-ip-address"
+
+                        # Check all required keys are present
+                        self._check_required_keys(
+                            [host_resource_id_key, host_ip_address_key],
+                            outputs,
+                        )
+
+                        # Populate host keys
+                        dumped_schema["vpcs"][i]["subnets"][j]["hosts"][k][
+                            "resource_id"
+                        ] = outputs[host_resource_id_key].value
+                        dumped_schema["vpcs"][i]["subnets"][j]["hosts"][k][
+                            "ip_address"
+                        ] = outputs[host_ip_address_key].value
 
             # Add/overwrite static attributes
             dumped_schema["name"] = self.name
             dumped_schema["description"] = self.description
             dumped_schema["date"] = datetime.now(tz=timezone.utc)
             dumped_schema["readme"] = None
-            dumped_schema["state_file"] = {}
             dumped_schema["state"] = RangeState.ON
             dumped_schema["region"] = self.region
+            dumped_schema["deployment_id"] = self.deployment_id
             return DeployedRangeCreateSchema.model_validate(dumped_schema)
         except Exception as e:
             logger.exception("Error parsing Pulumi outputs: %s", e)

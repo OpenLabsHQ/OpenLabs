@@ -84,7 +84,7 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
-    deployment_id = str(uuid.uuid4())[:8]  # or use your own short hash util
+    deployment_id = str(uuid.uuid4().hex)[:8]  # or use your own short hash util
 
     range_to_deploy = PulumiRangeFactory.create_range(
         name=deploy_request.name,
