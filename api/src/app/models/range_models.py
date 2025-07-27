@@ -96,4 +96,3 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-

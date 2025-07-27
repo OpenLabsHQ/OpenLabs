@@ -501,9 +501,9 @@ async def test_get_non_existent_deployed_range() -> None:
 @pytest.mark.parametrize(
     "is_admin, user_owns_range",
     [
-        (False, True),   # Regular user, owns range - should get key
+        (False, True),  # Regular user, owns range - should get key
         (False, False),  # Regular user, doesn't own range - should not get key
-        (True, False),   # Admin user, doesn't own range - should get key
+        (True, False),  # Admin user, doesn't own range - should get key
     ],
 )
 async def test_get_deployed_range_key_permissions(
@@ -513,16 +513,16 @@ async def test_get_deployed_range_key_permissions(
     """Test the deployed range key crud function respects permissions."""
     dummy_db = DummyDB()
     dummy_range = DummyDeployedRange()
-    
+
     range_id = 1
     user_id = 1
-    
+
     # Set ownership based on test parameters
     if user_owns_range:
         dummy_range.owner_id = user_id
     else:
         dummy_range.owner_id = user_id + 1
-    
+
     # Configure return of mock result
     dummy_db.get.return_value = dummy_range
     dummy_db.scalar.return_value = "fake_private_key"
@@ -533,7 +533,7 @@ async def test_get_deployed_range_key_permissions(
 
     # Check if we should expect a result
     should_have_access = is_admin or user_owns_range
-    
+
     if should_have_access:
         assert result is not None
         assert result.range_private_key == "fake_private_key"

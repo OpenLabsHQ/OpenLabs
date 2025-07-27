@@ -2,7 +2,14 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+)
 
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
@@ -97,25 +104,23 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
     vpcs: list[BlueprintVPCSchema] = Field(
         ..., description="All blueprint VPCs in range."
     )
-    
+
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
-        if not hasattr(self, 'permissions'):
+        if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions 
-            if perm.permission_type == 'read'
+            perm.user_id for perm in self.permissions if perm.permission_type == "read"
         ]
-    
+
     @computed_field
     def writers(self) -> list[int]:
-        """Get list of user IDs with write access.""" 
-        if not hasattr(self, 'permissions'):
+        """Get list of user IDs with write access."""
+        if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions 
-            if perm.permission_type == 'write'
+            perm.user_id for perm in self.permissions if perm.permission_type == "write"
         ]
 
     model_config = ConfigDict(from_attributes=True)
@@ -184,13 +189,16 @@ class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
         ..., description="Deployed VPCs in the range."
     )
     readers: list[int] = Field(
-        default=[], description="List of user IDs with read access to this deployed range."
+        default=[],
+        description="List of user IDs with read access to this deployed range.",
     )
     writers: list[int] = Field(
-        default=[], description="List of user IDs with write access to this deployed range."
+        default=[],
+        description="List of user IDs with write access to this deployed range.",
     )
     executors: list[int] = Field(
-        default=[], description="List of user IDs with execute access to this deployed range."
+        default=[],
+        description="List of user IDs with execute access to this deployed range.",
     )
 
     @field_validator("vpcs")
@@ -230,35 +238,34 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
     vpcs: list[DeployedVPCSchema] = Field(
         ..., description="All deployed VPCs in the range."
     )
-    
+
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
-        if not hasattr(self, 'permissions'):
+        if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions 
-            if perm.permission_type == 'read'
+            perm.user_id for perm in self.permissions if perm.permission_type == "read"
         ]
-    
+
     @computed_field
     def writers(self) -> list[int]:
         """Get list of user IDs with write access."""
-        if not hasattr(self, 'permissions'):
+        if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions 
-            if perm.permission_type == 'write'
+            perm.user_id for perm in self.permissions if perm.permission_type == "write"
         ]
-    
+
     @computed_field
     def executors(self) -> list[int]:
         """Get list of user IDs with execute access."""
-        if not hasattr(self, 'permissions'):
+        if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions 
-            if perm.permission_type == 'execute'
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == "execute"
         ]
 
     model_config = ConfigDict(from_attributes=True)

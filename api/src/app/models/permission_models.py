@@ -2,7 +2,6 @@ from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, String, UniqueCo
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship
 
 from ..core.db.database import Base
-from .mixin_models import OwnableObjectMixin
 
 
 class BlueprintRangePermissionModel(Base, MappedAsDataclass):
@@ -44,14 +43,14 @@ class BlueprintRangePermissionModel(Base, MappedAsDataclass):
     # Constraints
     __table_args__ = (
         UniqueConstraint(
-            "blueprint_range_id", 
-            "user_id", 
+            "blueprint_range_id",
+            "user_id",
             "permission_type",
-            name="uq_blueprint_range_permissions"
+            name="uq_blueprint_range_permissions",
         ),
         CheckConstraint(
             "permission_type IN ('read', 'write')",
-            name="ck_blueprint_range_permission_type"
+            name="ck_blueprint_range_permission_type",
         ),
     )
 
@@ -95,13 +94,13 @@ class DeployedRangePermissionModel(Base, MappedAsDataclass):
     # Constraints
     __table_args__ = (
         UniqueConstraint(
-            "deployed_range_id", 
-            "user_id", 
+            "deployed_range_id",
+            "user_id",
             "permission_type",
-            name="uq_deployed_range_permissions"
+            name="uq_deployed_range_permissions",
         ),
         CheckConstraint(
             "permission_type IN ('read', 'write', 'execute')",
-            name="ck_deployed_range_permission_type"
+            name="ck_deployed_range_permission_type",
         ),
     )
