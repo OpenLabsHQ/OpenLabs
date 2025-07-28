@@ -17,11 +17,10 @@ EXPOSE 80
 # Base test setup stage
 FROM builder AS test_builder
 
-COPY api/tests /code/tests
-
 COPY api/dev-requirements.txt /code/dev-requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
 
+COPY api/tests /code/tests
 COPY api/pyproject.toml /code/pyproject.toml 
 
 # ========= API Debug Image =========
@@ -47,7 +46,7 @@ HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
 FROM builder AS worker
     
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget gpg ca-certificates && \
+    apt-get install -y --no-install-recommends curl wget gpg ca-certificates && \
     # Install Pulumi CLI
     curl -fsSL https://get.pulumi.com | sh && \
     # Clean up to keep the image size down
