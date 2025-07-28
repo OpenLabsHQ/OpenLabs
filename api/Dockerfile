@@ -11,9 +11,6 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY api/src /code/src
 COPY .env /code/.env
 
-# For dynamic versioning
-COPY .git /code/.git
-
 EXPOSE 80
 
 # ========= Test Builder Image =========
