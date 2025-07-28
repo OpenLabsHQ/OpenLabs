@@ -11,8 +11,8 @@ from src.app.enums.range_states import RangeState
 from src.app.schemas.user_schema import UserID
 
 from ..core.db.database import get_db_session_context
-from ..core.pulumi.provisioner import PulumiOperation
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
+from ..provisioning.pulumi.provisioner import PulumiOperation
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,

@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any, Self
 
 import aiofiles.os as aio_os
+
 import pulumi.automation as auto
 
+from ...core.config import settings
 from ...enums.providers import OpenLabsProvider
 from ...enums.range_states import RangeState
 from ...enums.regions import OpenLabsRegion
@@ -19,7 +21,6 @@ from ...schemas.range_schemas import (
 )
 from ...schemas.secret_schema import SecretSchema
 from ...utils.name_utils import normalize_name
-from ..config import settings
 from .providers.aws_provider import aws_provider
 from .providers.protocol import PulumiProvider
 
