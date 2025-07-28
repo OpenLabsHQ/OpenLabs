@@ -76,7 +76,9 @@ addopts = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 filterwarnings = [
-    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning"
+    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning",
+    "ignore:.*s3(\\.|/).*:DeprecationWarning",
+    "ignore:.*uses PyType_Spec with a metaclass that has custom tp_new.*:DeprecationWarning",
 ]
 
 # Register markers to easily select unit or integration tests.
@@ -87,7 +89,6 @@ markers = [
     "api: marks tests that interact with API endpoints.",
     "worker: marks tests that cover the ARQ worker code.",
     "deploy: marks tests that deploy live infrastructure.",
-    "cdktf: marks tests related to or that import cdktf code.",
     "aws: marks tests related to AWS specific functionality."
 ]
 
