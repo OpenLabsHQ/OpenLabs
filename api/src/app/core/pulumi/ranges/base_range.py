@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import shutil
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
@@ -131,10 +130,10 @@ class AbstractBasePulumiRange(ABC):
             work_dir = self.get_work_dir()
             await aio_os.makedirs(work_dir, exist_ok=True)
 
-            # 2. Configure Pulumi to use PostgreSQL as state backend
-            # The correct format for PostgreSQL state backend is different from file backend
-            backend_url = f"postgres://{settings.POSTGRES_URI}?sslmode=disable"
-            logger.info("Setting Pulumi PostgreSQL state backend: %s", backend_url)
+            logger.info(
+                "Setting Pulumi PostgreSQL state backend: %s",
+                settings.PULUMI_BACKEND_URL,
+            )
 
             self._stack = await asyncio.to_thread(
                 auto.create_or_select_stack,
@@ -144,7 +143,7 @@ class AbstractBasePulumiRange(ABC):
                 opts=auto.LocalWorkspaceOptions(
                     work_dir=str(work_dir),
                     env_vars={
-                        "PULUMI_BACKEND_URL": backend_url,
+                        "PULUMI_BACKEND_URL": str(settings.PULUMI_BACKEND_URL),
                         "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
                     },
                 ),
@@ -153,7 +152,7 @@ class AbstractBasePulumiRange(ABC):
             # Set configuration
             config_values = self.get_config_values()
             for key, value in config_values.items():
-                await asyncio.to_thread(self._stack.set_config, key, value)
+                self._stack.set_config(key, value)
 
             logger.info("Pulumi stack created successfully: %s", self.stack_name)
             return True
@@ -193,11 +192,9 @@ class AbstractBasePulumiRange(ABC):
                 on_output=lambda output: logger.info("Pulumi output: %s", output),
             )
 
-            if up_result.summary.result != "succeeded":
+            if up_result.summary.result.lower() != "succeeded":
                 msg = f"Pulumi deployment failed: {up_result.summary.result}"
                 raise RuntimeError(msg)
-
-            self._is_deployed = True
 
             # Parse outputs
             deployed_range = await self._parse_pulumi_outputs(dict(up_result.outputs))
@@ -207,18 +204,13 @@ class AbstractBasePulumiRange(ABC):
 
         except Exception as e:
             logger.exception("Error during deployment: %s", e)
-            if self.is_deployed():
-                destroy_success = await self.destroy()
-                if not destroy_success:
-                    logger.critical(
-                        "Failed to cleanup after deployment failure of range: %s",
-                        self.name,
-                    )
+            destroy_success = await self.destroy()
+            if not destroy_success:
+                logger.critical(
+                    "Failed to cleanup after deployment failure of range: %s",
+                    self.name,
+                )
             return None
-        finally:
-            # Cleanup workspace
-            await self.cleanup_workspace()
-
         logger.info("Successfully deployed range: %s", self.name)
         return deployed_range
 
@@ -249,16 +241,12 @@ class AbstractBasePulumiRange(ABC):
                 msg = f"Pulumi destroy failed: {destroy_result.summary.result}"
                 raise RuntimeError(msg)
 
-            self._is_deployed = False
             logger.info("Successfully destroyed range: %s", self.name)
             return True
 
         except Exception as e:
             logger.exception("Error during destroy: %s", e)
             return False
-        finally:
-            # Cleanup workspace
-            await self.cleanup_workspace()
 
     def _check_required_keys(
         self, keys: list[str], outputs: dict[str, auto.OutputValue]
@@ -374,22 +362,3 @@ class AbstractBasePulumiRange(ABC):
         except Exception as e:
             logger.exception("Error parsing Pulumi outputs: %s", e)
             return None
-
-    def is_deployed(self) -> bool:
-        """Return if range is currently deployed."""
-        return self._is_deployed
-
-    async def cleanup_workspace(self) -> bool:
-        """Delete Pulumi workspace files."""
-        try:
-            work_dir = self.get_work_dir()
-            if await aio_os.path.exists(work_dir):
-                await asyncio.to_thread(shutil.rmtree, work_dir)
-            return True
-        except Exception as e:
-            logger.error(
-                "Failed to delete workspace files for stack: %s. Error: %s",
-                self.stack_name,
-                e,
-            )
-            return False

@@ -107,7 +107,11 @@ class Settings(
 ):
     """FastAPI app settings."""
 
-    pass
+    # Pulumi settings
+    @computed_field
+    def PULUMI_BACKEND_URL(self) -> str:  # noqa: N802
+        """Pulumi Postgres state backend URL."""
+        return f"postgres://{self.POSTGRES_URI}?sslmode=disable"
 
 
 settings = Settings()
