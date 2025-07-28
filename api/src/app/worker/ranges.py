@@ -11,7 +11,7 @@ from src.app.enums.range_states import RangeState
 from src.app.schemas.user_schema import UserID
 
 from ..core.db.database import get_db_session_context
-from ..core.pulumi.ranges.range_factory import PulumiRangeFactory
+from ..core.pulumi.provisioner import PulumiOperation
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
@@ -86,77 +86,41 @@ async def deploy_range(
 
     deployment_id = str(uuid.uuid4().hex)[:8]  # or use your own short hash util
 
-    range_to_deploy = PulumiRangeFactory.create_range(
-        name=deploy_request.name,
+    # Apply range using Pulumi context manager
+    async with PulumiOperation(
+        deployment_id=deployment_id,
         range_obj=blueprint_range,
         region=deploy_request.region,
-        description=deploy_request.description,
         secrets=decrypted_secrets,
-        deployment_id=deployment_id,
-    )
+        name=deploy_request.name,
+        provider=blueprint_range.provider,
+        description=deploy_request.description or "",
+    ) as pulumi:
+        try:
+            deployed_range = await pulumi.up()
+        except Exception as e:
+            logger.exception(
+                "Error during deployment for deployment_id: %s", deployment_id
+            )
+            await pulumi.destroy()
+            raise e
 
-    # Validate deployment
-    if not range_to_deploy.has_secrets():
-        msg = f"No credentials found for provider: {blueprint_range.provider.value.upper()} for user: {user_email} ({user_id})"
-        logger.info(msg)
-        raise RuntimeError(msg)
-
-    # Note: Pulumi doesn't need separate synthesis step like CDKTF
-
-    # Deploy range
-    created_range = await range_to_deploy.deploy()
-    if not created_range:
-        msg = f"Failed to deploy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id}) for user: {user_email} ({user_id})"
-        logger.error(msg)
-        raise RuntimeError(msg)
-
-    cleanup_required = False
-
-    try:
-        async with get_db_session_context() as db:
-            try:
-                deployed_range_header = await create_deployed_range(
-                    db, created_range, user_id=user.id
-                )
-            except Exception as e:
-                cleanup_required = True
-                logger.exception(
-                    "Failed to save range: %s to database on behalf of user: %s (%s)! Exception: %s",
-                    range_to_deploy.name,
-                    user_email,
-                    user_id,
-                    e,
-                )
-
-                # Fail job
-                raise e
-    finally:
-        if cleanup_required:
-            logger.info(
-                "Starting auto clean up of deployed range: %s for user %s (%s)...",
-                range_to_deploy.name,
+    # Save to database
+    async with get_db_session_context() as db:
+        try:
+            deployed_range_header = await create_deployed_range(
+                db, deployed_range, user_id=user.id
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to save range: %s to database on behalf of user: %s (%s)! Exception: %s",
+                deploy_request.name,
                 user_email,
                 user_id,
+                e,
             )
-
-            successful_destroy = await range_to_deploy.destroy()
-            if not successful_destroy:
-                # Don't raise an exception to prevent masking
-                logger.critical(
-                    "Auto clean up failed! Failed to destroy range: %s from blueprint: %s (%s) for user: %s (%s)",
-                    range_to_deploy.name,
-                    blueprint_range.name,
-                    blueprint_range.id,
-                    user_email,
-                    user_id,
-                )
-
-            logger.info(
-                "Finished auto clean up of deployed range: %s for user %s (%s)!",
-                range_to_deploy.name,
-                user_email,
-                user_id,
-            )
+            # Fail job
+            raise e
 
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
@@ -224,35 +188,16 @@ async def destroy_range(
         user_id = user.id
         user_is_admin = user.is_admin
 
-    # Build range object
-    # If you store deployment_id in the deployed range, use it directly.
-    deployment_id = deployed_range.deployment_id
-
-    range_to_destroy = PulumiRangeFactory.create_range(
-        name=deployed_range.name,
+    async with PulumiOperation(
+        deployment_id=deployed_range.deployment_id,
         range_obj=deployed_range,
         region=deployed_range.region,
-        description=deployed_range.description,
         secrets=decrypted_secrets,
-        deployment_id=deployment_id,
-    )
-
-    # Validate deployment
-    if not range_to_destroy.has_secrets():
-        # Higher level error as users should
-        # have an account in a state where they
-        # don't have credentials to destroy their
-        # own deployed ranges.
-        msg = f"No credentials found for provider: {deployed_range.provider.value.upper()} for user: {user_id}"
-        logger.critical(msg)
-        raise RuntimeError(msg)
-
-    # Destroy range (no synthesis needed for Pulumi)
-    successful_destroy = await range_to_destroy.destroy()
-    if not successful_destroy:
-        msg = f"Failed to deploy range: {range_to_destroy.name} for user: {user_id}"
-        logger.error(msg)
-        raise RuntimeError(msg)
+        name=deployed_range.name,
+        provider=deployed_range.provider,
+        description=deployed_range.description or "",
+    ) as pulumi:
+        await pulumi.destroy()
 
     async with get_db_session_context() as db:
         # Delete range from database
@@ -266,7 +211,7 @@ async def destroy_range(
         except Exception as e:
             logger.exception(
                 "Failed to delete range: %s from database on behalf of user: %s! Exception: %s",
-                range_to_destroy.name,
+                deployed_range.name,
                 user_id,
                 e,
             )

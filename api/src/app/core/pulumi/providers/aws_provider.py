@@ -12,61 +12,36 @@ from ....schemas.range_schemas import BlueprintRangeSchema, DeployedRangeSchema
 from ....schemas.secret_schema import SecretSchema
 from ....utils.crypto import generate_range_rsa_key_pair
 from ....utils.name_utils import normalize_name
-from .base_range import AbstractBasePulumiRange
+from ..providers.protocol import PulumiProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class AWSPulumiRange(AbstractBasePulumiRange):
-    """AWS-specific Pulumi range implementation."""
+class AWSProvider(PulumiProvider):
+    """AWS-specific Pulumi provider implementation."""
 
-    def __init__(
+    def get_pulumi_program(
         self,
-        name: str,
         range_obj: BlueprintRangeSchema | DeployedRangeSchema,
         region: OpenLabsRegion,
         secrets: SecretSchema,
-        description: str,
-        deployment_id: str,
-    ) -> None:
-        """Initialize AWS Pulumi range."""
-        super().__init__(name, range_obj, region, secrets, description, deployment_id)
+        stack_name: str,
+    ) -> Callable[[], None]:
+        """Return the Pulumi program function for AWS infrastructure.
 
-    def has_secrets(self) -> bool:
-        """Check if AWS credentials are available."""
-        return bool(
-            hasattr(self.secrets, "aws_access_key")
-            and hasattr(self.secrets, "aws_secret_key")
-            and self.secrets.aws_access_key
-            and self.secrets.aws_secret_key
-        )
+        Args:
+            range_obj: Blueprint or deployed range object
+            region: Cloud region for deployment
+            secrets: Cloud provider credentials
+            stack_name: Name of the Pulumi stack
 
-    def get_cred_env_vars(self) -> dict[str, str]:
-        """Return AWS credential environment variables."""
-        return {
-            "AWS_ACCESS_KEY_ID": self.secrets.aws_access_key,
-            "AWS_SECRET_ACCESS_KEY": self.secrets.aws_secret_key,
-        }
+        Returns:
+            Pulumi program function that defines infrastructure
 
-    def get_config_values(self) -> dict[str, auto.ConfigValue]:
-        """Return Pulumi configuration values for AWS."""
-        return {
-            "aws:region": auto.ConfigValue(value=AWS_REGION_MAP[self.region]),
-            "aws:accessKey": auto.ConfigValue(
-                value=self.secrets.aws_access_key, secret=True
-            ),
-            "aws:secretKey": auto.ConfigValue(
-                value=self.secrets.aws_secret_key, secret=True
-            ),
-        }
+        """
 
-    def get_pulumi_program(self) -> Callable[[], None]:
-        """Return the Pulumi program function for AWS infrastructure."""
-
-        def pulumi_program():
-            stack_name = self.stack_name
-
+        def pulumi_program() -> None:
             # Step 1: Create the key access to all instances provisioned on AWS
             range_private_key, range_public_key = generate_range_rsa_key_pair()
             key_pair_name = f"{stack_name}-key-pair"
@@ -224,7 +199,7 @@ class AWSPulumiRange(AbstractBasePulumiRange):
             )
 
             # Step 11: Create range VPCs, Subnets, and Hosts
-            for vpc in self.range_obj.vpcs:
+            for vpc in range_obj.vpcs:
                 vpc_name = normalize_name(vpc.name)
                 vpc_prefix = f"{stack_name}-{vpc_name}"
                 vpc_resource_name = f"{vpc_prefix}-vpc"
@@ -325,3 +300,72 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                         )
 
         return pulumi_program
+
+    def has_secrets(self, secrets: SecretSchema) -> bool:
+        """Check if AWS credentials are available.
+
+        Args:
+            secrets: Cloud provider credentials
+
+        Returns:
+            True if AWS credentials exist, False otherwise
+
+        """
+        return bool(
+            hasattr(secrets, "aws_access_key")
+            and hasattr(secrets, "aws_secret_key")
+            and secrets.aws_access_key
+            and secrets.aws_secret_key
+        )
+
+    def get_config_values(
+        self,
+        region: OpenLabsRegion,
+        secrets: SecretSchema,
+    ) -> dict[str, auto.ConfigValue]:
+        """Return Pulumi configuration values for AWS.
+
+        Args:
+            region: Cloud region for deployment
+            secrets: Cloud provider credentials
+
+        Returns:
+            Dict of Pulumi configuration values
+
+        """
+        if not secrets.aws_access_key or not secrets.aws_secret_key:
+            msg = "AWS credentials are required"
+            raise ValueError(msg)
+
+        return {
+            "aws:region": auto.ConfigValue(value=AWS_REGION_MAP[region]),
+            "aws:accessKey": auto.ConfigValue(
+                value=secrets.aws_access_key, secret=True
+            ),
+            "aws:secretKey": auto.ConfigValue(
+                value=secrets.aws_secret_key, secret=True
+            ),
+        }
+
+    def get_cred_env_vars(self, secrets: SecretSchema) -> dict[str, str]:
+        """Return AWS credential environment variables.
+
+        Args:
+            secrets: Cloud provider credentials
+
+        Returns:
+            Dict of environment variables for cloud credentials
+
+        """
+        if not secrets.aws_access_key or not secrets.aws_secret_key:
+            msg = "AWS credentials are required"
+            raise ValueError(msg)
+
+        return {
+            "AWS_ACCESS_KEY_ID": secrets.aws_access_key,
+            "AWS_SECRET_ACCESS_KEY": secrets.aws_secret_key,
+        }
+
+
+# Create a singleton instance
+aws_provider = AWSProvider()
