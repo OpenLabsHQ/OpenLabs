@@ -77,7 +77,10 @@ class AWSPulumiRange(AbstractBasePulumiRange):
                 tags={"Name": key_pair_name},
             )
 
-            pulumi.export(f"{stack_name}-range-private-key", range_private_key)
+            pulumi.export(
+                f"{stack_name}-range-private-key",
+                pulumi.Output.secret(range_private_key),
+            )
 
             # Step 2: Create public vpc for jumpbox
             jumpbox_vpc_name = f"{stack_name}-jumpbox-vpc"
@@ -138,7 +141,10 @@ class AWSPulumiRange(AbstractBasePulumiRange):
             )
 
             pulumi.export(f"{stack_name}-jumpbox-resource-id", jumpbox.id)
-            pulumi.export(f"{stack_name}-jumpbox-public-ip", jumpbox.public_ip)
+            pulumi.export(
+                f"{stack_name}-jumpbox-public-ip",
+                pulumi.Output.secret(jumpbox.public_ip),
+            )
 
             # Step 6: Create an Internet Gateway for Public jumpbox Subnet
             igw_name = f"{stack_name}-internet-gateway"

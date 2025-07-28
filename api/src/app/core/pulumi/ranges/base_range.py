@@ -63,9 +63,7 @@ class AbstractBasePulumiRange(ABC):
         self.deployment_id = deployment_id
 
         # Generate stack name
-        self.stack_name = (
-            f"ol-{self.deployment_id}-{normalize_name(self.range_obj.name)}"
-        )
+        self.stack_name = f"ol-{self.deployment_id}"
 
         # Initial state
         self._is_deployed = False
@@ -133,33 +131,10 @@ class AbstractBasePulumiRange(ABC):
             work_dir = self.get_work_dir()
             await aio_os.makedirs(work_dir, exist_ok=True)
 
-            # 1. Set the passphrase, which is always needed from the environment
-            os.environ["PULUMI_CONFIG_PASSPHRASE"] = settings.PULUMI_CONFIG_PASSPHRASE
-
             # 2. Configure Pulumi to use PostgreSQL as state backend
             # The correct format for PostgreSQL state backend is different from file backend
             backend_url = f"postgres://{settings.POSTGRES_URI}?sslmode=disable"
             logger.info("Setting Pulumi PostgreSQL state backend: %s", backend_url)
-
-            # Set environment variable for Pulumi backend
-            os.environ["PULUMI_BACKEND_URL"] = backend_url
-
-            # 3. Force an *explicit* login to the correct PostgreSQL backend.
-            # This is more reliable than relying on PULUMI_BACKEND_URL inheritance.
-            login_url = backend_url
-            logger.info("Forcing explicit Pulumi login to: %s", login_url)
-
-            proc = await asyncio.create_subprocess_shell(
-                f"pulumi login {login_url}",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await proc.communicate()
-
-            # Check if the explicit login command failed
-            if proc.returncode != 0:
-                logger.error("Pulumi login command failed. Stderr: %s", stderr.decode())
-                raise RuntimeError(f"Pulumi login failed: {stderr.decode()}")
 
             self._stack = await asyncio.to_thread(
                 auto.create_or_select_stack,
@@ -265,7 +240,10 @@ class AbstractBasePulumiRange(ABC):
 
             # Destroy infrastructure
             logger.info("Tearing down selected range: %s", self.name)
-            destroy_result = await asyncio.to_thread(self._stack.destroy)
+            destroy_result = await asyncio.to_thread(
+                self._stack.destroy,
+                on_output=lambda output: logger.info("Pulumi output: %s", output),
+            )
 
             if destroy_result.summary.result != "succeeded":
                 msg = f"Pulumi destroy failed: {destroy_result.summary.result}"
