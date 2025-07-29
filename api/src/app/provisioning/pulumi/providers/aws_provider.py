@@ -1,9 +1,10 @@
 import logging
 from typing import Callable
 
+import pulumi_aws as aws
+
 import pulumi
 import pulumi.automation as auto
-import pulumi_aws as aws
 
 from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
