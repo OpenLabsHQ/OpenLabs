@@ -19,16 +19,10 @@ from ...schemas.range_schemas import (
 )
 from ...schemas.secret_schema import SecretSchema
 from ...utils.name_utils import normalize_name
-from .providers.aws_provider import aws_provider
-from .providers.protocol import PulumiProvider
+from .providers.provider_registry import PROVIDER_REGISTRY
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Provider registry mapping OpenLabsProvider to provider instances
-PULUMI_PROVIDER_REGISTRY: dict[OpenLabsProvider, PulumiProvider] = {
-    OpenLabsProvider.AWS: aws_provider,
-}
 
 
 class PulumiOperation:
@@ -60,7 +54,7 @@ class PulumiOperation:
         self.stack: auto.Stack | None = None
 
         # Get the Pulumi provider for the given OpenLabs provider
-        pulumi_provider = PULUMI_PROVIDER_REGISTRY.get(provider)
+        pulumi_provider = PROVIDER_REGISTRY.get(provider)
         if not pulumi_provider:
             msg = f"Provider {provider.value} not found"
             raise ValueError(msg)
