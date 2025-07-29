@@ -16,6 +16,7 @@ from ...crud.crud_ranges import (
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.job_status import JobSubmissionDetail
 from ...models.user_model import UserModel
+from ...provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
 from ...schemas.job_schemas import (
     JobCreateSchema,
     JobSubmissionResponseSchema,
@@ -249,6 +250,30 @@ async def deploy_range_from_blueprint_endpoint(
             detail="Failed to decrypt cloud credentials. Please try logging in again.",
         )
 
+    pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
+    if not pulumi_provider:
+        logger.error(
+            "Pulumi provider not available for %s",
+            blueprint_range.provider.value.upper(),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{blueprint_range.provider.value.upper()} is not supported!",
+        )
+
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        logger.info(
+            "User: %s (%s) does not have credentials for provider: %s. Failed to queue deploy request for range: %s.",
+            current_user.email,
+            current_user.id,
+            blueprint_range.provider.value.upper(),
+            deploy_request.name,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No credentials found for provider: {blueprint_range.provider}",
+        )
+
     # Queue deployment job
     job_name = "deploy_range"
 
@@ -361,6 +386,30 @@ async def delete_range_endpoint(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to decrypt cloud credentials. Please try logging in again.",
+        )
+
+    pulumi_provider = PROVIDER_REGISTRY.get(deployed_range.provider)
+    if not pulumi_provider:
+        logger.error(
+            "Pulumi provider not available for %s",
+            deployed_range.provider.value.upper(),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{deployed_range.provider.value.upper()} is not supported!",
+        )
+
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        logger.info(
+            "User: %s (%s) does not have credentials for provider: %s. Failed to queue destroy request for range: %s.",
+            current_user.email,
+            current_user.id,
+            deployed_range.provider.value.upper(),
+            deployed_range.name,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No credentials found for provider: {deployed_range.provider}",
         )
 
     # Queue deployment job
