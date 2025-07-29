@@ -16,6 +16,8 @@ import type {
   PasswordUpdateResponse,
   AWSSecretsRequest,
   AWSSecretsResponse,
+  SecretsRequest,
+  SecretsResponse,
   AzureSecretsRequest,
   AzureSecretsResponse,
   DeployRangeRequest
@@ -170,6 +172,17 @@ export const userApi = {
     }
     return await apiRequest<AWSSecretsResponse>(
       '/api/v1/users/me/secrets/aws',
+      'POST',
+      request
+    )
+  },
+
+  updateSecrets: async (payload: any): Promise<ApiResponse<SecretsResponse>> => {
+    const request: SecretsRequest = {
+      secrets: payload
+    }
+    return await apiRequest<SecretsResponse>(
+      '/api/v1/users/me/secrets',
       'POST',
       request
     )

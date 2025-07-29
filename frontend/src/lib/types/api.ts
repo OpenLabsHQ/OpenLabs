@@ -200,6 +200,12 @@ export interface AWSSecretsRequest {
 export interface AWSSecretsResponse {
   message: string;
 }
+export interface SecretsRequest {
+  secrets: any;
+}
+export interface SecretsResponse {
+  message: string;
+}
 
 // Azure secrets types
 export interface AzureSecretsRequest {
