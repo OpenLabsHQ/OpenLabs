@@ -1,5 +1,3 @@
-"""Central Pulumi provisioner using asynchronous context manager."""
-
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -36,6 +34,8 @@ PULUMI_PROVIDER_REGISTRY: dict[OpenLabsProvider, PulumiProvider] = {
 class PulumiOperation:
     """A self-contained context manager for a single Pulumi operation."""
 
+    _stack_lock = asyncio.Lock()
+
     def __init__(  # noqa: PLR0913
         self,
         deployment_id: str,
@@ -68,26 +68,27 @@ class PulumiOperation:
 
     async def __aenter__(self) -> Self:
         """Create the workspace and initialize the Pulumi Stack object."""
-        await aio_os.makedirs(self.work_dir, exist_ok=True)
+        async with self._stack_lock:
+            await aio_os.makedirs(self.work_dir, exist_ok=True)
 
-        self.stack = await asyncio.to_thread(
-            auto.create_or_select_stack,
-            stack_name=self.stack_name,
-            project_name="openlabs-ranges",
-            program=self.pulumi_provider.get_pulumi_program(
-                range_obj=self.range_obj,
-                region=self.region,
-                secrets=self.secrets,
+            self.stack = await asyncio.to_thread(
+                auto.create_or_select_stack,
                 stack_name=self.stack_name,
-            ),
-            opts=auto.LocalWorkspaceOptions(
-                work_dir=str(self.work_dir),
-                env_vars={
-                    "PULUMI_BACKEND_URL": str(settings.PULUMI_BACKEND_URL),
-                    "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
-                },
-            ),
-        )
+                project_name="openlabs-ranges",
+                program=self.pulumi_provider.get_pulumi_program(
+                    range_obj=self.range_obj,
+                    region=self.region,
+                    secrets=self.secrets,
+                    stack_name=self.stack_name,
+                ),
+                opts=auto.LocalWorkspaceOptions(
+                    work_dir=str(self.work_dir),
+                    env_vars={
+                        "PULUMI_BACKEND_URL": str(settings.PULUMI_BACKEND_URL),
+                        "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
+                    },
+                ),
+            )
 
         # Set the Pulumi configuration values
         config_values = self.pulumi_provider.get_config_values(
