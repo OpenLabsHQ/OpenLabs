@@ -1,10 +1,9 @@
 import logging
 from typing import Callable
 
-import pulumi_aws as aws
-
 import pulumi
 import pulumi.automation as auto
+import pulumi_aws as aws
 
 from ....enums.operating_systems import AWS_OS_MAP
 from ....enums.regions import AWS_REGION_MAP, OpenLabsRegion
@@ -24,10 +23,8 @@ class AWSProvider(PulumiProvider):
 
     def get_pulumi_program(
         self,
-        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
-        region: OpenLabsRegion,
-        secrets: SecretSchema,
         stack_name: str,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
     ) -> Callable[[], None]:
         """Return the Pulumi program function for AWS infrastructure.
 
@@ -334,7 +331,7 @@ class AWSProvider(PulumiProvider):
             Dict of Pulumi configuration values
 
         """
-        if not secrets.aws_access_key or not secrets.aws_secret_key:
+        if not self.has_secrets(secrets):
             msg = "AWS credentials are required"
             raise ValueError(msg)
 
@@ -358,7 +355,7 @@ class AWSProvider(PulumiProvider):
             Dict of environment variables for cloud credentials
 
         """
-        if not secrets.aws_access_key or not secrets.aws_secret_key:
+        if not self.has_secrets(secrets):
             msg = "AWS credentials are required"
             raise ValueError(msg)
 

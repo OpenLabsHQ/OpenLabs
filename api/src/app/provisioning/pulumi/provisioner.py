@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Self
 
 import aiofiles.os as aio_os
-
 import pulumi.automation as auto
 
 from ...core.config import settings
@@ -70,10 +69,8 @@ class PulumiOperation:
                 stack_name=self.stack_name,
                 project_name="openlabs-ranges",
                 program=self.pulumi_provider.get_pulumi_program(
-                    range_obj=self.range_obj,
-                    region=self.region,
-                    secrets=self.secrets,
                     stack_name=self.stack_name,
+                    range_obj=self.range_obj,
                 ),
                 opts=auto.LocalWorkspaceOptions(
                     work_dir=str(self.work_dir),
