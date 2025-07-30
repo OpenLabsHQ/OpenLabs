@@ -183,9 +183,8 @@
     }
 
     try {
-      // **IMPORTANT**: This now calls a single, unified API endpoint.
-      // Make sure `userApi.updateSecrets` exists and handles the payload format.
-      const result = await userApi.updateSecrets(payload)
+      // Call single, common endpoint
+      const result = await userApi.updateSecrets(provider, payload)
 
       if (result.error) {
         if (provider === 'aws') awsError = result.error
@@ -229,11 +228,8 @@
     
     // Construct the AWS-specific payload
     const payload = {
-      provider: 'aws',
-      credentials: {
         aws_access_key: awsAccessKey,
         aws_secret_key: awsSecretKey,
-      },
     }
 
     // Call the shared update function
@@ -256,13 +252,10 @@
     
     // Construct the Azure-specific payload
     const payload = {
-      provider: 'azure',
-      credentials: {
         azure_client_id: azureClientId,
         azure_client_secret: azureClientSecret,
         azure_tenant_id: azureTenantId,
         azure_subscription_id: azureSubscriptionId,
-      },
     }
     
     // Call the shared update function
