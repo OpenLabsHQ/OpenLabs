@@ -14,10 +14,8 @@ class PulumiProvider(Protocol):
 
     def get_pulumi_program(
         self,
-        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
-        region: OpenLabsRegion,
-        secrets: SecretSchema,
         stack_name: str,
+        range_obj: BlueprintRangeSchema | DeployedRangeSchema,
     ) -> Callable[[], None]:
         """Return Pulumi program function for this provider.
 
