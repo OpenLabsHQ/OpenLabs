@@ -6,18 +6,18 @@ from typing import Any
 
 import uvloop
 
-from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_range
-from src.app.enums.range_states import RangeState
-from src.app.schemas.user_schema import UserID
-
 from ..core.db.database import get_db_session_context
+from ..crud.crud_ranges import create_deployed_range, delete_deployed_range
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
+from ..enums.range_states import RangeState
+from ..provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
 from ..provisioning.pulumi.provisioner import PulumiOperation
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ..schemas.user_schema import UserID
 from ..utils.job_utils import track_job_status
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -84,6 +84,17 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
+    pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
+    if not pulumi_provider:
+        msg = f"Pulumi provider not available for {blueprint_range.provider.value.upper()}"
+        logger.error(msg)
+        raise RuntimeError(msg)
+
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        msg = f"User: {user_email} ({user_id}) does not have credentials for provider: {blueprint_range.provider.value.upper()}."
+        logger.info(msg)
+        raise RuntimeError(msg)
+
     deployment_id = str(uuid.uuid4().hex)[:8]  # or use your own short hash util
 
     # Apply range using Pulumi context manager
@@ -98,29 +109,30 @@ async def deploy_range(
     ) as pulumi:
         try:
             deployed_range = await pulumi.up()
-        except Exception as e:
-            logger.exception(
-                "Error during deployment for deployment_id: %s", deployment_id
-            )
-            await pulumi.destroy()
-            raise e
 
-    # Save to database
-    async with get_db_session_context() as db:
-        try:
-            deployed_range_header = await create_deployed_range(
-                db, deployed_range, user_id=user.id
-            )
-        except Exception as e:
+            # Save to database
+            async with get_db_session_context() as db:
+                deployed_range_header = await create_deployed_range(
+                    db, deployed_range, user_id=user.id
+                )
+        except Exception as original_exc:
+            # The main operation failed
             logger.exception(
-                "Failed to save range: %s to database on behalf of user: %s (%s)! Exception: %s",
-                deploy_request.name,
-                user_email,
-                user_id,
-                e,
+                "Deployment failed for deployment_id: %s. Cleaning up resources...",
+                deployment_id,
             )
-            # Fail job
-            raise e
+
+            # Wrap cleanup to prevent masking original exception
+            try:
+                await pulumi.destroy()
+            except Exception as cleanup_exc:
+                logger.critical(
+                    "Automatic deploy resource clean up failed for deployment_id: %s. Exception: %s",
+                    deployment_id,
+                    cleanup_exc,
+                )
+
+            raise original_exc
 
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
@@ -188,6 +200,19 @@ async def destroy_range(
         user_id = user.id
         user_is_admin = user.is_admin
 
+    pulumi_provider = PROVIDER_REGISTRY.get(deployed_range.provider)
+    if not pulumi_provider:
+        msg = (
+            f"Pulumi provider not available for {deployed_range.provider.value.upper()}"
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        msg = f"User: {user_id} does not have credentials for provider: {deployed_range.provider.value.upper()}."
+        logger.info(msg)
+        raise RuntimeError(msg)
+
     async with PulumiOperation(
         deployment_id=deployed_range.deployment_id,
         range_obj=deployed_range,
@@ -197,17 +222,16 @@ async def destroy_range(
         provider=deployed_range.provider,
         description=deployed_range.description or "",
     ) as pulumi:
-        await pulumi.destroy()
-
-    async with get_db_session_context() as db:
-        # Delete range from database
         try:
-            deleted_from_db = await delete_deployed_range(
-                db, deployed_range.id, user_id, user_is_admin
-            )
-            if not deleted_from_db:
-                msg = "Failed to delete destroyed range from DB!"
-                raise RuntimeError(msg)
+            await pulumi.destroy()
+
+            async with get_db_session_context() as db:
+                deleted_from_db = await delete_deployed_range(
+                    db, deployed_range.id, user_id, user_is_admin
+                )
+                if not deleted_from_db:
+                    msg = "Failed to delete destroyed range from DB!"
+                    raise RuntimeError(msg)
         except Exception as e:
             logger.exception(
                 "Failed to delete range: %s from database on behalf of user: %s! Exception: %s",
