@@ -33,7 +33,7 @@ def test_aws_secrets_schema_missing_access_key_length() -> None:
 def test_aws_secrets_schema_invalid_secret_key_length() -> None:
     """Test that the AWS Secrets schema fails when aws_secret_key is invalid length."""
     invalid_creds = copy.deepcopy(aws_secrets_payload)
-    invalid_creds["credentials"]["aws_secret_key"] = "string"
+    invalid_creds["credentials"]["aws_secret_key"] = "string"  # noqa: S105
 
     expected_msg = re.compile(r"Invalid credential format", re.IGNORECASE)
     with pytest.raises(ValidationError, match=expected_msg):

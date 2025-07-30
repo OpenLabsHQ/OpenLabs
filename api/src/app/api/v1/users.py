@@ -1,5 +1,4 @@
 import base64
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -18,14 +17,10 @@ from ...crud.crud_users import get_user_by_id, update_user_password
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
 from ...schemas.message_schema import (
-    AWSUpdateSecretMessageSchema,
-    AzureUpdateSecretMessageSchema,
     MessageSchema,
     UpdatePasswordMessageSchema,
 )
 from ...schemas.secret_schema import (
-    AWSSecrets,
-    AzureSecrets,
     CloudSecretStatusSchema,
     UserSecretResponseSchema,
 )

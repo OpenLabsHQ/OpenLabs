@@ -1,8 +1,8 @@
-from datetime import UTC, datetime
-from typing import Any
-from httpx import AsyncClient
 import pytest
-from pytest_mock import MockerFixture, mocker
+from datetime import UTC, datetime
+from fastapi import status
+from httpx import AsyncClient
+from pytest_mock import MockerFixture
 
 from src.app.core.auth.auth import get_current_user
 from src.app.main import app
@@ -10,7 +10,6 @@ from src.app.models.user_model import UserModel
 from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.message_schema import MessageSchema
 from tests.unit.api.v1.config import BASE_ROUTE
-from fastapi import status
 from tests.unit.api.v1.config import aws_secrets_payload
 from unittest.mock import MagicMock
 
@@ -26,7 +25,6 @@ def mock_update_secrets_success(
     mocker: MockerFixture, users_api_v1_endpoints_path: str
 ) -> None:
     """Bypass provider credentials verification and updating user secrets record to succeed."""
-
     mock_creds_class = MagicMock()
     mock_creds_class.verify_creds.return_value = [True, MessageSchema(message="true")]
     mock_creds_class.update_secret_schema.return_value = SecretSchema()
@@ -50,12 +48,16 @@ def mock_get_secrets_failure(
 def mock_get_secrets(mocker: MockerFixture, users_api_v1_endpoints_path: str) -> None:
     """Bypass fetching users secrets to pass for a fake user."""
 
-    def override_get_current_user_no_key():
-        """Fake dependency that returns a user without a public key."""
+    def override_get_current_user_no_key() -> UserModel:
+        """Fake dependency that returns a user without a public key.
+
+        Returns:
+        -------
+            MessageSchema: Status message of updating user secrets."""
         return UserModel(
             name="FakeUser",
             email="fakeuser@gmail.com",
-            hashed_password="faskpasswordhash",
+            hashed_password="faskpasswordhash",  # noqa: S105
             created_at=datetime.now(UTC),
             last_active=datetime.now(UTC),
             is_admin=False,

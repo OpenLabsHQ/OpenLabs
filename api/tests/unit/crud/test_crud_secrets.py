@@ -4,9 +4,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 from src.app.models.secret_model import SecretModel
-from .crud_mocks import DummyDB
 from src.app.crud.crud_secrets import get_user_secrets, upsert_user_secrets
 from src.app.schemas.secret_schema import SecretSchema
+
+from .crud_mocks import DummyDB
 
 
 @pytest.fixture

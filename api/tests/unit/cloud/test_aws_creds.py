@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from src.app.utils.crypto import encrypt_with_public_key, generate_rsa_key_pair
 from src.app.schemas.secret_schema import AWSSecrets, SecretSchema
 from src.app.cloud.aws_creds import AWSCreds
+
 from tests.unit.api.v1.config import aws_secrets_payload
 
 
@@ -25,14 +26,14 @@ def test_get_user_creds(aws_creds_class: AWSCreds) -> None:
 
     # Keys
     access_key = "aws_access_key"
-    secret_key = "aws_secret_key"
+    secret_key = "aws_secret_key"  # noqa: S105
 
     assert user_creds[access_key] == aws_secrets_payload["credentials"][access_key]
     assert user_creds[secret_key] == aws_secrets_payload["credentials"][secret_key]
 
 
 def test_update_secret_schema(aws_creds_class: AWSCreds) -> None:
-    """Test that Secret Schema is updated with encrypted user credentials"""
+    """Test that Secret Schema is updated with encrypted user credentials."""
     user_creds = aws_creds_class.get_user_creds()
 
     # Encrypt with the user's public key

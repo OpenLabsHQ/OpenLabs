@@ -15,7 +15,6 @@ from tests.common.api.v1.config import (
     AUTH_API_CLIENT_PARAMS,
     BASE_ROUTE,
     aws_secrets_payload,
-    azure_secrets_payload,
     password_update_payload,
 )
 
@@ -50,11 +49,11 @@ class TestUsersAuth:
     async def test_update_secrets_with_invalid_payload(
         self, auth_api_client: AsyncClient
     ) -> None:
-        """Test updating user secrets with invalid credentials payload"""
+        """Test updating user secrets with invalid credentials payload."""
         # Try update with invalid secrets format - Use AWS secrets specifically for this test
         invalid_payload = copy.deepcopy(aws_secrets_payload)
         # Using incorrect credentials to test validation - submit payload without required fields
-        invalid_payload["credentials"] = {}  # noqa: S105
+        invalid_payload["credentials"] = {}
 
         update_response = await auth_api_client.post(
             f"{BASE_ROUTE}/users/me/secrets", json=invalid_payload
@@ -65,7 +64,7 @@ class TestUsersAuth:
     async def test_update_secrets_with_invalid_credentials(
         self, auth_api_client: AsyncClient
     ) -> None:
-        """Test updating user secrets with invalid credentials that do not authenticate"""
+        """Test updating user secrets with invalid credentials that do not authenticate."""
         # Try update with invalid secrets - Use AWS secrets specifically for this test
         invalid_payload = copy.deepcopy(
             aws_secrets_payload
