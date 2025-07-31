@@ -299,6 +299,9 @@ valid_deployed_range_data: dict[str, Any] = {
     "name": "openlabs-deployed-test-v2",
     "vnc": True,
     "vpn": False,
+    "readers": [],
+    "writers": [],
+    "executors": [],
 }
 
 valid_deployed_vpc_data: dict[str, Any] = copy.deepcopy(
