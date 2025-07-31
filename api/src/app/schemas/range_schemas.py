@@ -51,13 +51,6 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         description="Description of blueprint range.",
         examples=["This is my test range."],
     )
-    readers: list[int] = Field(
-        default=[], description="List of user IDs with read access to this blueprint."
-    )
-    writers: list[int] = Field(
-        default=[], description="List of user IDs with write access to this blueprint."
-    )
-
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
@@ -179,19 +172,6 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
-    readers: list[int] = Field(
-        default=[],
-        description="List of user IDs with read access to this deployed range.",
-    )
-    writers: list[int] = Field(
-        default=[],
-        description="List of user IDs with write access to this deployed range.",
-    )
-    executors: list[int] = Field(
-        default=[],
-        description="List of user IDs with execute access to this deployed range.",
-    )
-
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
