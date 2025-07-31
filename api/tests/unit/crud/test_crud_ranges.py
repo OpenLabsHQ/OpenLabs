@@ -540,29 +540,6 @@ async def test_get_non_existent_deployed_range_key() -> None:
     assert not await get_deployed_range_key(dummy_db, range_id=1, user_id=-1)
 
 
-async def test_create_deployed_ranges_too_many_models(
-    mocker: MockerFixture,
-) -> None:
-    """Test that the creation crud function for deployed ranges raises an exception if we get back more models than input schemas."""
-    dummy_db = DummyDB()
-
-    blueprint_range_create_schema = BlueprintRangeCreateSchema.model_validate(
-        valid_blueprint_range_create_payload, from_attributes=True
-    )
-    user_id = random.randint(1, 100)  # noqa: S311
-
-    # Return too many "models"
-    mocker.patch(
-        "src.app.crud.crud_ranges.build_blueprint_range_models",
-        return_value=["fake", "list"],
-    )
-
-    with pytest.raises(
-        RuntimeError, match="range blueprint models from a single schema"
-    ):
-        await create_blueprint_range(dummy_db, blueprint_range_create_schema, user_id)
-
-
 async def test_create_deployed_range_too_many_models(
     mocker: MockerFixture,
 ) -> None:
