@@ -51,8 +51,12 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         description="Description of blueprint range.",
         examples=["This is my test range."],
     )
-
-    pass
+    readers: list[int] = Field(
+        default=[], description="List of user IDs with read access to this blueprint."
+    )
+    writers: list[int] = Field(
+        default=[], description="List of user IDs with write access to this blueprint."
+    )
 
 
 class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
@@ -60,12 +64,6 @@ class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
 
     vpcs: list[BlueprintVPCCreateSchema] = Field(
         ..., description="All blueprint VPCs in range."
-    )
-    readers: list[int] = Field(
-        default=[], description="List of user IDs with read access to this blueprint."
-    )
-    writers: list[int] = Field(
-        default=[], description="List of user IDs with write access to this blueprint."
     )
 
     @field_validator("vpcs")
@@ -181,14 +179,6 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
-
-
-class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
-    """Schema to create deployed range object."""
-
-    vpcs: list[DeployedVPCCreateSchema] = Field(
-        ..., description="Deployed VPCs in the range."
-    )
     readers: list[int] = Field(
         default=[],
         description="List of user IDs with read access to this deployed range.",
@@ -200,6 +190,14 @@ class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
     executors: list[int] = Field(
         default=[],
         description="List of user IDs with execute access to this deployed range.",
+    )
+
+
+class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
+    """Schema to create deployed range object."""
+
+    vpcs: list[DeployedVPCCreateSchema] = Field(
+        ..., description="Deployed VPCs in the range."
     )
 
     @field_validator("vpcs")
