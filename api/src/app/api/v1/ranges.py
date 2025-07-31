@@ -258,7 +258,7 @@ async def deploy_range_from_blueprint_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{blueprint_range.provider.value.upper()} is not supported!",
+            detail=f"{blueprint_range.provider.value.upper()} provider not supported!",
         )
 
     if not pulumi_provider.has_secrets(decrypted_secrets):
@@ -396,7 +396,7 @@ async def delete_range_endpoint(
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"{deployed_range.provider.value.upper()} is not supported!",
+            detail=f"{deployed_range.provider.value.upper()} provider not supported!",
         )
 
     if not pulumi_provider.has_secrets(decrypted_secrets):

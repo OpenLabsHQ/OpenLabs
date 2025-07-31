@@ -9,6 +9,7 @@ import pytest
 import pytest_asyncio
 from fastapi import status
 from httpx import AsyncClient
+from pytest_mock import MockerFixture
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.enums.job_status import JobSubmissionDetail
@@ -90,8 +91,17 @@ def mock_decrypt_example_valid_aws_secrets(
 
 
 @pytest.fixture
+def mock_no_pulumi_provider(
+    mocker: MockerFixture, range_api_v1_endpoints_path: str
+) -> None:
+    """Mock the pulumi provider registry to be empty."""
+    mocker.patch(f"{range_api_v1_endpoints_path}.PROVIDER_REGISTRY", new={})
+
+
+@pytest.fixture
 def mock_retrieve_deployed_range_success(
-    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+    monkeypatch: pytest.MonkeyPatch,
+    range_api_v1_endpoints_path: str,
 ) -> None:
     """Simulate successfully retrieving a deployed range from the database."""
 
@@ -182,6 +192,21 @@ async def test_deploy_without_valid_secrets(
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert "credential" in response.json()["detail"].lower()
+
+
+async def test_deploy_invalid_pulumi_provider(
+    auth_client: AsyncClient,
+    mock_decrypt_no_secrets: None,
+    mock_deploy_payload: dict[str, Any],
+    mock_no_pulumi_provider: None,
+) -> None:
+    """Test that attempting to deploy a range to a invalid/nonexistent pulumi provider."""
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/ranges/deploy",
+        json=mock_deploy_payload,
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "provider not supported" in response.json()["detail"].lower()
 
 
 async def test_deploy_range_deploy_success(
@@ -286,7 +311,6 @@ async def test_destroy_without_valid_secrets(
     auth_client: AsyncClient,
     mock_decrypt_no_secrets: None,
     mock_retrieve_deployed_range_success: None,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that attempting to destroy a range without valid cloud provider credentials will fail (no secrets in database for user)."""
     response = await auth_client.delete(
@@ -294,6 +318,20 @@ async def test_destroy_without_valid_secrets(
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert "credential" in response.json()["detail"].lower()
+
+
+async def test_destroy_invalid_pulumi_provider(
+    auth_client: AsyncClient,
+    mock_decrypt_no_secrets: None,
+    mock_retrieve_deployed_range_success: None,
+    mock_no_pulumi_provider: None,
+) -> None:
+    """Test that attempting to destroy a range without valid cloud provider credentials will fail (no secrets in database for user)."""
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "provider not supported" in response.json()["detail"].lower()
 
 
 async def test_destroy_range_destroy_success(
