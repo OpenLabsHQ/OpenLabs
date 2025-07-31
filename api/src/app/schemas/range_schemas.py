@@ -58,6 +58,24 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         default=[], description="List of user IDs with write access to this blueprint."
     )
 
+    @computed_field
+    def readers(self) -> list[int]:
+        """Get list of user IDs with read access."""
+        if not hasattr(self, "permissions"):
+            return []
+        return [
+            perm.user_id for perm in self.permissions if perm.permission_type == "read"
+        ]
+
+    @computed_field
+    def writers(self) -> list[int]:
+        """Get list of user IDs with write access."""
+        if not hasattr(self, "permissions"):
+            return []
+        return [
+            perm.user_id for perm in self.permissions if perm.permission_type == "write"
+        ]
+
 
 class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
     """Schema to create blueprint range objects."""
@@ -103,24 +121,6 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
     vpcs: list[BlueprintVPCSchema] = Field(
         ..., description="All blueprint VPCs in range."
     )
-
-    @computed_field
-    def readers(self) -> list[int]:
-        """Get list of user IDs with read access."""
-        if not hasattr(self, "permissions"):
-            return []
-        return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "read"
-        ]
-
-    @computed_field
-    def writers(self) -> list[int]:
-        """Get list of user IDs with write access."""
-        if not hasattr(self, "permissions"):
-            return []
-        return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "write"
-        ]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -192,6 +192,35 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         description="List of user IDs with execute access to this deployed range.",
     )
 
+    @computed_field
+    def readers(self) -> list[int]:
+        """Get list of user IDs with read access."""
+        if not hasattr(self, "permissions"):
+            return []
+        return [
+            perm.user_id for perm in self.permissions if perm.permission_type == "read"
+        ]
+
+    @computed_field
+    def writers(self) -> list[int]:
+        """Get list of user IDs with write access."""
+        if not hasattr(self, "permissions"):
+            return []
+        return [
+            perm.user_id for perm in self.permissions if perm.permission_type == "write"
+        ]
+
+    @computed_field
+    def executors(self) -> list[int]:
+        """Get list of user IDs with execute access."""
+        if not hasattr(self, "permissions"):
+            return []
+        return [
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == "execute"
+        ]
+
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
     """Schema to create deployed range object."""
@@ -237,35 +266,6 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
     vpcs: list[DeployedVPCSchema] = Field(
         ..., description="All deployed VPCs in the range."
     )
-
-    @computed_field
-    def readers(self) -> list[int]:
-        """Get list of user IDs with read access."""
-        if not hasattr(self, "permissions"):
-            return []
-        return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "read"
-        ]
-
-    @computed_field
-    def writers(self) -> list[int]:
-        """Get list of user IDs with write access."""
-        if not hasattr(self, "permissions"):
-            return []
-        return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "write"
-        ]
-
-    @computed_field
-    def executors(self) -> list[int]:
-        """Get list of user IDs with execute access."""
-        if not hasattr(self, "permissions"):
-            return []
-        return [
-            perm.user_id
-            for perm in self.permissions
-            if perm.permission_type == "execute"
-        ]
 
     model_config = ConfigDict(from_attributes=True)
 
