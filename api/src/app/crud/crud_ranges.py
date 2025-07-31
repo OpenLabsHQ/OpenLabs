@@ -28,14 +28,6 @@ from .crud_vpcs import build_blueprint_vpc_models, build_deployed_vpc_models
 logger = logging.getLogger(__name__)
 
 
-def get_permissions(
-    model: object,
-) -> list[BlueprintRangePermissionModel | DeployedRangePermissionModel]:
-    """Safely get permissions from a model, handling mocks."""
-    permissions = getattr(model, "permissions", [])
-    if hasattr(permissions, "_mock_name"):
-        return []
-    return permissions or []
 
 
 def can_read_blueprint(
@@ -46,7 +38,7 @@ def can_read_blueprint(
         return True
     return any(
         p.user_id == user_id and p.permission_type in ("read", "write")
-        for p in get_permissions(range_model)
+        for p in (range_model.permissions or [])
     )
 
 
@@ -58,7 +50,7 @@ def can_write_blueprint(
         return True
     return any(
         p.user_id == user_id and p.permission_type == "write"
-        for p in get_permissions(range_model)
+        for p in (range_model.permissions or [])
     )
 
 
@@ -70,7 +62,7 @@ def can_read_deployed(
         return True
     return any(
         p.user_id == user_id and p.permission_type in ("read", "write", "execute")
-        for p in get_permissions(range_model)
+        for p in (range_model.permissions or [])
     )
 
 
@@ -82,7 +74,7 @@ def can_write_deployed(
         return True
     return any(
         p.user_id == user_id and p.permission_type == "write"
-        for p in get_permissions(range_model)
+        for p in (range_model.permissions or [])
     )
 
 
@@ -94,7 +86,7 @@ def can_execute_deployed(
         return True
     return any(
         p.user_id == user_id and p.permission_type == "execute"
-        for p in get_permissions(range_model)
+        for p in (range_model.permissions or [])
     )
 
 

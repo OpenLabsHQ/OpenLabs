@@ -39,13 +39,19 @@ class DummyBlueprintVPC(Mock):
 class DummyBlueprintRange(Mock):
     """Dummy blueprint range model for testing."""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.permissions = []
+        self.owner_id = 1  # Default owner
 
 
 class DummyDeployedRange(Mock):
     """Dummy deployed range model for testing."""
 
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.permissions = []
+        self.owner_id = 1  # Default owner
 
 
 class DummyJob(Mock):
