@@ -2,6 +2,7 @@ from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, String, UniqueCo
 from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship, declared_attr
 
 from ..core.db.database import Base
+from ..enums.permissions import BlueprintPermissionType, DeployedRangePermissionType
 
 
 class PermissionMixin(MappedAsDataclass):
@@ -54,7 +55,7 @@ class BlueprintRangePermissionModel(Base, PermissionMixin):
             name="uq_blueprint_range_permissions",
         ),
         CheckConstraint(
-            "permission_type IN ('read', 'write')",
+            f"permission_type IN {BlueprintPermissionType.values()}",
             name="ck_blueprint_range_permission_type",
         ),
     )
@@ -84,7 +85,7 @@ class DeployedRangePermissionModel(Base, PermissionMixin):
             name="uq_deployed_range_permissions",
         ),
         CheckConstraint(
-            "permission_type IN ('read', 'write', 'execute')",
+            f"permission_type IN {DeployedRangePermissionType.values()}",
             name="ck_deployed_range_permission_type",
         ),
     )

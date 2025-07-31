@@ -1,10 +1,10 @@
 import logging
-from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..enums.permissions import BlueprintPermissionType, DeployedRangePermissionType
 from ..models.permission_models import (
     BlueprintRangePermissionModel,
     DeployedRangePermissionModel,
@@ -17,7 +17,7 @@ async def grant_blueprint_permission(
     db: AsyncSession,
     blueprint_range_id: int,
     user_id: int,
-    permission_type: Literal["read", "write"],
+    permission_type: BlueprintPermissionType,
 ) -> BlueprintRangePermissionModel:
     """Grant permission to a blueprint range.
 
@@ -71,7 +71,7 @@ async def grant_deployed_permission(
     db: AsyncSession,
     deployed_range_id: int,
     user_id: int,
-    permission_type: Literal["read", "write", "execute"],
+    permission_type: DeployedRangePermissionType,
 ) -> DeployedRangePermissionModel:
     """Grant permission to a deployed range.
 
@@ -125,7 +125,7 @@ async def revoke_blueprint_permission(
     db: AsyncSession,
     blueprint_range_id: int,
     user_id: int,
-    permission_type: Literal["read", "write"],
+    permission_type: BlueprintPermissionType,
 ) -> bool:
     """Revoke permission from a blueprint range.
 
@@ -188,7 +188,7 @@ async def revoke_deployed_permission(
     db: AsyncSession,
     deployed_range_id: int,
     user_id: int,
-    permission_type: Literal["read", "write", "execute"],
+    permission_type: DeployedRangePermissionType,
 ) -> bool:
     """Revoke permission from a deployed range.
 

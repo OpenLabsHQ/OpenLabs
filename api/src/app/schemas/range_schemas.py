@@ -11,6 +11,7 @@ from pydantic import (
     field_validator,
 )
 
+from ..enums.permissions import BlueprintPermissionType, DeployedRangePermissionType
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
@@ -57,7 +58,7 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "read"
+            perm.user_id for perm in self.permissions if perm.permission_type == BlueprintPermissionType.READ.value
         ]
 
     @computed_field
@@ -66,7 +67,7 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "write"
+            perm.user_id for perm in self.permissions if perm.permission_type == BlueprintPermissionType.WRITE.value
         ]
 
 
@@ -178,7 +179,7 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "read"
+            perm.user_id for perm in self.permissions if perm.permission_type == DeployedRangePermissionType.READ.value
         ]
 
     @computed_field
@@ -187,7 +188,7 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == "write"
+            perm.user_id for perm in self.permissions if perm.permission_type == DeployedRangePermissionType.WRITE.value
         ]
 
     @computed_field
@@ -198,7 +199,7 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         return [
             perm.user_id
             for perm in self.permissions
-            if perm.permission_type == "execute"
+            if perm.permission_type == DeployedRangePermissionType.EXECUTE.value
         ]
 
 
