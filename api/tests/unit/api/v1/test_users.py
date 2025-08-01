@@ -53,8 +53,8 @@ def mock_get_secrets(mocker: MockerFixture, users_api_v1_endpoints_path: str) ->
 
         Returns:
         -------
-
             UserModel: Fake user that doesn't have a public key set.
+
         """
         return UserModel(
             name="FakeUser",
