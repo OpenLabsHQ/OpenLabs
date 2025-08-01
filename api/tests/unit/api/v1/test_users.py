@@ -52,12 +52,14 @@ def mock_get_secrets(mocker: MockerFixture, users_api_v1_endpoints_path: str) ->
         """Fake dependency that returns a user without a public key.
 
         Returns:
+
         -------
-            MessageSchema: Status message of updating user secrets."""
+            UserModel: Fake user that doesn't have a public key set.
+        """
         return UserModel(
             name="FakeUser",
             email="fakeuser@gmail.com",
-            hashed_password="faskpasswordhash",  # noqa: S105
+            hashed_password="faskpasswordhash",  # noqa: S106
             created_at=datetime.now(UTC),
             last_active=datetime.now(UTC),
             is_admin=False,
