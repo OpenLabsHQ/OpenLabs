@@ -1,5 +1,7 @@
-import pytest
 from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
+import pytest
 from fastapi import status
 from httpx import AsyncClient
 from pytest_mock import MockerFixture
@@ -7,11 +9,9 @@ from pytest_mock import MockerFixture
 from src.app.core.auth.auth import get_current_user
 from src.app.main import app
 from src.app.models.user_model import UserModel
-from src.app.schemas.secret_schema import SecretSchema
 from src.app.schemas.message_schema import MessageSchema
-from tests.unit.api.v1.config import BASE_ROUTE
-from tests.unit.api.v1.config import aws_secrets_payload
-from unittest.mock import MagicMock
+from src.app.schemas.secret_schema import SecretSchema
+from tests.unit.api.v1.config import BASE_ROUTE, aws_secrets_payload
 
 
 @pytest.fixture
@@ -49,13 +49,6 @@ def mock_get_secrets(mocker: MockerFixture, users_api_v1_endpoints_path: str) ->
     """Bypass fetching users secrets to pass for a fake user."""
 
     def override_get_current_user_no_key() -> UserModel:
-        """Fake dependency that returns a user without a public key.
-
-        Returns:
-        -------
-            UserModel: Fake user that doesn't have a public key set.
-
-        """
         return UserModel(
             name="FakeUser",
             email="fakeuser@gmail.com",

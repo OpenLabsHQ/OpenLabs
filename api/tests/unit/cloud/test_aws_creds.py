@@ -6,7 +6,6 @@ from botocore.exceptions import ClientError
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.schemas.secret_schema import AWSSecrets, SecretSchema
 from src.app.utils.crypto import encrypt_with_public_key, generate_rsa_key_pair
-
 from tests.unit.api.v1.config import aws_secrets_payload
 
 
