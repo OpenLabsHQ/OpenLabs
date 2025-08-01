@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenLabsHQ/CLI/internal/progress"
-	"github.com/OpenLabsHQ/CLI/internal/utils"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/progress"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/utils"
 )
 
 func newValidateCommand() *cobra.Command {

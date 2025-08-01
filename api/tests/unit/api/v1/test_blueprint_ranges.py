@@ -5,8 +5,7 @@ from fastapi import status
 from httpx import AsyncClient
 
 from src.app.models.range_models import BlueprintRangeModel
-
-from .config import (
+from tests.common.api.v1.config import (
     BASE_ROUTE,
     valid_blueprint_range_create_payload,
 )

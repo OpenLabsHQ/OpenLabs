@@ -1,4 +1,4 @@
-module github.com/OpenLabsHQ/CLI
+module github.com/OpenLabsHQ/OpenLabs/cli
 
 go 1.24
 

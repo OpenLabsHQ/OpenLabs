@@ -52,17 +52,17 @@ from tests.api_test_utils import (
     wait_for_fastapi_service,
     wait_for_jobs,
 )
+from tests.common.api.v1.config import (
+    valid_blueprint_range_create_payload,
+    valid_blueprint_range_multi_create_payload,
+    valid_deployed_range_data,
+)
 from tests.deploy_test_utils import (
     RangeType,
     get_provider_test_creds,
     isolated_integration_client,
 )
 from tests.test_utils import rotate_docker_compose_test_log_files
-from tests.unit.api.v1.config import (
-    valid_blueprint_range_create_payload,
-    valid_blueprint_range_multi_create_payload,
-    valid_deployed_range_data,
-)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

@@ -1,3 +1,27 @@
+# v0.11.1 (Fri Jul 25 2025)
+
+#### 🐛 Bug Fix
+
+- Range Resource Parsing Error [#139](https://github.com/OpenLabsHQ/OpenLabs/pull/139) ([@alexchristy](https://github.com/alexchristy))
+
+#### 📝 Documentation
+
+- Enhance Project Roadmap [#138](https://github.com/OpenLabsHQ/OpenLabs/pull/138) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
+- Remove Duplicate Step in First Range Tutorial [#118](https://github.com/OpenLabsHQ/OpenLabs/pull/118) ([@alexchristy](https://github.com/alexchristy))
+- [WIP] Refactor into monorepo [#114](https://github.com/OpenLabsHQ/OpenLabs/pull/114) ([@alexchristy](https://github.com/alexchristy) [@Adamkadaban](https://github.com/Adamkadaban))
+- Update LICENSE to AGPLv3 [#116](https://github.com/OpenLabsHQ/OpenLabs/pull/116) ([@alexchristy](https://github.com/alexchristy))
+
+#### 🧪 Tests
+
+- Add integration test to check connection from jumpbox to hosts [#117](https://github.com/OpenLabsHQ/OpenLabs/pull/117) ([@Adamkadaban](https://github.com/Adamkadaban))
+
+#### Authors: 2
+
+- Adam Hassan ([@Adamkadaban](https://github.com/Adamkadaban))
+- Alex Christy ([@alexchristy](https://github.com/alexchristy))
+
+---
+
 # v0.11.0 (Sun Jul 13 2025)
 
 #### 🚀 Enhancement

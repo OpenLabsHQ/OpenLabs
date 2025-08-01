@@ -14,9 +14,7 @@ Ready to dive in? Our Quick Start guide will get your first lab running in minut
 1.  **[Installation](guides/installation.md)**
 2.  **[Deploying Your First Lab](tutorials/deploy-your-first-range.md)**
 
----
-
-### ✨ Features
+## ✨ Features
 
 * **Blueprints:** Design anything from a single VM to complex, multi-VPC network topologies in one simple YAML file.
 * **Automation:** Deploy and destroy entire cloud environments with a single click, managing all resources from creation to cleanup.
@@ -24,14 +22,7 @@ Ready to dive in? Our Quick Start guide will get your first lab running in minut
 * **Centralized Control:** Manage all active labs, monitor deployment jobs in real-time, and access connection details from a single dashboard.
 * **Extensible API & CLI:** Integrate OpenLabs into your existing workflows and build custom tooling with a full-featured REST API and command-line interface.
 
-### 🗺️ Roadmap
-
-* **Snapshots & Cloning:** Save the state of any host or an entire lab to roll back changes or deploy perfect, pre-configured clones.
-* **Ansible Provisioning:** Automatically configure your VMs post-deployment by attaching Ansible roles directly to your blueprints.
-* **Dynamic Environments:** Add or remove hosts from a live lab, then export the updated configuration back into a new blueprint to codify your changes.
-* **Integrated Remote Access:** Connect to your lab hosts securely via automated VPN setup and in-browser terminal/desktop access with Apache Guacamole.
-
-### 🤝 Acknowledgments
+## 🤝 Acknowledgments
 
 * **Core Developers:** A huge thanks to the core development team: [@adamkadaban](https://github.com/adamkadaban), [@alexchristy](https://github.com/alexchristy), and [@nareshp1](https://github.com/nareshp1).
 * **Inspiration:** This project took much inspiration from the fantastic [Ludus](https://gitlab.com/badsectorlabs/ludus) project by Bad Sector Labs.

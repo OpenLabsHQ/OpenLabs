@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenLabsHQ/CLI/internal/output"
-	"github.com/OpenLabsHQ/CLI/internal/utils"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/output"
+	"github.com/OpenLabsHQ/OpenLabs/cli/internal/utils"
 )
 
 func newJobsCommand() *cobra.Command {

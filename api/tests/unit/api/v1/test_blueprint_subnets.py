@@ -4,7 +4,7 @@ import pytest
 from fastapi import status
 from httpx import AsyncClient
 
-from .config import (
+from tests.common.api.v1.config import (
     BASE_ROUTE,
     valid_blueprint_subnet_create_payload,
 )
