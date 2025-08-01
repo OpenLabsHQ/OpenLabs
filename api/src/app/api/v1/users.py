@@ -216,7 +216,7 @@ async def update_user_secrets(
             detail=msg.message,
         )
 
-    # Encrypt the AWS credentials using the user's public key
+    # Encrypt the credentials using the user's public key
     if not current_user.public_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

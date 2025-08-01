@@ -43,7 +43,7 @@ class AWSCreds(AbstractBaseCreds):
         """Verify credentials authenticate to an AWS account."""
         try:
             # --- Step 1: Basic Authentication with STS ---
-            # Created shared session for authenticaion and IAM permission check
+            # Created shared session for authentication and IAM permission check
             session = boto3.Session(
                 aws_access_key_id=self.credentials.aws_access_key,
                 aws_secret_access_key=self.credentials.aws_secret_key,
