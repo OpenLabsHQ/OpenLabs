@@ -49,11 +49,12 @@ async def test_get_user_secrets_success(mocker: MockerFixture) -> None:
 
     # Patch validation of secrets
     mock_validate = mocker.patch.object(
-        SecretSchema, "model_validate", return_value="validated_secrets"
+        SecretSchema, "model_validate", return_value=SecretSchema()
     )
 
     result = await get_user_secrets(db=dummy_db, user_id=user_id)
-    assert result == "validated_secrets"
+    fake_secrets = SecretSchema()
+    assert result == fake_secrets
     mock_validate.assert_called_once_with(mock_secret_model)
 
     # Verify the fetching secrets for correct user
