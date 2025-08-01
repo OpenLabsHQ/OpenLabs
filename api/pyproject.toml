@@ -76,7 +76,8 @@ addopts = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 filterwarnings = [
-    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning"
+    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning",
+    "ignore::DeprecationWarning:botocore.auth",
 ]
 
 # Register markers to easily select unit or integration tests.
