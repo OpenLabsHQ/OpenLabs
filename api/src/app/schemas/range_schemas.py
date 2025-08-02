@@ -52,13 +52,16 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         description="Description of blueprint range.",
         examples=["This is my test range."],
     )
+
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == BlueprintPermissionType.READ.value
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == BlueprintPermissionType.READ.value
         ]
 
     @computed_field
@@ -67,7 +70,9 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == BlueprintPermissionType.WRITE.value
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == BlueprintPermissionType.WRITE.value
         ]
 
 
@@ -173,13 +178,16 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
+
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == DeployedRangePermissionType.READ.value
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == DeployedRangePermissionType.READ.value
         ]
 
     @computed_field
@@ -188,7 +196,9 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         if not hasattr(self, "permissions"):
             return []
         return [
-            perm.user_id for perm in self.permissions if perm.permission_type == DeployedRangePermissionType.WRITE.value
+            perm.user_id
+            for perm in self.permissions
+            if perm.permission_type == DeployedRangePermissionType.WRITE.value
         ]
 
     @computed_field

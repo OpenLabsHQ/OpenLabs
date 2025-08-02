@@ -62,7 +62,6 @@ class BlueprintRangeModel(Base, OwnableObjectMixin, RangeMixin):
         return True
 
 
-
 # ==================== Deployed (Instances) =====================
 
 
@@ -97,4 +96,3 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-

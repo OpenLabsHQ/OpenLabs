@@ -39,7 +39,8 @@ class DummyBlueprintVPC(Mock):
 class DummyBlueprintRange(Mock):
     """Dummy blueprint range model for testing."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialize dummy blueprint range."""
         super().__init__(*args, **kwargs)
         self.permissions = []
         self.owner_id = 1  # Default owner
@@ -48,7 +49,8 @@ class DummyBlueprintRange(Mock):
 class DummyDeployedRange(Mock):
     """Dummy deployed range model for testing."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        """Initialize dummy deployed range."""
         super().__init__(*args, **kwargs)
         self.permissions = []
         self.owner_id = 1  # Default owner

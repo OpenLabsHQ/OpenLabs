@@ -4,7 +4,7 @@ from typing import Any
 from src.app.enums.job_status import OpenLabsJobStatus
 
 # Import all common test data
-from tests.common.api.v1.config import *  # noqa: F403, F401
+from tests.common.api.v1.config import *  # noqa: F403
 
 # Override BASE_ROUTE for unit tests (common uses dynamic route)
 BASE_ROUTE = "/api/v1"

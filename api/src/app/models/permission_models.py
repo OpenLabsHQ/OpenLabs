@@ -1,5 +1,11 @@
 from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column, relationship, declared_attr
+from sqlalchemy.orm import (
+    Mapped,
+    MappedAsDataclass,
+    declared_attr,
+    mapped_column,
+    relationship,
+)
 
 from ..core.db.database import Base
 from ..enums.permissions import BlueprintPermissionType, DeployedRangePermissionType
@@ -27,8 +33,9 @@ class PermissionMixin(MappedAsDataclass):
     )
 
     @declared_attr
-    def user(cls):
-        return relationship("UserModel")
+    def user(self) -> relationship:
+        """User relationship."""
+        return relationship("UserModel", init=False)
 
 
 class BlueprintRangePermissionModel(Base, PermissionMixin):
@@ -36,17 +43,13 @@ class BlueprintRangePermissionModel(Base, PermissionMixin):
 
     __tablename__ = "blueprint_range_permissions"
 
-    # The blueprint range being shared
     blueprint_range_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("blueprint_ranges.id", ondelete="CASCADE"),
         nullable=False,
     )
 
-    # Relationships
     blueprint_range = relationship("BlueprintRangeModel", back_populates="permissions")
-
-    # Constraints
     __table_args__ = (
         UniqueConstraint(
             "blueprint_range_id",
@@ -66,17 +69,13 @@ class DeployedRangePermissionModel(Base, PermissionMixin):
 
     __tablename__ = "deployed_range_permissions"
 
-    # The deployed range being shared
     deployed_range_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("deployed_ranges.id", ondelete="CASCADE"),
         nullable=False,
     )
 
-    # Relationships
     deployed_range = relationship("DeployedRangeModel", back_populates="permissions")
-
-    # Constraints
     __table_args__ = (
         UniqueConstraint(
             "deployed_range_id",

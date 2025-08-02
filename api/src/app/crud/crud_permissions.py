@@ -41,16 +41,19 @@ async def grant_blueprint_permission(
         ValueError: If requesting user is not the owner
 
     """
-    # Check ownership - only owners can grant permissions
-    stmt = select(BlueprintRangeModel).where(BlueprintRangeModel.id == blueprint_range_id)
+    stmt = select(BlueprintRangeModel).where(
+        BlueprintRangeModel.id == blueprint_range_id
+    )
     result = await db.execute(stmt)
     blueprint_range = result.scalar_one_or_none()
-    
+
     if not blueprint_range:
-        raise ValueError(f"Blueprint range {blueprint_range_id} not found")
-    
+        msg = f"Blueprint range {blueprint_range_id} not found"
+        raise ValueError(msg)
+
     if blueprint_range.owner_id != requesting_user_id:
-        raise ValueError(f"Only the owner can grant permissions on blueprint range {blueprint_range_id}")
+        msg = f"Only the owner can grant permissions on blueprint range {blueprint_range_id}"
+        raise ValueError(msg)
 
     permission = BlueprintRangePermissionModel(
         blueprint_range_id=blueprint_range_id,
@@ -109,16 +112,17 @@ async def grant_deployed_permission(
         ValueError: If requesting user is not the owner
 
     """
-    # Check ownership
     stmt = select(DeployedRangeModel).where(DeployedRangeModel.id == deployed_range_id)
     result = await db.execute(stmt)
     deployed_range = result.scalar_one_or_none()
-    
+
     if not deployed_range:
-        raise ValueError(f"Deployed range {deployed_range_id} not found")
-    
+        msg = f"Deployed range {deployed_range_id} not found"
+        raise ValueError(msg)
+
     if deployed_range.owner_id != requesting_user_id:
-        raise ValueError(f"User {requesting_user_id} is not the owner of deployed range {deployed_range_id}")
+        msg = f"User {requesting_user_id} is not the owner of deployed range {deployed_range_id}"
+        raise ValueError(msg)
 
     permission = DeployedRangePermissionModel(
         deployed_range_id=deployed_range_id,
@@ -178,15 +182,19 @@ async def revoke_blueprint_permission(
 
     """
     # Check ownership
-    stmt = select(BlueprintRangeModel).where(BlueprintRangeModel.id == blueprint_range_id)
+    stmt = select(BlueprintRangeModel).where(
+        BlueprintRangeModel.id == blueprint_range_id
+    )
     result = await db.execute(stmt)
     blueprint_range = result.scalar_one_or_none()
-    
+
     if not blueprint_range:
-        raise ValueError(f"Blueprint range {blueprint_range_id} not found")
-    
+        msg = f"Blueprint range {blueprint_range_id} not found"
+        raise ValueError(msg)
+
     if blueprint_range.owner_id != requesting_user_id:
-        raise ValueError(f"User {requesting_user_id} is not the owner of blueprint range {blueprint_range_id}")
+        msg = f"User {requesting_user_id} is not the owner of blueprint range {blueprint_range_id}"
+        raise ValueError(msg)
 
     stmt = select(BlueprintRangePermissionModel).where(
         BlueprintRangePermissionModel.blueprint_range_id == blueprint_range_id,
@@ -254,16 +262,17 @@ async def revoke_deployed_permission(
         ValueError: If requesting user is not the owner
 
     """
-    # Check ownership
     stmt = select(DeployedRangeModel).where(DeployedRangeModel.id == deployed_range_id)
     result = await db.execute(stmt)
     deployed_range = result.scalar_one_or_none()
-    
+
     if not deployed_range:
-        raise ValueError(f"Deployed range {deployed_range_id} not found")
-    
+        msg = f"Deployed range {deployed_range_id} not found"
+        raise ValueError(msg)
+
     if deployed_range.owner_id != requesting_user_id:
-        raise ValueError(f"User {requesting_user_id} is not the owner of deployed range {deployed_range_id}")
+        msg = f"User {requesting_user_id} is not the owner of deployed range {deployed_range_id}"
+        raise ValueError(msg)
 
     stmt = select(DeployedRangePermissionModel).where(
         DeployedRangePermissionModel.deployed_range_id == deployed_range_id,
