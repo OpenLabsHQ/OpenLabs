@@ -75,8 +75,19 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
     jumpbox_public_ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
     range_private_key: Mapped[str] = mapped_column(String, nullable=False)
 
+    # Wireguard VPN
+    wg_vpn_public_key: Mapped[str | None] = mapped_column(String, nullable=False)
+
     vpcs = relationship(
         "DeployedVPCModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # Add this new relationship
+    vpn_clients = relationship(
+        "VPNClientModel",
         back_populates="range",
         cascade="all, delete-orphan",
         passive_deletes=True,

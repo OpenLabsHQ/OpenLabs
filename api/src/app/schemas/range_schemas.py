@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
@@ -153,6 +161,23 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
+    wg_vpn_public_key: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Public key of the Wireguard range VPN.",
+    )
+
+    # @model_validator(mode="after")
+    # def valid_vpn_config(self: Self) -> Self:
+    #     """Ensure the correct VPN attributes are populated when VPN is configured."""
+    #     if not self.vpn:
+    #         return self
+
+    #     if not self.wg_vpn_public_key:
+    #         msg = "Ranges with VPN configured must have a WireGuard VPN public key configured as well."
+    #         raise ValueError(msg)
+
+    #     return self
 
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):

@@ -7,6 +7,7 @@ from .secret_model import SecretModel
 from .subnet_models import BlueprintSubnetModel, DeployedSubnetModel
 from .user_model import UserModel
 from .vpc_models import BlueprintVPCModel, DeployedVPCModel
+from .vpn_models import VPNClientModel
 
 __all__ = [
     "BlueprintHostModel",
@@ -21,4 +22,5 @@ __all__ = [
     "OwnableObjectMixin",
     "SecretModel",
     "UserModel",
+    "VPNClientModel",
 ]

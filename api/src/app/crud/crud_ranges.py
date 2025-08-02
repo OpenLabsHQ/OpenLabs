@@ -448,7 +448,7 @@ async def create_deployed_range(
     db: AsyncSession,
     range_schema: DeployedRangeCreateSchema,
     user_id: int,
-) -> DeployedRangeHeaderSchema:
+) -> DeployedRangeModel:
     """Create and add a new deployed range to the database session.
 
     **Note:** This function only adds ranges to the database session. It is the responsibility
@@ -505,7 +505,7 @@ async def create_deployed_range(
         )
         raise
 
-    return DeployedRangeHeaderSchema.model_validate(range_model)
+    return range_model
 
 
 async def delete_deployed_range(

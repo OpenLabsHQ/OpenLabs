@@ -14,11 +14,13 @@ from ..provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
 from ..provisioning.pulumi.provisioner import PulumiOperation
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
+    DeployedRangeHeaderSchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
 from ..schemas.user_schema import UserID
 from ..utils.job_utils import track_job_status
+from ..utils.vpn_utils import get_range_wg_vpn_public_key
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -112,9 +114,29 @@ async def deploy_range(
 
             # Save to database
             async with get_db_session_context() as db:
-                deployed_range_header = await create_deployed_range(
+                range_model = await create_deployed_range(
                     db, deployed_range, user_id=user.id
                 )
+
+                # Every jumpbox has Wireguard configured so
+                # grab the public key even when VPN is not
+                # configure so if users decide to enable the
+                # VPN later we don't need to run this again.
+                #
+                # Range with no VPN enabled can just hide the
+                # client configuration page.
+                wg_vpn_pub_key = get_range_wg_vpn_public_key(
+                    host=str(range_model.jumpbox_public_ip),
+                    user="ubuntu",
+                    private_key_string=range_model.range_private_key,
+                )
+                range_model.wg_vpn_public_key = wg_vpn_pub_key
+
+                # Build schema
+                deployed_range_header = DeployedRangeHeaderSchema.model_validate(
+                    range_model
+                )
+
         except Exception as original_exc:
             # The main operation failed
             logger.exception(

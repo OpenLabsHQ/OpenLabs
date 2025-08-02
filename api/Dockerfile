@@ -44,9 +44,18 @@ HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
 # ========= Worker Image =========
 # Adds worker dependencies
 FROM builder AS worker
-    
+
+# Packages:
+#   - Pulumi: curl, wget, gpg, ca-certificates
+#   - Wireguard: wireguard, zstd
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl wget gpg ca-certificates && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        wget \
+        gpg \
+        ca-certificates \
+        wireguard \
+        zstd && \
     # Install Pulumi CLI
     curl -fsSL https://get.pulumi.com | sh && \
     # Clean up to keep the image size down

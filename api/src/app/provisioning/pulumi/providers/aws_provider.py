@@ -76,20 +76,36 @@ class AWSProvider(PulumiProvider):
                 tags={"Name": jumpbox_public_subnet_name},
             )
 
+            # Build Jumpbox ingress rules
+            jumpbox_sg_ingress_rules = [
+                # SSH Access to Jumpbox for management
+                aws.ec2.SecurityGroupIngressArgs(
+                    from_port=22,
+                    to_port=22,
+                    protocol="tcp",
+                    cidr_blocks=["0.0.0.0/0"],
+                ),
+            ]
+
+            # Open port for Wireguard VPN access
+            if range_obj.vpn:
+                jumpbox_sg_ingress_rules.append(
+                    aws.ec2.SecurityGroupIngressArgs(
+                        from_port=51820,
+                        to_port=51820,
+                        protocol="udp",
+                        cidr_blocks=["0.0.0.0/0"],
+                        description="Allow WireGuard VPN traffic",
+                    )
+                )
+
             # Step 4: Create Security Group and Rules for Jump Box
             jumpbox_sg_name = f"{stack_name}-jumpbox-security-group"
             jumpbox_sg = aws.ec2.SecurityGroup(
                 jumpbox_sg_name,
                 vpc_id=jumpbox_vpc.id,
                 tags={"Name": jumpbox_sg_name},
-                ingress=[
-                    aws.ec2.SecurityGroupIngressArgs(
-                        from_port=22,
-                        to_port=22,
-                        protocol="tcp",
-                        cidr_blocks=["0.0.0.0/0"],
-                    )
-                ],
+                ingress=jumpbox_sg_ingress_rules,
                 egress=[
                     aws.ec2.SecurityGroupEgressArgs(
                         from_port=0,
@@ -104,12 +120,13 @@ class AWSProvider(PulumiProvider):
             jumpbox_instance_name = f"{stack_name}-jumpbox-instance"
             jumpbox = aws.ec2.Instance(
                 jumpbox_instance_name,
-                ami="ami-014f7ab33242ea43c",  # Amazon Ubuntu 20.04 AMI
+                ami="ami-0d35ddb5a8fff568a",  # OpenLabs Jumpbox AMI
                 instance_type="t2.micro",
                 subnet_id=jumpbox_public_subnet.id,
                 vpc_security_group_ids=[jumpbox_sg.id],
                 associate_public_ip_address=True,
                 key_name=key_pair.key_name,
+                source_dest_check=False,
                 tags={"Name": jumpbox_instance_name},
             )
 
