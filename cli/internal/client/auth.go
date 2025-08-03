@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/OpenLabsHQ/OpenLabs/cli/internal/logger"
 )
@@ -114,40 +116,56 @@ func (c *Client) GetUserSecrets() (*UserSecretResponse, error) {
 	return &secrets, nil
 }
 
-type AWSCredentials struct {
+type AWSSecretsPayload struct {
+	Provider  string `json:"provider"`
 	AccessKey string `json:"aws_access_key"`
 	SecretKey string `json:"aws_secret_key"`
 }
 
-type AWSSecretsPayload struct {
-	Provider    string         `json:"provider"`
-	Credentials AWSCredentials `json:"credentials"`
-}
-
-type AzureCredentials struct {
+type AzureSecretsPayload struct {
+	Provider       string `json:"provider"`
 	ClientID       string `json:"azure_client_id"`
 	ClientSecret   string `json:"azure_client_secret"`
 	TenantID       string `json:"azure_tenant_id"`
 	SubscriptionID string `json:"azure_subscription_id"`
 }
 
-type AzureSecretsPayload struct {
-	Provider    string           `json:"provider"`
-	Credentials AzureCredentials `json:"credentials"`
+// ParseValidationErrors extracts and cleans user-facing messages from a validation error string.
+func ParseValidationErrors(errString string) string {
+	re := regexp.MustCompile(`msg:(.*?) type:`)
+	matches := re.FindAllStringSubmatch(errString, -1)
+
+	if len(matches) == 0 {
+		return errString
+	}
+
+	var errorMessages []string
+	for _, match := range matches {
+		if len(match) > 1 {
+			message := strings.TrimSpace(match[1])
+			message = strings.TrimSuffix(message, ",")
+
+			// **This is the new line to remove the prefix**
+			message = strings.TrimPrefix(message, "Value error, ")
+
+			errorMessages = append(errorMessages, message)
+		}
+	}
+
+	return strings.Join(errorMessages, "; ")
 }
 
 func (c *Client) UpdateAWSSecrets(accessKey, secretKey string) error {
 	payload := AWSSecretsPayload{
-		Provider: "aws",
-		Credentials: AWSCredentials{
-			AccessKey: accessKey,
-			SecretKey: secretKey,
-		},
+		Provider:  "aws",
+		AccessKey: accessKey,
+		SecretKey: secretKey,
 	}
 
 	var response Message
 	if err := c.makeRequest("POST", "/api/v1/users/me/secrets", payload, &response); err != nil {
-		return fmt.Errorf("failed to update AWS secrets: %w", err)
+		message := ParseValidationErrors(err.Error())
+		return fmt.Errorf("failed to update AWS secrets: %s", message)
 	}
 
 	return nil
@@ -155,13 +173,11 @@ func (c *Client) UpdateAWSSecrets(accessKey, secretKey string) error {
 
 func (c *Client) UpdateAzureSecrets(clientID, clientSecret, tenantID, subscriptionID string) error {
 	payload := AzureSecretsPayload{
-		Provider: "azure",
-		Credentials: AzureCredentials{
-			ClientID:       clientID,
-			ClientSecret:   clientSecret,
-			TenantID:       tenantID,
-			SubscriptionID: subscriptionID,
-		},
+		Provider:       "azure",
+		ClientID:       clientID,
+		ClientSecret:   clientSecret,
+		TenantID:       tenantID,
+		SubscriptionID: subscriptionID,
 	}
 
 	var response Message
