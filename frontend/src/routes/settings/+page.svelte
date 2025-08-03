@@ -184,7 +184,7 @@
 
     try {
       // Call single, common endpoint
-      const result = await userApi.updateSecrets(provider, payload)
+      const result = await userApi.updateSecrets(payload)
 
       if (result.error) {
         if (provider === 'aws') awsError = result.error
@@ -228,6 +228,7 @@
     
     // Construct the AWS-specific payload
     const payload = {
+        provider: "aws",
         aws_access_key: awsAccessKey,
         aws_secret_key: awsSecretKey,
     }
@@ -252,6 +253,7 @@
     
     // Construct the Azure-specific payload
     const payload = {
+        provider: "azure",
         azure_client_id: azureClientId,
         azure_client_secret: azureClientSecret,
         azure_tenant_id: azureTenantId,

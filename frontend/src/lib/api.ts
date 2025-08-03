@@ -14,7 +14,6 @@ import type {
   BlueprintRange,
   PasswordUpdateRequest,
   PasswordUpdateResponse,
-  SecretsRequest,
   SecretsResponse,
   DeployRangeRequest
 } from '$lib/types/api'
@@ -160,15 +159,11 @@ export const userApi = {
     )
   },
 
-  updateSecrets: async (credentialprovider: string, payload: any): Promise<ApiResponse<SecretsResponse>> => {
-    const request: SecretsRequest = {
-      provider: credentialprovider,
-      credentials: payload,
-    }
+  updateSecrets: async (payload: any): Promise<ApiResponse<SecretsResponse>> => {
     return await apiRequest<SecretsResponse>(
       '/api/v1/users/me/secrets',
       'POST',
-      request
+      payload
     )
   },
 }

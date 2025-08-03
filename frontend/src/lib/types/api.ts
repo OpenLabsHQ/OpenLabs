@@ -192,10 +192,6 @@ export interface PasswordUpdateResponse {
 }
 
 // Secrets verification response
-export interface SecretsRequest {
-  provider: string;
-  credentials: any;
-}
 export interface SecretsResponse {
   message: string;
 }
