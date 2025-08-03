@@ -900,14 +900,14 @@ class TestDeployedRangePermissionHelpers:
 
         assert can_read_deployed(dummy_range, user_id)
 
-    def test_can_read_deployed_execute_implies_read(self) -> None:
-        """User with execute permission can also read deployed ranges."""
+    def test_can_read_deployed_execute_isolated(self) -> None:
+        """User with execute permission cannot read deployed ranges (execute is isolated)."""
         dummy_range = DummyDeployedRange()
         user_id = 2
         dummy_range.owner_id = 1  # Different owner
         dummy_range.permissions = [MockPermission(user_id, "execute")]
 
-        assert can_read_deployed(dummy_range, user_id)
+        assert not can_read_deployed(dummy_range, user_id)
 
     def test_can_read_deployed_no_permission(self) -> None:
         """User without permissions cannot read deployed ranges."""
@@ -1204,10 +1204,10 @@ class TestDeployedRangeCRUDPermissions:
         assert result is not None
         mock_model_validate.assert_called_once()
 
-    async def test_get_deployed_range_with_execute_permission(
+    async def test_get_deployed_range_with_execute_permission_denied(
         self, mocker: MockerFixture
     ) -> None:
-        """User with execute permission can access deployed ranges (execute implies read)."""
+        """User with execute permission cannot access deployed ranges (execute is isolated)."""
         dummy_db = DummyDB()
         dummy_range = DummyDeployedRange()
 
@@ -1224,8 +1224,8 @@ class TestDeployedRangeCRUDPermissions:
             dummy_db, range_id=1, user_id=user_id, is_admin=False
         )
 
-        assert result is not None
-        mock_model_validate.assert_called_once()
+        assert result is None
+        mock_model_validate.assert_not_called()
 
     async def test_get_deployed_range_denied_no_permission(self) -> None:
         """User without permission cannot access deployed ranges."""

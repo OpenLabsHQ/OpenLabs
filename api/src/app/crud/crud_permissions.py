@@ -196,12 +196,12 @@ async def revoke_blueprint_permission(
         msg = f"User {requesting_user_id} is not the owner of blueprint range {blueprint_range_id}"
         raise ValueError(msg)
 
-    stmt = select(BlueprintRangePermissionModel).where(
+    permission_stmt = select(BlueprintRangePermissionModel).where(
         BlueprintRangePermissionModel.blueprint_range_id == blueprint_range_id,
         BlueprintRangePermissionModel.user_id == user_id,
         BlueprintRangePermissionModel.permission_type == permission_type,
     )
-    result = await db.execute(stmt)
+    result = await db.execute(permission_stmt)
     permission = result.scalar_one_or_none()
 
     if not permission:
@@ -274,12 +274,12 @@ async def revoke_deployed_permission(
         msg = f"User {requesting_user_id} is not the owner of deployed range {deployed_range_id}"
         raise ValueError(msg)
 
-    stmt = select(DeployedRangePermissionModel).where(
+    permission_stmt = select(DeployedRangePermissionModel).where(
         DeployedRangePermissionModel.deployed_range_id == deployed_range_id,
         DeployedRangePermissionModel.user_id == user_id,
         DeployedRangePermissionModel.permission_type == permission_type,
     )
-    result = await db.execute(stmt)
+    result = await db.execute(permission_stmt)
     permission = result.scalar_one_or_none()
 
     if not permission:

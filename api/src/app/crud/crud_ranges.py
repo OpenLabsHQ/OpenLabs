@@ -11,6 +11,7 @@ from ..models.permission_models import (
 )
 from ..models.range_models import BlueprintRangeModel, DeployedRangeModel
 from ..models.subnet_models import BlueprintSubnetModel, DeployedSubnetModel
+from ..models.user_model import UserModel
 from ..models.vpc_models import BlueprintVPCModel, DeployedVPCModel
 from ..schemas.range_schemas import (
     BlueprintRangeCreateSchema,
@@ -21,31 +22,18 @@ from ..schemas.range_schemas import (
     DeployedRangeKeySchema,
     DeployedRangeSchema,
 )
-from .crud_permissions import grant_blueprint_permission, grant_deployed_permission
 from .crud_vpcs import build_blueprint_vpc_models, build_deployed_vpc_models
 
 logger = logging.getLogger(__name__)
 
 
-def can_read_blueprint(range_model: BlueprintRangeModel, user_id: int) -> bool:
-    """Check if user can read a blueprint range.
-
-    Users can read a blueprint range if they:
-    1. Are the owner (owners have all permissions by default)
-    2. Have explicit read permission
-    3. Have write permission (write includes read access)
-
-    Args:
-    ----
-        range_model: The blueprint range to check access for
-        user_id: ID of user requesting access
-
-    Returns:
-    -------
-        bool: True if user can read the range, False otherwise
-
-    """
+def can_read_blueprint(
+    range_model: BlueprintRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can read a blueprint range."""
     if range_model.owner_id == user_id:
+        return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
         return True
     return any(
         p.user_id == user_id and p.permission_type in ("read", "write")
@@ -53,16 +41,13 @@ def can_read_blueprint(range_model: BlueprintRangeModel, user_id: int) -> bool:
     )
 
 
-def can_write_blueprint(range_model: BlueprintRangeModel, user_id: int) -> bool:
-    """Check if user can write a blueprint range.
-
-    Users can write a blueprint range if they:
-    1. Are the owner (owners have all permissions by default)
-    2. Have explicit write permission
-
-    Note: Write permission allows modifying blueprint configuration and deploying it.
-    """
+def can_write_blueprint(
+    range_model: BlueprintRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can write a blueprint range."""
     if range_model.owner_id == user_id:
+        return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
         return True
     return any(
         p.user_id == user_id and p.permission_type == "write"
@@ -70,17 +55,23 @@ def can_write_blueprint(range_model: BlueprintRangeModel, user_id: int) -> bool:
     )
 
 
-def can_read_deployed(range_model: DeployedRangeModel, user_id: int) -> bool:
+def can_read_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
     """Check if user can read a deployed range."""
     if range_model.owner_id == user_id:
         return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
+        return True
     return any(
-        p.user_id == user_id and p.permission_type in ("read", "write", "execute")
+        p.user_id == user_id and p.permission_type in ("read", "write")
         for p in (range_model.permissions or [])
     )
 
 
-def can_write_deployed(range_model: DeployedRangeModel, user_id: int) -> bool:
+def can_write_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
     """Check if user can write a deployed range."""
     if range_model.owner_id == user_id:
         return True
@@ -90,16 +81,10 @@ def can_write_deployed(range_model: DeployedRangeModel, user_id: int) -> bool:
     )
 
 
-def can_execute_deployed(range_model: DeployedRangeModel, user_id: int) -> bool:
-    """Check if user can execute a deployed range.
-
-    Users can execute a deployed range if they:
-    1. Are the owner (owners have all permissions by default)
-    2. Have explicit execute permission
-
-    Note: Execute permission allows accessing SSH keys and interacting with the
-    live infrastructure, but does not grant read or write permissions.
-    """
+def can_execute_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can execute a deployed range."""
     if range_model.owner_id == user_id:
         return True
     return any(
@@ -294,14 +279,6 @@ async def create_blueprint_range(
             range_model.id,
             user_id,
         )
-
-        for reader_id in blueprint.readers:
-            if reader_id != user_id:
-                await grant_blueprint_permission(db, range_model.id, reader_id, "read")
-
-        for writer_id in blueprint.writers:
-            if writer_id != user_id:
-                await grant_blueprint_permission(db, range_model.id, writer_id, "write")
 
     except SQLAlchemyError as e:
         logger.exception(
@@ -634,20 +611,6 @@ async def create_deployed_range(
             range_model.id,
             user_id,
         )
-
-        for reader_id in range_schema.readers:
-            if reader_id != user_id:
-                await grant_deployed_permission(db, range_model.id, reader_id, "read")
-
-        for writer_id in range_schema.writers:
-            if writer_id != user_id:
-                await grant_deployed_permission(db, range_model.id, writer_id, "write")
-
-        for executor_id in range_schema.executors:
-            if executor_id != user_id:
-                await grant_deployed_permission(
-                    db, range_model.id, executor_id, "execute"
-                )
 
     except SQLAlchemyError as e:
         logger.exception(

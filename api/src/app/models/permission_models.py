@@ -32,8 +32,8 @@ class PermissionMixin(MappedAsDataclass):
         nullable=False,
     )
 
-    @declared_attr
-    def user(self) -> relationship:
+    @declared_attr  # type: ignore[arg-type]
+    def user(self) -> object:
         """User relationship."""
         return relationship("UserModel", init=False)
 

@@ -46,4 +46,3 @@ class DeployedRangePermissionType(str, Enum):
     def values(cls) -> str:
         """Return formatted tuple string of all permission values."""
         return f"({', '.join(repr(t.value) for t in cls)})"
-
