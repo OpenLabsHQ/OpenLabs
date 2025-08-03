@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from src.app.enums.providers import OpenLabsProvider
 
 
 class SecretBaseSchema(BaseModel):
@@ -54,9 +57,16 @@ class SecretSchema(SecretBaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AWSSecrets(BaseModel):
+class BaseSecrets(BaseModel):
+    """Base secret object for setting secrets on OpenLabs."""
+
+    provider: OpenLabsProvider
+
+
+class AWSSecrets(BaseSecrets):
     """AWS secret object for setting secrets on OpenLabs."""
 
+    provider: Literal[OpenLabsProvider.AWS] = OpenLabsProvider.AWS
     aws_access_key: str = Field(
         ...,
         description="Access key for AWS account",
@@ -83,10 +93,10 @@ class AWSSecrets(BaseModel):
         """
         access_key_length = 20
         if len(aws_access_key.strip()) == 0:
-            msg = "Partial credentials or no credentials provided. Please ensure you are providing proper AWS credentials."
+            msg = "No AWS access key provided. Please ensure you are providing proper AWS credentials."
             raise ValueError(msg)
         if len(aws_access_key.strip()) != access_key_length:
-            msg = "Invalid credential format. Please ensure your AWS credentials are of proper length."
+            msg = "Invalid AWS access key format. Please ensure your AWS credentials are of proper length."
             raise ValueError(msg)
         return aws_access_key
 
@@ -107,16 +117,18 @@ class AWSSecrets(BaseModel):
         """
         secret_key_length = 40
         if len(aws_secret_key.strip()) == 0:
-            msg = "Partial credentials or no credentials provided. Please ensure you are providing proper AWS credentials."
+            msg = "No AWS secret key provided. Please ensure you are providing proper AWS credentials."
             raise ValueError(msg)
         if len(aws_secret_key.strip()) != secret_key_length:
-            msg = "Invalid credential format. Please ensure your AWS credentials are of proper length."
+            msg = "Invalid AWS secret key format. Please ensure your AWS credentials are of proper length."
             raise ValueError(msg)
         return aws_secret_key
 
 
-class AzureSecrets(BaseModel):
+class AzureSecrets(BaseSecrets):
     """Azure secret object for setting secrets on OpenLabs."""
+
+    provider: Literal[OpenLabsProvider.AZURE] = OpenLabsProvider.AZURE
 
     azure_client_id: str = Field(
         ...,
@@ -134,6 +146,9 @@ class AzureSecrets(BaseModel):
         ...,
         description="Subscription ID for Azure",
     )
+
+
+AnySecrets = Annotated[Union[AWSSecrets, AzureSecrets], Field(discriminator="provider")]
 
 
 class CloudSecretStatusSchema(BaseModel):

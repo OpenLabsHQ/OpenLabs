@@ -2,12 +2,10 @@ import base64
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from src.app.cloud.creds_factory import CredsFactory
-from src.app.schemas.creds_verify_schema import CredsVerifySchema
 
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
@@ -21,6 +19,7 @@ from ...schemas.message_schema import (
     UpdatePasswordMessageSchema,
 )
 from ...schemas.secret_schema import (
+    AnySecrets,
     CloudSecretStatusSchema,
     UserSecretResponseSchema,
 )
@@ -173,7 +172,7 @@ async def fetch_user_secrets(
 
 @router.post("/me/secrets")
 async def update_user_secrets(
-    creds: CredsVerifySchema,
+    creds: AnySecrets,
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> MessageSchema:
@@ -181,7 +180,7 @@ async def update_user_secrets(
 
     Args:
     ----
-        creds (CredsVerifySchema): The provider credentials to store.
+        creds (AnySecrets): The provider credentials to store.
         current_user (UserModel): The authenticated user.
         db (Session): Database connection.
 
@@ -199,14 +198,7 @@ async def update_user_secrets(
         )
 
     # Verify credentials are valid before storing
-    try:
-        creds_obj = CredsFactory.create_creds_verification(
-            provider=creds.provider, credentials=creds.credentials
-        )
-    except (ValidationError, ValueError) as e:
-        # Handles Pydantic schema validation errors (e.g., bad format/length of credentials) or invalid providers in payload
-        error_msg = f"Invalid {creds.provider.value.upper()} credentials payload."
-        raise HTTPException(status_code=400, detail=error_msg) from e
+    creds_obj = CredsFactory.create_creds_verification(credentials=creds)
 
     verified, msg = creds_obj.verify_creds()
 
