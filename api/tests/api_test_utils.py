@@ -9,10 +9,10 @@ from typing import Any, Sequence
 from fastapi import status
 from httpx import AsyncClient
 
+from src.app.schemas.secret_schema import AnySecrets
 from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion
-from src.app.schemas.creds_verify_schema import CredsVerifySchema
 from src.app.schemas.job_schemas import JobSchema, JobSubmissionResponseSchema
 from src.app.schemas.range_schemas import (
     BlueprintRangeHeaderSchema,
@@ -225,8 +225,7 @@ async def is_logged_in(client: AsyncClient) -> bool:
 
 async def add_cloud_credentials(
     auth_client: AsyncClient,
-    provider: OpenLabsProvider,
-    credentials: dict[str, Any],
+    credentials: AnySecrets,
 ) -> bool:
     """Add cloud credentials to the authenticated client's account.
 
@@ -247,10 +246,6 @@ async def add_cloud_credentials(
         logger.error("Failed to add cloud credentials. Payload empty!")
         return False
 
-    credentials_payload = CredsVerifySchema(
-        provider=provider, credentials=credentials
-    ).model_dump(mode="json")
-
     # Verify we are logged in
     logged_in = await is_logged_in(auth_client)
     if not logged_in:
@@ -261,7 +256,7 @@ async def add_cloud_credentials(
 
     # Submit credentials
     response = await auth_client.post(
-        f"{base_route}/users/me/secrets", json=credentials_payload
+        f"{base_route}/users/me/secrets", json=credentials.model_dump(mode="json")
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(

@@ -53,13 +53,13 @@ class TestUsersAuth:
         # Try update with invalid secrets format - Use AWS secrets specifically for this test
         invalid_payload = copy.deepcopy(aws_secrets_payload)
         # Using incorrect credentials to test validation - submit payload without required fields
-        invalid_payload["credentials"] = {}
+        invalid_payload["aws_secret_key"] = ""
 
         update_response = await auth_api_client.post(
             f"{BASE_ROUTE}/users/me/secrets", json=invalid_payload
         )
-        assert update_response.status_code == status.HTTP_400_BAD_REQUEST
-        assert update_response.json()["detail"] == "Invalid AWS credentials payload."
+        assert update_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "No AWS secret key provided." in str(update_response.json()["detail"])
 
     async def test_update_secrets_with_invalid_credentials(
         self, auth_api_client: AsyncClient

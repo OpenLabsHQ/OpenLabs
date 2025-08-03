@@ -11,7 +11,7 @@ from tests.common.api.v1.config import aws_secrets_payload
 @pytest.fixture(scope="module")
 def aws_creds_class() -> AWSCreds:
     """Create a AWS creds class object."""
-    return AWSCreds(aws_secrets_payload["credentials"])
+    return AWSCreds(AWSSecrets.model_validate(aws_secrets_payload))
 
 
 def test_init(aws_creds_class: AWSCreds) -> None:
@@ -27,8 +27,8 @@ def test_get_user_creds(aws_creds_class: AWSCreds) -> None:
     access_key = "aws_access_key"
     secret_key = "aws_secret_key"  # noqa: S105
 
-    assert user_creds[access_key] == aws_secrets_payload["credentials"][access_key]
-    assert user_creds[secret_key] == aws_secrets_payload["credentials"][secret_key]
+    assert user_creds[access_key] == aws_secrets_payload[access_key]
+    assert user_creds[secret_key] == aws_secrets_payload[secret_key]
 
 
 def test_update_secret_schema(aws_creds_class: AWSCreds) -> None:

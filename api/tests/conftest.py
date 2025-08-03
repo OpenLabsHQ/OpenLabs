@@ -36,7 +36,7 @@ from src.app.schemas.range_schemas import (
     DeployedRangeCreateSchema,
     DeployedRangeSchema,
 )
-from src.app.schemas.secret_schema import SecretSchema
+from src.app.schemas.secret_schema import AnySecrets, SecretSchema
 from src.app.utils.api_utils import get_api_base_route
 from src.app.utils.cdktf_utils import create_cdktf_dir
 from src.app.utils.path_utils import find_git_root
@@ -564,8 +564,8 @@ async def provider_deployed_ranges_for_provider(
             creds = get_provider_test_creds(provider)
             if not creds:
                 pytest.skip(f"Credentials for {provider_upper} not set.")
-
-            added_creds = await add_cloud_credentials(client, provider, creds)
+            creds = AnySecrets.model_validate(**creds, provider=provider)
+            added_creds = await add_cloud_credentials(client, creds)
             if not added_creds:
                 pytest.fail(f"Failed configure cloud credentials for {provider_upper}")
 
