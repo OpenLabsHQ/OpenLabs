@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import boto3
 from botocore.exceptions import ClientError
@@ -19,9 +19,9 @@ class AWSCreds(AbstractBaseCreds):
 
     credentials: AWSSecrets
 
-    def __init__(self, credentials: dict[str, Any]) -> None:
+    def __init__(self, credentials: AWSSecrets) -> None:
         """Initialize AWS credentials verification object."""
-        self.credentials = AWSSecrets.model_validate(credentials)
+        self.credentials = credentials
 
     def get_user_creds(self) -> dict[str, str]:
         """Convert user AWS secrets to dictionary for encryption."""
@@ -132,23 +132,20 @@ class AWSCreds(AbstractBaseCreds):
                 if result["EvalDecision"] != "allowed":
                     denied_actions.append(result["EvalActionName"])
 
-            if not denied_actions:
-                logger.info(
-                    "All simulated actions were allowed for ARN: %s", caller_arn
-                )
+            if denied_actions:
+                error_message = f"Authentication succeeded, but the user/group is missing required permissions. The following actions were denied: {', '.join(denied_actions)}"
+                logger.error(error_message)
                 return (
-                    True,
+                    False,
                     MessageSchema(
-                        message="AWS credentials authenticated and all required permissions are present."
+                        message=f"Insufficient permissions for your AWS account user/group. Please ensure the following permissions are added: {', '.join(denied_actions)}"
                     ),
                 )
-
-            error_message = f"Authentication succeeded, but the user/group is missing required permissions. The following actions were denied: {', '.join(denied_actions)}"
-            logger.error(error_message)
+            logger.info("All simulated actions were allowed for ARN: %s", caller_arn)
             return (
-                False,
+                True,
                 MessageSchema(
-                    message=f"Insufficient permissions for your AWS account user/group. Please ensure the following permissions are added: {', '.join(denied_actions)}"
+                    message="AWS credentials authenticated and all required permissions are present."
                 ),
             )
         except ClientError as e:

@@ -1,15 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Tuple
 
 from src.app.schemas.message_schema import MessageSchema
-from src.app.schemas.secret_schema import SecretSchema
+from src.app.schemas.secret_schema import AnySecrets, SecretSchema
 
 
 class AbstractBaseCreds(ABC):
     """Abstract class to enforce common credential verification functionality across range cloud providers."""
 
     @abstractmethod
-    def __init__(self, credentials: dict[str, Any]) -> None:
+    def __init__(self, credentials: AnySecrets) -> None:
         """Expected constructor for all credential subclasses."""  # noqa: D401
         pass
 

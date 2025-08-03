@@ -1,6 +1,7 @@
 import logging
-from typing import Any, ClassVar, Type
+from typing import ClassVar, Type
 
+from src.app.schemas.secret_schema import AnySecrets
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.cloud.base_creds import AbstractBaseCreds
 from src.app.enums.providers import OpenLabsProvider
@@ -17,9 +18,7 @@ class CredsFactory:
     }
 
     @classmethod
-    def create_creds_verification(
-        cls, provider: OpenLabsProvider, credentials: dict[str, Any]
-    ) -> AbstractBaseCreds:
+    def create_creds_verification(cls, credentials: AnySecrets) -> AbstractBaseCreds:
         """Create creds object.
 
         **Note:** This function accepts a creation schema as the OpenLabs resource ID is not required
@@ -36,12 +35,10 @@ class CredsFactory:
             AbstractBaseCreds: Creds object that will be used to verify the user cloud credentials provided
 
         """
-        creds_class = cls._registry.get(provider)
+        creds_class = cls._registry.get(credentials.provider)
 
         if creds_class is None:
-            msg = (
-                f"Failed to build creds object. Non-existent provider given: {provider}"
-            )
+            msg = f"Failed to build creds object. Non-existent provider given: {credentials.provider}"
             logger.error(msg)
             raise ValueError(msg)
 
