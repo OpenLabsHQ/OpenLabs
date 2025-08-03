@@ -245,7 +245,11 @@ class TestBlueprintRangeAuth:
         # Check response data
         recieved_blueprint = response.json()
         remove_key_recursively(recieved_blueprint, "id")  # Our payload doesn't have IDs
-        assert recieved_blueprint == valid_blueprint_range_create_payload
+        # Add expected computed permission fields for comparison
+        expected_payload = copy.deepcopy(valid_blueprint_range_create_payload)
+        expected_payload["readers"] = []
+        expected_payload["writers"] = []
+        assert recieved_blueprint == expected_payload
 
     async def test_blueprint_range_get_nonexistent_range(
         self,
@@ -529,7 +533,11 @@ class TestBlueprintRangeAuth:
         remove_key_recursively(
             recieved_range, "id"
         )  # Our creation payload doesn't have IDs
-        assert recieved_range == valid_blueprint_range_create_payload
+        # Add expected computed permission fields for comparison
+        expected_payload = copy.deepcopy(valid_blueprint_range_create_payload)
+        expected_payload["readers"] = []
+        expected_payload["writers"] = []
+        assert recieved_range == expected_payload
 
         # Attempt to list out all of user's blueprints
         response = await auth_api_client.get(f"{BASE_ROUTE}/blueprints/ranges")
@@ -593,6 +601,9 @@ class TestBlueprintRangeNoAuth:
         # Mimic the header response with the valid JSON
         valid_blueprint_copy = copy.deepcopy(valid_blueprint_range_create_payload)
         del valid_blueprint_copy["vpcs"]
+        # Add expected computed permission fields
+        valid_blueprint_copy["readers"] = []
+        valid_blueprint_copy["writers"] = []
         remove_key_recursively(
             recieved_range, "id"
         )  # Our creation payload doesn't have IDs

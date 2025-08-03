@@ -41,6 +41,13 @@ class BlueprintRangeModel(Base, OwnableObjectMixin, RangeMixin):
         passive_deletes=True,
     )
 
+    permissions = relationship(
+        "BlueprintRangePermissionModel",
+        back_populates="blueprint_range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     def is_standalone(self) -> bool:
         """Return whether blueprint range model is standalone.
 
@@ -79,6 +86,13 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
     vpcs = relationship(
         "DeployedVPCModel",
         back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    permissions = relationship(
+        "DeployedRangePermissionModel",
+        back_populates="deployed_range",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

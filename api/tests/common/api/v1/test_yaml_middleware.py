@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 import yaml
 from fastapi import status
@@ -47,7 +49,11 @@ class TestYamlMiddleware:
         # Validate response
         recieved_range = response.json()
         remove_key_recursively(recieved_range, "id")
-        assert recieved_range == valid_blueprint_range_create_payload
+        # Add expected computed permission fields for comparison
+        expected_payload = copy.deepcopy(valid_blueprint_range_create_payload)
+        expected_payload["readers"] = []
+        expected_payload["writers"] = []
+        assert recieved_range == expected_payload
 
     async def test_blueprint_vpc_yaml_to_json(
         self, auth_api_client: AsyncClient

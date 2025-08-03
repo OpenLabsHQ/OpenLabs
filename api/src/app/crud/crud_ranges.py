@@ -5,8 +5,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..models.permission_models import (
+    BlueprintRangePermissionModel,
+    DeployedRangePermissionModel,
+)
 from ..models.range_models import BlueprintRangeModel, DeployedRangeModel
 from ..models.subnet_models import BlueprintSubnetModel, DeployedSubnetModel
+from ..models.user_model import UserModel
 from ..models.vpc_models import BlueprintVPCModel, DeployedVPCModel
 from ..schemas.range_schemas import (
     BlueprintRangeCreateSchema,
@@ -20,6 +25,72 @@ from ..schemas.range_schemas import (
 from .crud_vpcs import build_blueprint_vpc_models, build_deployed_vpc_models
 
 logger = logging.getLogger(__name__)
+
+
+def can_read_blueprint(
+    range_model: BlueprintRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can read a blueprint range."""
+    if range_model.owner_id == user_id:
+        return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
+        return True
+    return any(
+        p.user_id == user_id and p.permission_type in ("read", "write")
+        for p in (range_model.permissions or [])
+    )
+
+
+def can_write_blueprint(
+    range_model: BlueprintRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can write a blueprint range."""
+    if range_model.owner_id == user_id:
+        return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
+        return True
+    return any(
+        p.user_id == user_id and p.permission_type == "write"
+        for p in (range_model.permissions or [])
+    )
+
+
+def can_read_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can read a deployed range."""
+    if range_model.owner_id == user_id:
+        return True
+    if user and hasattr(user, "is_admin") and user.is_admin:
+        return True
+    return any(
+        p.user_id == user_id and p.permission_type in ("read", "write", "execute")
+        for p in (range_model.permissions or [])
+    )
+
+
+def can_write_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can write a deployed range."""
+    if range_model.owner_id == user_id:
+        return True
+    return any(
+        p.user_id == user_id and p.permission_type == "write"
+        for p in (range_model.permissions or [])
+    )
+
+
+def can_execute_deployed(
+    range_model: DeployedRangeModel, user_id: int, user: UserModel | None = None
+) -> bool:
+    """Check if user can execute a deployed range."""
+    if range_model.owner_id == user_id:
+        return True
+    return any(
+        p.user_id == user_id and p.permission_type == "execute"
+        for p in (range_model.permissions or [])
+    )
 
 
 # ==================== Blueprints =====================
@@ -53,7 +124,25 @@ async def get_blueprint_range_headers(
     ).select_from(BlueprintRangeModel)
 
     if not is_admin:
-        stmt = stmt.filter(BlueprintRangeModel.owner_id == user_id)
+        stmt = (
+            stmt.outerjoin(
+                BlueprintRangePermissionModel,
+                BlueprintRangeModel.id
+                == BlueprintRangePermissionModel.blueprint_range_id,
+            )
+            .filter(
+                (BlueprintRangeModel.owner_id == user_id)
+                | (
+                    (BlueprintRangePermissionModel.user_id == user_id)
+                    & (
+                        BlueprintRangePermissionModel.permission_type.in_(
+                            ["read", "write"]
+                        )
+                    )
+                )
+            )
+            .distinct()
+        )
 
     result = await db.execute(stmt)
 
@@ -91,6 +180,7 @@ async def get_blueprint_range(
         selectinload(BlueprintRangeModel.vpcs)
         .selectinload(BlueprintVPCModel.subnets)
         .selectinload(BlueprintSubnetModel.hosts),
+        selectinload(BlueprintRangeModel.permissions),
     ]
     range_model = await db.get(BlueprintRangeModel, range_id, options=options)
 
@@ -100,7 +190,7 @@ async def get_blueprint_range(
         )
         return None
 
-    if is_admin or range_model.owner_id == user_id:
+    if is_admin or can_read_blueprint(range_model, user_id):
         logger.debug("Fetched range blueprint: %s for user %s.", range_id, user_id)
         return BlueprintRangeSchema.model_validate(range_model)
 
@@ -131,7 +221,8 @@ def build_blueprint_range_models(
     range_models: list[BlueprintRangeModel] = []
     for range_schema in ranges:
         range_model = BlueprintRangeModel(
-            **range_schema.model_dump(exclude={"vpcs"}), owner_id=user_id
+            **range_schema.model_dump(exclude={"vpcs", "readers", "writers"}),
+            owner_id=user_id,
         )
         range_model.vpcs = build_blueprint_vpc_models(range_schema.vpcs, user_id)
         range_models.append(range_model)
@@ -226,7 +317,11 @@ async def delete_blueprint_range(
         Optional[BlueprintRangeHeaderSchema]: Range header data if it exists in database and was successfully deleted.
 
     """
-    range_model = await db.get(BlueprintRangeModel, range_id)
+    range_model = await db.get(
+        BlueprintRangeModel,
+        range_id,
+        options=[selectinload(BlueprintRangeModel.permissions)],
+    )
     if not range_model:
         logger.warning(
             "Range blueprint: %s not found for deletion as user: %s. Does user have permissions?",
@@ -242,7 +337,7 @@ async def delete_blueprint_range(
         )
         return None
 
-    if not is_admin and range_model.owner_id != user_id:
+    if not is_admin and not can_write_blueprint(range_model, user_id):
         logger.warning(
             "User: %s is not authorized to delete range blueprint: %s.",
             user_id,
@@ -310,7 +405,24 @@ async def get_deployed_range_headers(
     ).select_from(DeployedRangeModel)
 
     if not is_admin:
-        stmt = stmt.filter(DeployedRangeModel.owner_id == user_id)
+        stmt = (
+            stmt.outerjoin(
+                DeployedRangePermissionModel,
+                DeployedRangeModel.id == DeployedRangePermissionModel.deployed_range_id,
+            )
+            .filter(
+                (DeployedRangeModel.owner_id == user_id)
+                | (
+                    (DeployedRangePermissionModel.user_id == user_id)
+                    & (
+                        DeployedRangePermissionModel.permission_type.in_(
+                            ["read", "write", "execute"]
+                        )
+                    )
+                )
+            )
+            .distinct()
+        )
 
     result = await db.execute(stmt)
 
@@ -347,7 +459,8 @@ async def get_deployed_range(
     options = [
         selectinload(DeployedRangeModel.vpcs)
         .selectinload(DeployedVPCModel.subnets)
-        .selectinload(DeployedSubnetModel.hosts)
+        .selectinload(DeployedSubnetModel.hosts),
+        selectinload(DeployedRangeModel.permissions),
     ]
     range_model = await db.get(DeployedRangeModel, range_id, options=options)
 
@@ -357,7 +470,7 @@ async def get_deployed_range(
         )
         return None
 
-    if is_admin or range_model.owner_id == user_id:
+    if is_admin or can_read_deployed(range_model, user_id):
         logger.debug("Fetched deployed range: %s for user %s.", range_id, user_id)
         return DeployedRangeSchema.model_validate(range_model)
 
@@ -389,22 +502,26 @@ async def get_deployed_range_key(
         Optional[DeployedRangeKeySchema]: Deployed range key data if the range exists and the user is authorized, otherwise None.
 
     """
-    stmt = select(DeployedRangeModel.range_private_key).where(
-        DeployedRangeModel.id == range_id
+    range_model = await db.get(
+        DeployedRangeModel,
+        range_id,
+        options=[selectinload(DeployedRangeModel.permissions)],
     )
 
-    if not is_admin:
-        stmt = stmt.where(DeployedRangeModel.owner_id == user_id)
-
-    range_private_key = await db.scalar(stmt)
-
-    if range_private_key is None:
+    if not range_model or (
+        not is_admin and not can_execute_deployed(range_model, user_id)
+    ):
         logger.warning(
             "Failed to fetch deployed range key for range: %s for user %s. Range not found or unauthorized.",
             range_id,
             user_id,
         )
         return None
+
+    stmt = select(DeployedRangeModel.range_private_key).where(
+        DeployedRangeModel.id == range_id
+    )
+    range_private_key = await db.scalar(stmt)
 
     logger.debug(
         "Fetched deployed range key for range: %s for user %s.", range_id, user_id
@@ -433,7 +550,10 @@ def build_deployed_range_models(
     range_models: list[DeployedRangeModel] = []
     for range_schema in ranges:
         range_model = DeployedRangeModel(
-            **range_schema.model_dump(exclude={"vpcs"}), owner_id=user_id
+            **range_schema.model_dump(
+                exclude={"vpcs", "readers", "writers", "executors"}
+            ),
+            owner_id=user_id,
         )
         range_model.vpcs = build_deployed_vpc_models(range_schema.vpcs, user_id)
         range_models.append(range_model)
@@ -490,6 +610,7 @@ async def create_deployed_range(
             range_model.id,
             user_id,
         )
+
     except SQLAlchemyError as e:
         logger.exception(
             "Database error while flushing deployed range to database session for user: %s. Exception: %s.",
@@ -528,7 +649,11 @@ async def delete_deployed_range(
         Optional[DeployedRangeHeaderSchema]: Deployed range header data if it exists in database and was successfully deleted.
 
     """
-    range_model = await db.get(DeployedRangeModel, range_id)
+    range_model = await db.get(
+        DeployedRangeModel,
+        range_id,
+        options=[selectinload(DeployedRangeModel.permissions)],
+    )
     if not range_model:
         logger.warning(
             "Deployed range: %s not found for deletion as user: %s. Does user have permissions?",
@@ -537,7 +662,7 @@ async def delete_deployed_range(
         )
         return None
 
-    if not is_admin and range_model.owner_id != user_id:
+    if not is_admin and not can_write_deployed(range_model, user_id):
         logger.warning(
             "User: %s is not authorized to delete deployed range: %s.",
             user_id,

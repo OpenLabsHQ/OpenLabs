@@ -2,8 +2,16 @@ from datetime import datetime, timezone
 from ipaddress import IPv4Address
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    computed_field,
+    field_validator,
+)
 
+from ..enums.permissions import BlueprintPermissionType, DeployedRangePermissionType
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
@@ -45,7 +53,29 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         examples=["This is my test range."],
     )
 
-    pass
+    @computed_field
+    def readers(self) -> list[int]:
+        """Get list of user IDs with read access."""
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
+            return []
+        return [
+            perm.user_id
+            for perm in permissions
+            if perm.permission_type == BlueprintPermissionType.READ.value
+        ]
+
+    @computed_field
+    def writers(self) -> list[int]:
+        """Get list of user IDs with write access."""
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
+            return []
+        return [
+            perm.user_id
+            for perm in permissions
+            if perm.permission_type == BlueprintPermissionType.WRITE.value
+        ]
 
 
 class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
@@ -150,6 +180,42 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
+
+    @computed_field
+    def readers(self) -> list[int]:
+        """Get list of user IDs with read access."""
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
+            return []
+        return [
+            perm.user_id
+            for perm in permissions
+            if perm.permission_type == DeployedRangePermissionType.READ.value
+        ]
+
+    @computed_field
+    def writers(self) -> list[int]:
+        """Get list of user IDs with write access."""
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
+            return []
+        return [
+            perm.user_id
+            for perm in permissions
+            if perm.permission_type == DeployedRangePermissionType.WRITE.value
+        ]
+
+    @computed_field
+    def executors(self) -> list[int]:
+        """Get list of user IDs with execute access."""
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
+            return []
+        return [
+            perm.user_id
+            for perm in permissions
+            if perm.permission_type == DeployedRangePermissionType.EXECUTE.value
+        ]
 
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):

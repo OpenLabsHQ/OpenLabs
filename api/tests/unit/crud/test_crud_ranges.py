@@ -1,6 +1,6 @@
 import logging
 import random
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from pytest_mock import MockerFixture
@@ -499,35 +499,46 @@ async def test_get_non_existent_deployed_range() -> None:
 
 
 @pytest.mark.parametrize(
-    "is_admin, expect_owner_filter",
+    "is_admin, user_owns_range",
     [
-        (False, True),
-        (True, False),
+        (False, True),  # Regular user, owns range - should get key
+        (False, False),  # Regular user, doesn't own range - should not get key
+        (True, False),  # Admin user, doesn't own range - should get key
     ],
 )
-async def test_get_deployed_range_key_filters(
+async def test_get_deployed_range_key_permissions(
     is_admin: bool,
-    expect_owner_filter: bool,
+    user_owns_range: bool,
 ) -> None:
-    """Test the deployed range key crud function filters results appropriately."""
+    """Test the deployed range key crud function respects permissions."""
     dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    range_id = 1
+    user_id = 1
+
+    # Set ownership based on test parameters
+    if user_owns_range:
+        dummy_range.owner_id = user_id
+    else:
+        dummy_range.owner_id = user_id + 1
 
     # Configure return of mock result
+    dummy_db.get.return_value = dummy_range
     dummy_db.scalar.return_value = "fake_private_key"
 
-    range_id = random.randint(1, 100)  # noqa: S311
-    user_id = 1
-    await get_deployed_range_key(
+    result = await get_deployed_range_key(
         dummy_db, range_id=range_id, user_id=user_id, is_admin=is_admin
     )
 
-    # Build filter clauses
-    range_id_clause = str(DeployedRangeModel.id == range_id)
-    ownership_clause = str(DeployedRangeModel.owner_id == user_id)
-    where_clause = str(dummy_db.scalar.call_args[0][0].whereclause)
+    # Check if we should expect a result
+    should_have_access = is_admin or user_owns_range
 
-    assert range_id_clause in where_clause  # Always only pull key of specified range
-    assert (ownership_clause in where_clause) == expect_owner_filter
+    if should_have_access:
+        assert result is not None
+        assert result.range_private_key == "fake_private_key"
+    else:
+        assert result is None
 
 
 async def test_get_non_existent_deployed_range_key() -> None:
@@ -752,3 +763,245 @@ async def test_delete_deployed_range_raises_generic_errors(
         and test_except_msg in record.message
         for record in caplog.records
     )
+
+
+# ==================== Permission Integration Tests =====================
+
+
+class MockPermission(Mock):
+    """Mock permission object for testing."""
+
+    def __init__(
+        self, user_id: int, permission_type: str, *args: object, **kwargs: object
+    ) -> None:
+        """Initialize mock permission."""
+        super().__init__(*args, **kwargs)
+        self.user_id = user_id
+        self.permission_type = permission_type
+
+
+async def test_get_blueprint_range_with_read_permission(mocker: MockerFixture) -> None:
+    """Test that users with read permission can access blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "read")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    mock_model_validate.assert_called_once()
+
+
+async def test_get_blueprint_range_denied_no_permission(mocker: MockerFixture) -> None:
+    """Test that users without permission cannot access blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    mock_model_validate.assert_not_called()
+
+
+async def test_get_deployed_range_with_read_permission(mocker: MockerFixture) -> None:
+    """Test that users with read permission can access deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "read")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    mock_model_validate.assert_called_once()
+
+
+async def test_get_deployed_range_denied_no_permission(mocker: MockerFixture) -> None:
+    """Test that users without permission cannot access deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    mock_model_validate.assert_not_called()
+
+
+async def test_delete_blueprint_range_with_write_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users with write permission can delete blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "write")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    dummy_db.delete.assert_called_once_with(dummy_range)
+    mock_model_validate.assert_called_once()
+
+
+async def test_delete_blueprint_range_denied_no_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users without permission cannot delete blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    dummy_db.delete.assert_not_called()
+    mock_model_validate.assert_not_called()
+
+
+async def test_delete_deployed_range_with_write_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users with write permission can delete deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "write")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    dummy_db.delete.assert_called_once_with(dummy_range)
+    mock_model_validate.assert_called_once()
+
+
+async def test_delete_deployed_range_denied_no_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users without permission cannot delete deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    dummy_db.delete.assert_not_called()
+    mock_model_validate.assert_not_called()
+
+
+async def test_get_deployed_range_key_with_execute_permission() -> None:
+    """Test that users with execute permission can access deployed range keys."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "execute")]
+
+    dummy_db.get.return_value = dummy_range
+    dummy_db.scalar.return_value = "fake_private_key"
+
+    result = await get_deployed_range_key(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    assert result.range_private_key == "fake_private_key"
+
+
+async def test_get_deployed_range_key_denied_no_permission() -> None:
+    """Test that users without execute permission cannot access deployed range keys."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+
+    result = await get_deployed_range_key(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    dummy_db.scalar.assert_not_called()  # Should not even try to get the key

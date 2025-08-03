@@ -25,6 +25,8 @@ from sqlalchemy.ext.asyncio import (
 from testcontainers.compose import DockerCompose
 from testcontainers.postgres import PostgresContainer
 
+# Import all models to ensure they're registered with SQLAlchemy metadata
+import src.app.models  # noqa: F401
 from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.job_status import OpenLabsJobStatus
