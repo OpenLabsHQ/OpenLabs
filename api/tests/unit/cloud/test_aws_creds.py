@@ -1,12 +1,11 @@
-from unittest.mock import MagicMock
-
 import pytest
+from pytest_mock import MockerFixture
 from botocore.exceptions import ClientError
 
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.schemas.secret_schema import AWSSecrets, SecretSchema
 from src.app.utils.crypto import encrypt_with_public_key, generate_rsa_key_pair
-from tests.unit.api.v1.config import aws_secrets_payload
+from tests.common.api.v1.config import aws_secrets_payload
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +49,7 @@ def test_update_secret_schema(aws_creds_class: AWSCreds) -> None:
     assert secrets.aws_secret_key == encrypted_data["aws_secret_key"]
 
 
-def test_verify_creds_success(aws_creds_class: AWSCreds, mocker: MagicMock) -> None:
+def test_verify_creds_success(aws_creds_class: AWSCreds, mocker: MockerFixture) -> None:
     """Test successful credential verification with sufficient permissions."""
     # Mock the boto3 session and its clients
     mock_session = mocker.patch("boto3.Session").return_value
@@ -77,7 +76,9 @@ def test_verify_creds_success(aws_creds_class: AWSCreds, mocker: MagicMock) -> N
     mock_iam.simulate_principal_policy.assert_called_once()
 
 
-def test_verify_creds_root_user(aws_creds_class: AWSCreds, mocker: MagicMock) -> None:
+def test_verify_creds_root_user(
+    aws_creds_class: AWSCreds, mocker: MockerFixture
+) -> None:
     """Test that the permissions check is skipped for the root user."""
     mock_session = mocker.patch("boto3.Session").return_value
     mock_sts = mock_session.client.return_value
@@ -95,7 +96,7 @@ def test_verify_creds_root_user(aws_creds_class: AWSCreds, mocker: MagicMock) ->
 
 
 def test_verify_creds_insufficient_permissions(
-    aws_creds_class: AWSCreds, mocker: MagicMock
+    aws_creds_class: AWSCreds, mocker: MockerFixture
 ) -> None:
     """Test verification failure due to denied actions in the simulation."""
     mock_session = mocker.patch("boto3.Session").return_value
@@ -125,7 +126,7 @@ def test_verify_creds_insufficient_permissions(
 
 
 def test_verify_creds_invalid_token(
-    aws_creds_class: AWSCreds, mocker: MagicMock
+    aws_creds_class: AWSCreds, mocker: MockerFixture
 ) -> None:
     """Test verification failure due to invalid credentials."""
     mock_session = mocker.patch("boto3.Session").return_value
@@ -149,7 +150,7 @@ def test_verify_creds_invalid_token(
 
 
 def test_verify_creds_iam_access_denied(
-    aws_creds_class: AWSCreds, mocker: MagicMock
+    aws_creds_class: AWSCreds, mocker: MockerFixture
 ) -> None:
     """Test failure when credentials are valid but cannot perform the IAM simulation."""
     mock_session = mocker.patch("boto3.Session").return_value

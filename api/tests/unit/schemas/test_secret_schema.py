@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.app.schemas.secret_schema import AWSSecrets
-from tests.unit.api.v1.config import aws_secrets_payload
+from tests.common.api.v1.config import aws_secrets_payload
 
 
 def test_aws_secrets_schema_invalid_access_key_length() -> None:
@@ -18,7 +18,7 @@ def test_aws_secrets_schema_invalid_access_key_length() -> None:
         AWSSecrets.model_validate(invalid_creds["credentials"])
 
 
-def test_aws_secrets_schema_missing_access_key_length() -> None:
+def test_aws_secrets_schema_missing_access_key() -> None:
     """Test that the AWS Secrets schema fails when aws_access_key is missing."""
     invalid_creds = copy.deepcopy(aws_secrets_payload)
     invalid_creds["credentials"][
@@ -40,7 +40,7 @@ def test_aws_secrets_schema_invalid_secret_key_length() -> None:
         AWSSecrets.model_validate(invalid_creds["credentials"])
 
 
-def test_aws_secrets_schema_missing_secret_key_length() -> None:
+def test_aws_secrets_schema_missing_secret_key() -> None:
     """Test that the AWS Secrets schema fails when aws_secret_key is missing."""
     invalid_creds = copy.deepcopy(aws_secrets_payload)
     invalid_creds["credentials"][

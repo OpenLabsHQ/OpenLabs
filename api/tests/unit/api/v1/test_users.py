@@ -11,7 +11,7 @@ from src.app.main import app
 from src.app.models.user_model import UserModel
 from src.app.schemas.message_schema import MessageSchema
 from src.app.schemas.secret_schema import SecretSchema
-from tests.unit.api.v1.config import BASE_ROUTE, aws_secrets_payload
+from tests.common.api.v1.config import BASE_ROUTE, aws_secrets_payload
 
 
 @pytest.fixture
