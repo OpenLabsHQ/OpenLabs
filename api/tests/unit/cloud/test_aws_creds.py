@@ -1,6 +1,6 @@
 import pytest
-from pytest_mock import MockerFixture
 from botocore.exceptions import ClientError
+from pytest_mock import MockerFixture
 
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.schemas.secret_schema import AWSSecrets, SecretSchema

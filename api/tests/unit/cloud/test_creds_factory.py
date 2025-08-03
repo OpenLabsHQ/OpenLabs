@@ -2,9 +2,9 @@ import copy
 
 import pytest
 
-from src.app.schemas.secret_schema import AWSSecrets
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.cloud.creds_factory import CredsFactory
+from src.app.schemas.secret_schema import AWSSecrets
 from tests.common.api.v1.config import aws_secrets_payload
 
 

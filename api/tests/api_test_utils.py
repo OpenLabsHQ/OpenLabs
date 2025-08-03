@@ -9,7 +9,6 @@ from typing import Any, Sequence
 from fastapi import status
 from httpx import AsyncClient
 
-from src.app.schemas.secret_schema import AnySecrets
 from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
 from src.app.enums.regions import OpenLabsRegion

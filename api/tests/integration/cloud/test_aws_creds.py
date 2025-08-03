@@ -9,6 +9,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from src.app.cloud.aws_creds import AWSCreds
+from src.app.schemas.secret_schema import AWSSecrets
 from tests.aws_test_utils import set_test_boto_creds
 
 from .aws_config import VERIFY_CREDS_TEST_CASES
@@ -56,6 +57,7 @@ def all_test_credentials(
 
             # Store credentials for the test to use
             credentials_by_id[test_id] = {
+                "provider": "aws",
                 "aws_access_key": access_key["AccessKeyId"],
                 "aws_secret_key": access_key["SecretAccessKey"],
             }
@@ -118,8 +120,9 @@ def test_verify_aws_creds(
     """Test the AWS verify_creds method with various scenarios."""
     # The test now receives exactly the arguments it needs. No unpacking!
     credentials = all_test_credentials[test_id]
+    aws_creds = AWSSecrets.model_validate(credentials)
 
-    aws_verifier = AWSCreds(credentials=credentials)
+    aws_verifier = AWSCreds(credentials=aws_creds)
     is_valid, message_schema = aws_verifier.verify_creds()
 
     assert is_valid is expected_result

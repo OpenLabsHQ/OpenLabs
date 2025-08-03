@@ -1,10 +1,10 @@
 import logging
 from typing import ClassVar, Type
 
-from src.app.schemas.secret_schema import AnySecrets
 from src.app.cloud.aws_creds import AWSCreds
 from src.app.cloud.base_creds import AbstractBaseCreds
 from src.app.enums.providers import OpenLabsProvider
+from src.app.schemas.secret_schema import AnySecrets
 
 # Configure logging
 logger = logging.getLogger(__name__)
