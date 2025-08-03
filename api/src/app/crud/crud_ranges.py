@@ -64,7 +64,7 @@ def can_read_deployed(
     if user and hasattr(user, "is_admin") and user.is_admin:
         return True
     return any(
-        p.user_id == user_id and p.permission_type in ("read", "write")
+        p.user_id == user_id and p.permission_type in ("read", "write", "execute")
         for p in (range_model.permissions or [])
     )
 
@@ -279,7 +279,6 @@ async def create_blueprint_range(
             range_model.id,
             user_id,
         )
-
     except SQLAlchemyError as e:
         logger.exception(
             "Database error while flushing range blueprint to database session for user: %s. Exception: %s.",

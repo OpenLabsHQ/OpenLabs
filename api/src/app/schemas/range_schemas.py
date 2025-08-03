@@ -56,22 +56,24 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
-        if not hasattr(self, "permissions"):
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
             return []
         return [
             perm.user_id
-            for perm in self.permissions
+            for perm in permissions
             if perm.permission_type == BlueprintPermissionType.READ.value
         ]
 
     @computed_field
     def writers(self) -> list[int]:
         """Get list of user IDs with write access."""
-        if not hasattr(self, "permissions"):
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
             return []
         return [
             perm.user_id
-            for perm in self.permissions
+            for perm in permissions
             if perm.permission_type == BlueprintPermissionType.WRITE.value
         ]
 
@@ -182,33 +184,36 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
     @computed_field
     def readers(self) -> list[int]:
         """Get list of user IDs with read access."""
-        if not hasattr(self, "permissions"):
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
             return []
         return [
             perm.user_id
-            for perm in self.permissions
+            for perm in permissions
             if perm.permission_type == DeployedRangePermissionType.READ.value
         ]
 
     @computed_field
     def writers(self) -> list[int]:
         """Get list of user IDs with write access."""
-        if not hasattr(self, "permissions"):
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
             return []
         return [
             perm.user_id
-            for perm in self.permissions
+            for perm in permissions
             if perm.permission_type == DeployedRangePermissionType.WRITE.value
         ]
 
     @computed_field
     def executors(self) -> list[int]:
         """Get list of user IDs with execute access."""
-        if not hasattr(self, "permissions"):
+        permissions = getattr(self, "permissions", None)
+        if not permissions:
             return []
         return [
             perm.user_id
-            for perm in self.permissions
+            for perm in permissions
             if perm.permission_type == DeployedRangePermissionType.EXECUTE.value
         ]
 

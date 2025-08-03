@@ -42,7 +42,7 @@ class DummyBlueprintRange(Mock):
     def __init__(self, *args: Any, **kwargs: dict[str, Any]) -> None:  # noqa: ANN401
         """Initialize dummy blueprint range."""
         super().__init__(*args, **kwargs)
-        self.permissions = []
+        self.permissions: list[Any] = []
         self.owner_id = 1
 
 
@@ -52,7 +52,7 @@ class DummyDeployedRange(Mock):
     def __init__(self, *args: Any, **kwargs: dict[str, Any]) -> None:  # noqa: ANN401
         """Initialize dummy deployed range."""
         super().__init__(*args, **kwargs)
-        self.permissions = []
+        self.permissions: list[Any] = []
         self.owner_id = 1
 
 

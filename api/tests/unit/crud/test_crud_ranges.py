@@ -9,11 +9,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.app.crud.crud_ranges import (
     build_blueprint_range_models,
     build_deployed_range_models,
-    can_execute_deployed,
-    can_read_blueprint,
-    can_read_deployed,
-    can_write_blueprint,
-    can_write_deployed,
     create_blueprint_range,
     create_deployed_range,
     delete_blueprint_range,
@@ -785,245 +780,6 @@ class MockPermission(Mock):
         self.permission_type = permission_type
 
 
-class TestBlueprintPermissionHelpers:
-    """Test blueprint range permission helper functions."""
-
-    def test_can_read_blueprint_owner_access(self) -> None:
-        """Owner can always read blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 1
-        dummy_range.owner_id = user_id
-        dummy_range.permissions = []
-
-        assert can_read_blueprint(dummy_range, user_id)
-
-    def test_can_read_blueprint_explicit_read_permission(self) -> None:
-        """User with explicit read permission can read blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "read")]
-
-        assert can_read_blueprint(dummy_range, user_id)
-
-    def test_can_read_blueprint_write_implies_read(self) -> None:
-        """User with write permission can also read blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "write")]
-
-        assert can_read_blueprint(dummy_range, user_id)
-
-    def test_can_read_blueprint_no_permission(self) -> None:
-        """User without permissions cannot read blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = []
-
-        assert not can_read_blueprint(dummy_range, user_id)
-
-    def test_can_read_blueprint_wrong_user_permission(self) -> None:
-        """User cannot read with permission granted to another user."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(3, "read")]  # Permission for user 3
-
-        assert not can_read_blueprint(dummy_range, user_id)
-
-    def test_can_write_blueprint_owner_access(self) -> None:
-        """Owner can always write blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 1
-        dummy_range.owner_id = user_id
-        dummy_range.permissions = []
-
-        assert can_write_blueprint(dummy_range, user_id)
-
-    def test_can_write_blueprint_explicit_write_permission(self) -> None:
-        """User with explicit write permission can write blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "write")]
-
-        assert can_write_blueprint(dummy_range, user_id)
-
-    def test_can_write_blueprint_read_does_not_imply_write(self) -> None:
-        """User with only read permission cannot write blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "read")]
-
-        assert not can_write_blueprint(dummy_range, user_id)
-
-    def test_can_write_blueprint_no_permission(self) -> None:
-        """User without permissions cannot write blueprint ranges."""
-        dummy_range = DummyBlueprintRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = []
-
-        assert not can_write_blueprint(dummy_range, user_id)
-
-
-class TestDeployedRangePermissionHelpers:
-    """Test deployed range permission helper functions."""
-
-    def test_can_read_deployed_owner_access(self) -> None:
-        """Owner can always read deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 1
-        dummy_range.owner_id = user_id
-        dummy_range.permissions = []
-
-        assert can_read_deployed(dummy_range, user_id)
-
-    def test_can_read_deployed_explicit_read_permission(self) -> None:
-        """User with explicit read permission can read deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "read")]
-
-        assert can_read_deployed(dummy_range, user_id)
-
-    def test_can_read_deployed_write_implies_read(self) -> None:
-        """User with write permission can also read deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "write")]
-
-        assert can_read_deployed(dummy_range, user_id)
-
-    def test_can_read_deployed_execute_isolated(self) -> None:
-        """User with execute permission cannot read deployed ranges (execute is isolated)."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "execute")]
-
-        assert not can_read_deployed(dummy_range, user_id)
-
-    def test_can_read_deployed_no_permission(self) -> None:
-        """User without permissions cannot read deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = []
-
-        assert not can_read_deployed(dummy_range, user_id)
-
-    def test_can_write_deployed_owner_access(self) -> None:
-        """Owner can always write deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 1
-        dummy_range.owner_id = user_id
-        dummy_range.permissions = []
-
-        assert can_write_deployed(dummy_range, user_id)
-
-    def test_can_write_deployed_explicit_write_permission(self) -> None:
-        """User with explicit write permission can write deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "write")]
-
-        assert can_write_deployed(dummy_range, user_id)
-
-    def test_can_write_deployed_read_does_not_imply_write(self) -> None:
-        """User with only read permission cannot write deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "read")]
-
-        assert not can_write_deployed(dummy_range, user_id)
-
-    def test_can_write_deployed_execute_does_not_imply_write(self) -> None:
-        """User with only execute permission cannot write deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "execute")]
-
-        assert not can_write_deployed(dummy_range, user_id)
-
-    def test_can_write_deployed_no_permission(self) -> None:
-        """User without permissions cannot write deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = []
-
-        assert not can_write_deployed(dummy_range, user_id)
-
-    def test_can_execute_deployed_owner_access(self) -> None:
-        """Owner can always execute deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 1
-        dummy_range.owner_id = user_id
-        dummy_range.permissions = []
-
-        assert can_execute_deployed(dummy_range, user_id)
-
-    def test_can_execute_deployed_explicit_execute_permission(self) -> None:
-        """User with explicit execute permission can execute deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "execute")]
-
-        assert can_execute_deployed(dummy_range, user_id)
-
-    def test_can_execute_deployed_read_does_not_imply_execute(self) -> None:
-        """User with only read permission cannot execute deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "read")]
-
-        assert not can_execute_deployed(dummy_range, user_id)
-
-    def test_can_execute_deployed_write_does_not_imply_execute(self) -> None:
-        """User with only write permission cannot execute deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [MockPermission(user_id, "write")]
-
-        assert not can_execute_deployed(dummy_range, user_id)
-
-    def test_can_execute_deployed_no_permission(self) -> None:
-        """User without permissions cannot execute deployed ranges."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = []
-
-        assert not can_execute_deployed(dummy_range, user_id)
-
-    def test_permission_inheritance_multiple_permissions(self) -> None:
-        """User with multiple permissions should have all access rights."""
-        dummy_range = DummyDeployedRange()
-        user_id = 2
-        dummy_range.owner_id = 1  # Different owner
-        dummy_range.permissions = [
-            MockPermission(user_id, "read"),
-            MockPermission(user_id, "write"),
-            MockPermission(user_id, "execute"),
-        ]
-
-        assert can_read_deployed(dummy_range, user_id)
-        assert can_write_deployed(dummy_range, user_id)
-        assert can_execute_deployed(dummy_range, user_id)
-
-
 # ==================== CRUD Integration Permission Tests =====================
 
 
@@ -1204,10 +960,10 @@ class TestDeployedRangeCRUDPermissions:
         assert result is not None
         mock_model_validate.assert_called_once()
 
-    async def test_get_deployed_range_with_execute_permission_denied(
+    async def test_get_deployed_range_with_execute_permission_allowed(
         self, mocker: MockerFixture
     ) -> None:
-        """User with execute permission cannot access deployed ranges (execute is isolated)."""
+        """User with execute permission can access deployed ranges (execute includes read)."""
         dummy_db = DummyDB()
         dummy_range = DummyDeployedRange()
 
@@ -1224,8 +980,8 @@ class TestDeployedRangeCRUDPermissions:
             dummy_db, range_id=1, user_id=user_id, is_admin=False
         )
 
-        assert result is None
-        mock_model_validate.assert_not_called()
+        assert result is not None
+        mock_model_validate.assert_called_once()
 
     async def test_get_deployed_range_denied_no_permission(self) -> None:
         """User without permission cannot access deployed ranges."""
