@@ -225,7 +225,8 @@ async def is_logged_in(client: AsyncClient) -> bool:
 
 async def add_cloud_credentials(
     auth_client: AsyncClient,
-    credentials: AnySecrets,
+    provider: OpenLabsProvider,
+    credentials: dict[str, Any],
 ) -> bool:
     """Add cloud credentials to the authenticated client's account.
 
@@ -246,6 +247,9 @@ async def add_cloud_credentials(
         logger.error("Failed to add cloud credentials. Payload empty!")
         return False
 
+    credentials_payload = credentials
+    credentials_payload["provider"] = provider
+
     # Verify we are logged in
     logged_in = await is_logged_in(auth_client)
     if not logged_in:
@@ -256,7 +260,7 @@ async def add_cloud_credentials(
 
     # Submit credentials
     response = await auth_client.post(
-        f"{base_route}/users/me/secrets", json=credentials.model_dump(mode="json")
+        f"{base_route}/users/me/secrets", json=credentials_payload
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(
