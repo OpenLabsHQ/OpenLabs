@@ -780,103 +780,192 @@ class MockPermission(Mock):
         self.permission_type = permission_type
 
 
-@pytest.mark.parametrize(
-    "range_type,has_permission,permission_type,should_access",
-    [
-        ("blueprint", True, "read", True),
-        ("blueprint", False, None, False),
-        ("deployed", True, "read", True),
-        ("deployed", False, None, False),
-    ],
-)
-async def test_get_range_with_permissions(
-    range_type: str,
-    has_permission: bool,
-    permission_type: str | None,
-    should_access: bool,
-    mocker: MockerFixture,
-) -> None:
-    """Test that get operations respect permission system."""
+async def test_get_blueprint_range_with_read_permission(mocker: MockerFixture) -> None:
+    """Test that users with read permission can access blueprint ranges."""
     dummy_db = DummyDB()
-
-    if range_type == "blueprint":
-        dummy_range = DummyBlueprintRange()
-        get_func = get_blueprint_range
-        schema_class = BlueprintRangeSchema
-    else:
-        dummy_range = DummyDeployedRange()
-        get_func = get_deployed_range
-        schema_class = DeployedRangeSchema
+    dummy_range = DummyBlueprintRange()
 
     user_id = 2
     dummy_range.owner_id = 1  # Different owner
-    dummy_range.permissions = (
-        [MockPermission(user_id, permission_type)] if has_permission else []
-    )
+    dummy_range.permissions = [MockPermission(user_id, "read")]
 
     dummy_db.get.return_value = dummy_range
     mock_model_validate = mocker.patch.object(
-        schema_class, "model_validate", return_value=dummy_range
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
     )
 
-    result = await get_func(dummy_db, range_id=1, user_id=user_id, is_admin=False)
+    result = await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
 
-    if should_access:
-        assert result is not None
-        mock_model_validate.assert_called_once()
-    else:
-        assert result is None
-        mock_model_validate.assert_not_called()
+    assert result is not None
+    mock_model_validate.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    "range_type,has_write_permission,should_delete",
-    [
-        ("blueprint", True, True),
-        ("blueprint", False, False),
-        ("deployed", True, True),
-        ("deployed", False, False),
-    ],
-)
-async def test_delete_range_with_permissions(
-    range_type: str,
-    has_write_permission: bool,
-    should_delete: bool,
-    mocker: MockerFixture,
-) -> None:
-    """Test that delete operations respect write permissions."""
+async def test_get_blueprint_range_denied_no_permission(mocker: MockerFixture) -> None:
+    """Test that users without permission cannot access blueprint ranges."""
     dummy_db = DummyDB()
-
-    if range_type == "blueprint":
-        dummy_range = DummyBlueprintRange()
-        delete_func = delete_blueprint_range
-        header_schema = BlueprintRangeHeaderSchema
-    else:
-        dummy_range = DummyDeployedRange()
-        delete_func = delete_deployed_range
-        header_schema = DeployedRangeHeaderSchema
+    dummy_range = DummyBlueprintRange()
 
     user_id = 2
     dummy_range.owner_id = 1  # Different owner
-    dummy_range.permissions = (
-        [MockPermission(user_id, "write")] if has_write_permission else []
-    )
+    dummy_range.permissions = []  # No permissions
 
     dummy_db.get.return_value = dummy_range
     mock_model_validate = mocker.patch.object(
-        header_schema, "model_validate", return_value=dummy_range
+        BlueprintRangeSchema, "model_validate", return_value=dummy_range
     )
 
-    result = await delete_func(dummy_db, range_id=1, user_id=user_id, is_admin=False)
+    result = await get_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
 
-    if should_delete:
-        assert result is not None
-        dummy_db.delete.assert_called_once_with(dummy_range)
-        mock_model_validate.assert_called_once()
-    else:
-        assert result is None
-        dummy_db.delete.assert_not_called()
-        mock_model_validate.assert_not_called()
+    assert result is None
+    mock_model_validate.assert_not_called()
+
+
+async def test_get_deployed_range_with_read_permission(mocker: MockerFixture) -> None:
+    """Test that users with read permission can access deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "read")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    mock_model_validate.assert_called_once()
+
+
+async def test_get_deployed_range_denied_no_permission(mocker: MockerFixture) -> None:
+    """Test that users without permission cannot access deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await get_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    mock_model_validate.assert_not_called()
+
+
+async def test_delete_blueprint_range_with_write_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users with write permission can delete blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "write")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    dummy_db.delete.assert_called_once_with(dummy_range)
+    mock_model_validate.assert_called_once()
+
+
+async def test_delete_blueprint_range_denied_no_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users without permission cannot delete blueprint ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyBlueprintRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        BlueprintRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_blueprint_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    dummy_db.delete.assert_not_called()
+    mock_model_validate.assert_not_called()
+
+
+async def test_delete_deployed_range_with_write_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users with write permission can delete deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = [MockPermission(user_id, "write")]
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is not None
+    dummy_db.delete.assert_called_once_with(dummy_range)
+    mock_model_validate.assert_called_once()
+
+
+async def test_delete_deployed_range_denied_no_permission(
+    mocker: MockerFixture,
+) -> None:
+    """Test that users without permission cannot delete deployed ranges."""
+    dummy_db = DummyDB()
+    dummy_range = DummyDeployedRange()
+
+    user_id = 2
+    dummy_range.owner_id = 1  # Different owner
+    dummy_range.permissions = []  # No permissions
+
+    dummy_db.get.return_value = dummy_range
+    mock_model_validate = mocker.patch.object(
+        DeployedRangeHeaderSchema, "model_validate", return_value=dummy_range
+    )
+
+    result = await delete_deployed_range(
+        dummy_db, range_id=1, user_id=user_id, is_admin=False
+    )
+
+    assert result is None
+    dummy_db.delete.assert_not_called()
+    mock_model_validate.assert_not_called()
 
 
 async def test_get_deployed_range_key_with_execute_permission() -> None:
