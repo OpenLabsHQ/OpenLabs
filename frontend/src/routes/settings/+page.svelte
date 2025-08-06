@@ -6,6 +6,7 @@
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte'
   import { fade } from 'svelte/transition'
   import logger from '$lib/utils/logger'
+  import { extractPydanticErrors } from '$lib/utils/error'
 
   // Active tab state
   let activeTab: 'aws' | 'azure' = 'aws'
@@ -185,10 +186,17 @@
     try {
       // Call single, common endpoint
       const result = await userApi.updateSecrets(payload)
+      let errorMsg = ""
 
       if (result.error) {
-        if (provider === 'aws') awsError = result.error
-        else azureError = result.error
+        if (typeof result.error === 'object'){ // Pydantic validation error
+          const formattedError = extractPydanticErrors(result.error)
+          errorMsg = formattedError
+          errorMsg = `${errorMsg}\nPlease ensure you are providing proper AWS credentials.`
+        }
+        else errorMsg = result.error
+        if (provider === 'aws') awsError = errorMsg
+        else azureError = errorMsg
         return
       }
 
@@ -436,77 +444,73 @@
             <!-- Tab Content -->
             <div class="pt-4" style="min-height: 380px;">
               {#if activeTab === 'aws'}
-                <div transition:fade={{ duration: 150, delay: 100 }}>
-                  <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-xl font-medium">AWS Credentials</h3>
-                    <span
-                      role="status"
-                      aria-label={secretsStatus.aws.configured ? formatDateForTooltip(secretsStatus.aws.createdAt) : 'AWS credentials not configured'}
-                      class={`${secretsStatus.aws.configured ? 'bg-green-500' : 'bg-gray-500'} relative cursor-pointer rounded-full px-2 py-1 text-xs font-semibold`}
-                      on:mouseenter={handleMouseEnter}
-                      on:mouseleave={handleMouseLeave}
-                    >
-                      {secretsStatus.aws.configured ? 'Configured' : 'Not Configured'}
-                    </span>
-                  </div>
-                  <form on:submit|preventDefault={handleAwsSecretsUpdate} class="space-y-4">
-                    <div>
-                      <label for="aws-access-key" class="mb-1 block text-sm font-medium text-gray-300">Access Key</label>
-                      <input id="aws-access-key" type="text" bind:value={awsAccessKey} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Enter AWS Access Key" />
-                    </div>
-                    <div>
-                      <label for="aws-secret-key" class="mb-1 block text-sm font-medium text-gray-300">Secret Key</label>
-                      <input id="aws-secret-key" type="password" bind:value={awsSecretKey} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Enter AWS Secret Key" />
-                    </div>
-                    {#if awsError}<div class="text-sm text-red-500">{awsError}</div>{/if}
-                    {#if awsSuccess}<div class="text-sm text-green-500">{awsSuccess}</div>{/if}
-                    <div class="pt-4">
-                      <button type="submit" disabled={isAwsLoading} class="w-full rounded-md bg-yellow-600 px-4 py-2 font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50">
-                        {#if isAwsLoading}<span class="mr-2 inline-block"><LoadingSpinner size="sm" color="white" /></span>Updating...{:else}{secretsStatus.aws.configured ? 'Update' : 'Set'} AWS Credentials{/if}
-                      </button>
-                    </div>
-                  </form>
+                <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-xl font-medium">AWS Credentials</h3>
+                  <span
+                    role="status"
+                    aria-label={secretsStatus.aws.configured ? formatDateForTooltip(secretsStatus.aws.createdAt) : 'AWS credentials not configured'}
+                    class={`${secretsStatus.aws.configured ? 'bg-green-500' : 'bg-gray-500'} relative cursor-pointer rounded-full px-2 py-1 text-xs font-semibold`}
+                    on:mouseenter={handleMouseEnter}
+                    on:mouseleave={handleMouseLeave}
+                  >
+                    {secretsStatus.aws.configured ? 'Configured' : 'Not Configured'}
+                  </span>
                 </div>
+                <form on:submit|preventDefault={handleAwsSecretsUpdate} class="space-y-4">
+                  <div>
+                    <label for="aws-access-key" class="mb-1 block text-sm font-medium text-gray-300">Access Key</label>
+                    <input id="aws-access-key" type="text" bind:value={awsAccessKey} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Enter AWS Access Key" />
+                  </div>
+                  <div>
+                    <label for="aws-secret-key" class="mb-1 block text-sm font-medium text-gray-300">Secret Key</label>
+                    <input id="aws-secret-key" type="password" bind:value={awsSecretKey} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500" placeholder="Enter AWS Secret Key" />
+                  </div>
+                  {#if awsError}<div class="text-sm text-red-500">{awsError}</div>{/if}
+                  {#if awsSuccess}<div class="text-sm text-green-500">{awsSuccess}</div>{/if}
+                  <div class="pt-4">
+                    <button type="submit" disabled={isAwsLoading} class="w-full rounded-md bg-yellow-600 px-4 py-2 font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50">
+                      {#if isAwsLoading}<span class="mr-2 inline-block"><LoadingSpinner size="sm" color="white" /></span>Updating...{:else}{secretsStatus.aws.configured ? 'Update' : 'Set'} AWS Credentials{/if}
+                    </button>
+                  </div>
+                </form>
               {:else if activeTab === 'azure'}
-                <div transition:fade={{ duration: 150, delay: 100 }}>
-                   <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-xl font-medium">Azure Credentials</h3>
-                    <span
-                      role="status"
-                      aria-label={secretsStatus.azure.configured ? formatDateForTooltip(secretsStatus.azure.createdAt) : 'Azure credentials not configured'}
-                      class={`${secretsStatus.azure.configured ? 'bg-green-500' : 'bg-gray-500'} relative cursor-pointer rounded-full px-2 py-1 text-xs font-semibold`}
-                      on:mouseenter={handleMouseEnter}
-                      on:mouseleave={handleMouseLeave}
-                    >
-                      {secretsStatus.azure.configured ? 'Configured' : 'Not Configured'}
-                    </span>
-                  </div>
-                  <form on:submit|preventDefault={handleAzureSecretsUpdate} class="space-y-4">
-                     <div>
-                      <label for="azure-client-id" class="mb-1 block text-sm font-medium text-gray-300">Client ID</label>
-                      <input id="azure-client-id" type="text" bind:value={azureClientId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Client ID" />
-                    </div>
-                    <div>
-                      <label for="azure-client-secret" class="mb-1 block text-sm font-medium text-gray-300">Client Secret</label>
-                      <input id="azure-client-secret" type="password" bind:value={azureClientSecret} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Client Secret" />
-                    </div>
-                    <div>
-                      <label for="azure-tenant-id" class="mb-1 block text-sm font-medium text-gray-300">Tenant ID</label>
-                      <input id="azure-tenant-id" type="text" bind:value={azureTenantId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Tenant ID" />
-                    </div>
-                    <div>
-                      <label for="azure-subscription-id" class="mb-1 block text-sm font-medium text-gray-300">Subscription ID</label>
-                      <input id="azure-subscription-id" type="text" bind:value={azureSubscriptionId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Subscription ID" />
-                    </div>
-                    {#if azureError}<div class="text-sm text-red-500">{azureError}</div>{/if}
-                    {#if azureSuccess}<div class="text-sm text-green-500">{azureSuccess}</div>{/if}
-                    <div class="pt-4">
-                       <button type="submit" disabled={isAzureLoading} class="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50">
-                        {#if isAzureLoading}<span class="mr-2 inline-block"><LoadingSpinner size="sm" color="white" /></span>Updating...{:else}{secretsStatus.azure.configured ? 'Update' : 'Set'} Azure Credentials{/if}
-                      </button>
-                    </div>
-                  </form>
+                  <div class="mb-4 flex items-center justify-between">
+                  <h3 class="text-xl font-medium">Azure Credentials</h3>
+                  <span
+                    role="status"
+                    aria-label={secretsStatus.azure.configured ? formatDateForTooltip(secretsStatus.azure.createdAt) : 'Azure credentials not configured'}
+                    class={`${secretsStatus.azure.configured ? 'bg-green-500' : 'bg-gray-500'} relative cursor-pointer rounded-full px-2 py-1 text-xs font-semibold`}
+                    on:mouseenter={handleMouseEnter}
+                    on:mouseleave={handleMouseLeave}
+                  >
+                    {secretsStatus.azure.configured ? 'Configured' : 'Not Configured'}
+                  </span>
                 </div>
+                <form on:submit|preventDefault={handleAzureSecretsUpdate} class="space-y-4">
+                    <div>
+                    <label for="azure-client-id" class="mb-1 block text-sm font-medium text-gray-300">Client ID</label>
+                    <input id="azure-client-id" type="text" bind:value={azureClientId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Client ID" />
+                  </div>
+                  <div>
+                    <label for="azure-client-secret" class="mb-1 block text-sm font-medium text-gray-300">Client Secret</label>
+                    <input id="azure-client-secret" type="password" bind:value={azureClientSecret} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Client Secret" />
+                  </div>
+                  <div>
+                    <label for="azure-tenant-id" class="mb-1 block text-sm font-medium text-gray-300">Tenant ID</label>
+                    <input id="azure-tenant-id" type="text" bind:value={azureTenantId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Tenant ID" />
+                  </div>
+                  <div>
+                    <label for="azure-subscription-id" class="mb-1 block text-sm font-medium text-gray-300">Subscription ID</label>
+                    <input id="azure-subscription-id" type="text" bind:value={azureSubscriptionId} class="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Azure Subscription ID" />
+                  </div>
+                  {#if azureError}<div class="text-sm text-red-500">{azureError}</div>{/if}
+                  {#if azureSuccess}<div class="text-sm text-green-500">{azureSuccess}</div>{/if}
+                  <div class="pt-4">
+                      <button type="submit" disabled={isAzureLoading} class="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:cursor-not-allowed disabled:opacity-50">
+                      {#if isAzureLoading}<span class="mr-2 inline-block"><LoadingSpinner size="sm" color="white" /></span>Updating...{:else}{secretsStatus.azure.configured ? 'Update' : 'Set'} Azure Credentials{/if}
+                    </button>
+                  </div>
+                </form>
               {/if}
             </div>
           </div>

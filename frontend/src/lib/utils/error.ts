@@ -49,6 +49,18 @@ export function formatErrorMessage(error: unknown, fallbackMessage: string = 'An
   return fallbackMessage
 }
 
+// Used specifically for pydantic errors thrown back to the user at the endpoint before the endpoint function is executed
+export function extractPydanticErrors(error: any): string {
+  let errorObj = error;
+
+  // 2. Map over the array to get just the 'msg' string from each object.
+  const messages = errorObj.map((err: any) =>err.msg.replace(/^Value error,\s*/i, ''))
+
+  // 3. Join the array of messages into a single string, separated by newlines.
+  return messages.join('\n');
+}
+
+
 /**
  * Creates a safe error handler function that always returns a string
  * @param fallbackMessage - Default message for unhandled errors
