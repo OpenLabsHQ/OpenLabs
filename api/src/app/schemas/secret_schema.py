@@ -93,10 +93,10 @@ class AWSSecrets(BaseSecrets):
         """
         access_key_length = 20
         if len(aws_access_key.strip()) == 0:
-            msg = "No AWS access key provided. Please ensure you are providing proper AWS credentials."
+            msg = "No AWS access key provided."
             raise ValueError(msg)
         if len(aws_access_key.strip()) != access_key_length:
-            msg = "Invalid AWS access key format. Please ensure your AWS credentials are of proper length."
+            msg = "Invalid AWS access key format."
             raise ValueError(msg)
         return aws_access_key
 
@@ -117,10 +117,10 @@ class AWSSecrets(BaseSecrets):
         """
         secret_key_length = 40
         if len(aws_secret_key.strip()) == 0:
-            msg = "No AWS secret key provided. Please ensure you are providing proper AWS credentials."
+            msg = "No AWS secret key provided."
             raise ValueError(msg)
         if len(aws_secret_key.strip()) != secret_key_length:
-            msg = "Invalid AWS secret key format. Please ensure your AWS credentials are of proper length."
+            msg = "Invalid AWS secret key format."
             raise ValueError(msg)
         return aws_secret_key
 
