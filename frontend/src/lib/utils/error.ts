@@ -54,7 +54,7 @@ export function extractPydanticErrors(error: any): string {
   let errorObj = error;
 
   // 2. Map over the array to get just the 'msg' string from each object.
-  const messages = errorObj.map((err: any) =>err.msg.replace(/^Value error,\s*/i, ''))
+  const messages = errorObj.map((err: any) => err.msg.replace(/^Value error,\s*/i, ''))
 
   // 3. Join the array of messages into a single string, separated by newlines.
   return messages.join('\n');
