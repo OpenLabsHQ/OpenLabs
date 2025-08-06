@@ -14,10 +14,7 @@ import type {
   BlueprintRange,
   PasswordUpdateRequest,
   PasswordUpdateResponse,
-  AWSSecretsRequest,
-  AWSSecretsResponse,
-  AzureSecretsRequest,
-  AzureSecretsResponse,
+  SecretsResponse,
   DeployRangeRequest
 } from '$lib/types/api'
 
@@ -162,36 +159,11 @@ export const userApi = {
     )
   },
 
-  // Set AWS secrets
-  setAwsSecrets: async (accessKey: string, secretKey: string): Promise<ApiResponse<AWSSecretsResponse>> => {
-    const request: AWSSecretsRequest = {
-      aws_access_key: accessKey,
-      aws_secret_key: secretKey,
-    }
-    return await apiRequest<AWSSecretsResponse>(
-      '/api/v1/users/me/secrets/aws',
+  updateSecrets: async (payload: any): Promise<ApiResponse<SecretsResponse>> => {
+    return await apiRequest<SecretsResponse>(
+      '/api/v1/users/me/secrets',
       'POST',
-      request
-    )
-  },
-
-  // Set Azure secrets
-  setAzureSecrets: async (
-    clientId: string,
-    clientSecret: string,
-    tenantId: string,
-    subscriptionId: string
-  ): Promise<ApiResponse<AzureSecretsResponse>> => {
-    const request: AzureSecretsRequest = {
-      azure_client_id: clientId,
-      azure_client_secret: clientSecret,
-      azure_tenant_id: tenantId,
-      azure_subscription_id: subscriptionId,
-    }
-    return await apiRequest<AzureSecretsResponse>(
-      '/api/v1/users/me/secrets/azure',
-      'POST',
-      request
+      payload
     )
   },
 }

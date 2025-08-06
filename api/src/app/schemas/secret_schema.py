@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
+from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from src.app.enums.providers import OpenLabsProvider
 
 
 class SecretBaseSchema(BaseModel):
@@ -54,9 +57,16 @@ class SecretSchema(SecretBaseSchema):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AWSSecrets(BaseModel):
+class BaseSecrets(BaseModel):
+    """Base secret object for setting secrets on OpenLabs."""
+
+    provider: OpenLabsProvider
+
+
+class AWSSecrets(BaseSecrets):
     """AWS secret object for setting secrets on OpenLabs."""
 
+    provider: Literal[OpenLabsProvider.AWS] = OpenLabsProvider.AWS
     aws_access_key: str = Field(
         ...,
         description="Access key for AWS account",
@@ -66,9 +76,59 @@ class AWSSecrets(BaseModel):
         description="Secret key for AWS account",
     )
 
+    @field_validator("aws_access_key")
+    @classmethod
+    def validate_access_key(cls, aws_access_key: str) -> str:
+        """Check AWS access key is correct length.
 
-class AzureSecrets(BaseModel):
+        Args:
+        ----
+            cls: AWSSecrets object.
+            aws_access_key (str): AWS access key.
+
+        Returns:
+        -------
+            str: AWS access key.
+
+        """
+        access_key_length = 20
+        if len(aws_access_key.strip()) == 0:
+            msg = "No AWS access key provided."
+            raise ValueError(msg)
+        if len(aws_access_key.strip()) != access_key_length:
+            msg = "Invalid AWS access key format."
+            raise ValueError(msg)
+        return aws_access_key
+
+    @field_validator("aws_secret_key")
+    @classmethod
+    def validate_secret_key(cls, aws_secret_key: str) -> str:
+        """Check AWS secret key is correct length.
+
+        Args:
+        ----
+            cls: AWSSecrets object.
+            aws_secret_key (str): AWS secret key.
+
+        Returns:
+        -------
+            str: AWS access key.
+
+        """
+        secret_key_length = 40
+        if len(aws_secret_key.strip()) == 0:
+            msg = "No AWS secret key provided."
+            raise ValueError(msg)
+        if len(aws_secret_key.strip()) != secret_key_length:
+            msg = "Invalid AWS secret key format."
+            raise ValueError(msg)
+        return aws_secret_key
+
+
+class AzureSecrets(BaseSecrets):
     """Azure secret object for setting secrets on OpenLabs."""
+
+    provider: Literal[OpenLabsProvider.AZURE] = OpenLabsProvider.AZURE
 
     azure_client_id: str = Field(
         ...,
@@ -86,6 +146,9 @@ class AzureSecrets(BaseModel):
         ...,
         description="Subscription ID for Azure",
     )
+
+
+AnySecrets = Annotated[Union[AWSSecrets, AzureSecrets], Field(discriminator="provider")]
 
 
 class CloudSecretStatusSchema(BaseModel):

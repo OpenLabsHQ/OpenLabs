@@ -336,13 +336,15 @@ password_update_payload = {
 }
 
 # Test data for AWS secrets
-aws_secrets_payload = {
+aws_secrets_payload: dict[str, Any] = {
+    "provider": "aws",
     "aws_access_key": "AKIAIOSFODNN7EXAMPLE",
     "aws_secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 }
 
 # Test data for Azure secrets
 azure_secrets_payload = {
+    "provider": "azure",
     "azure_client_id": "00000000-0000-0000-0000-000000000000",
     "azure_client_secret": "example-client-secret-value",
     "azure_tenant_id": "00000000-0000-0000-0000-000000000000",

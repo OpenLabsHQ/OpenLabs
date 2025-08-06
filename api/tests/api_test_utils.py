@@ -225,7 +225,7 @@ async def is_logged_in(client: AsyncClient) -> bool:
 async def add_cloud_credentials(
     auth_client: AsyncClient,
     provider: OpenLabsProvider,
-    credentials_payload: dict[str, Any],
+    credentials: dict[str, Any],
 ) -> bool:
     """Add cloud credentials to the authenticated client's account.
 
@@ -233,7 +233,7 @@ async def add_cloud_credentials(
     ----
         auth_client (AsyncClient): Any authenticated httpx client. NOT THE `auth_client` FIXTURE!
         provider (OpenLabsProvider): A valid OpenLabs cloud provider to configure credentials for.
-        credentials_payload (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
+        credentials (dict[str, Any]): Dictionary representation of corresponding cloud provider's credential schema.
 
     Returns:
     -------
@@ -242,9 +242,12 @@ async def add_cloud_credentials(
     """
     base_route = get_api_base_route(version=1)
 
-    if not credentials_payload:
+    if not credentials:
         logger.error("Failed to add cloud credentials. Payload empty!")
         return False
+
+    credentials_payload = credentials
+    credentials_payload["provider"] = provider
 
     # Verify we are logged in
     logged_in = await is_logged_in(auth_client)
@@ -255,9 +258,8 @@ async def add_cloud_credentials(
         return False
 
     # Submit credentials
-    provider_url = provider.value.lower()
     response = await auth_client.post(
-        f"{base_route}/users/me/secrets/{provider_url}", json=credentials_payload
+        f"{base_route}/users/me/secrets", json=credentials_payload
     )
     if response.status_code != status.HTTP_200_OK:
         logger.error(

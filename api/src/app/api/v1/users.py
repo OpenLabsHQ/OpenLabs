@@ -1,25 +1,25 @@
 import base64
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
+from src.app.cloud.creds_factory import CredsFactory
+
 from ...core.auth.auth import get_current_user
 from ...core.config import settings
 from ...core.db.database import async_get_db
+from ...crud.crud_secrets import get_user_secrets, upsert_user_secrets
 from ...crud.crud_users import get_user_by_id, update_user_password
 from ...models.secret_model import SecretModel
 from ...models.user_model import UserModel
 from ...schemas.message_schema import (
-    AWSUpdateSecretMessageSchema,
-    AzureUpdateSecretMessageSchema,
+    MessageSchema,
     UpdatePasswordMessageSchema,
 )
 from ...schemas.secret_schema import (
-    AWSSecrets,
-    AzureSecrets,
+    AnySecrets,
     CloudSecretStatusSchema,
     UserSecretResponseSchema,
 )
@@ -116,7 +116,7 @@ async def update_password(
 
 
 @router.get("/me/secrets")
-async def get_user_secrets(
+async def fetch_user_secrets(
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
 ) -> UserSecretResponseSchema:
@@ -170,115 +170,67 @@ async def get_user_secrets(
     )
 
 
-@router.post("/me/secrets/aws")
-async def update_aws_secrets(
-    aws_secrets: AWSSecrets,
+@router.post("/me/secrets")
+async def update_user_secrets(
+    creds: AnySecrets,
     current_user: UserModel = Depends(get_current_user),  # noqa: B008
     db: AsyncSession = Depends(async_get_db),  # noqa: B008
-) -> AWSUpdateSecretMessageSchema:
-    """Update the current user's AWS secrets.
+) -> MessageSchema:
+    """Update the current user's secrets.
 
     Args:
     ----
-        aws_secrets (AWSSecrets): The AWS credentials to store.
+        creds (AnySecrets): The provider credentials to store.
         current_user (UserModel): The authenticated user.
         db (Session): Database connection.
 
     Returns:
     -------
-        AWSUpdateSecretMessageSchema: Status message.
+        MessageSchema: Status message of updating user secrets.
 
     """
-    # Fetch secrets explicitly from the database
-    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
-    result = await db.execute(stmt)
-    secrets = result.scalars().first()
+    # Fetch secrets from the database
+    secrets = await get_user_secrets(db, current_user.id)
     if not secrets:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="User secrets record not found",
+            detail="User secrets record not found!",
         )
 
-    # Encrypt the AWS credentials using the user's public key
+    # Verify credentials are valid before storing
+    creds_obj = CredsFactory.create_creds_verification(credentials=creds)
+
+    verified, msg = creds_obj.verify_creds()
+
+    if not verified:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=msg.message,
+        )
+
+    # Encrypt the credentials using the user's public key
     if not current_user.public_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User encryption keys not set up. Please register a new account.",
         )
 
-    # Convert to dictionary for encryption
-    aws_data = {
-        "aws_access_key": aws_secrets.aws_access_key,
-        "aws_secret_key": aws_secrets.aws_secret_key,
-    }
+    # Convert provided credentials to dictionary for encryption
+    user_creds = creds_obj.get_user_creds()
 
     # Encrypt with the user's public key
-    encrypted_data = encrypt_with_public_key(aws_data, current_user.public_key)
+    encrypted_data = encrypt_with_public_key(
+        data=user_creds, public_key_b64=current_user.public_key
+    )
 
     # Update the secrets with encrypted values
-    secrets.aws_access_key = encrypted_data["aws_access_key"]
-    secrets.aws_secret_key = encrypted_data["aws_secret_key"]
-    secrets.aws_created_at = datetime.now(UTC)
-    await db.commit()
+    secrets = creds_obj.update_secret_schema(
+        secrets=secrets, encrypted_data=encrypted_data
+    )
 
-    return AWSUpdateSecretMessageSchema(message="AWS credentials updated successfully")
+    # Add new secrets to database
+    await upsert_user_secrets(db, secrets, current_user.id)
 
-
-@router.post("/me/secrets/azure")
-async def update_azure_secrets(
-    azure_secrets: AzureSecrets,
-    current_user: UserModel = Depends(get_current_user),  # noqa: B008
-    db: AsyncSession = Depends(async_get_db),  # noqa: B008
-) -> AzureUpdateSecretMessageSchema:
-    """Update the current user's Azure secrets.
-
-    Args:
-    ----
-        azure_secrets (AzureSecrets): The Azure credentials to store.
-        current_user (UserModel): The authenticated user.
-        db (Session): Database connection.
-
-    Returns:
-    -------
-        AzureUpdateSecretMessageSchema: Success message.
-
-    """
-    # Fetch secrets explicitly from the database
-    stmt = select(SecretModel).where(SecretModel.user_id == current_user.id)
-    result = await db.execute(stmt)
-    secrets = result.scalars().first()
-    if not secrets:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="User secrets record not found",
-        )
-
-    # Encrypt the Azure credentials using the user's public key
-    if not current_user.public_key:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User encryption keys not set up. Please register a new account.",
-        )
-
-    # Convert to dictionary for encryption
-    azure_data = {
-        "azure_client_id": azure_secrets.azure_client_id,
-        "azure_client_secret": azure_secrets.azure_client_secret,
-        "azure_tenant_id": azure_secrets.azure_tenant_id,
-        "azure_subscription_id": azure_secrets.azure_subscription_id,
-    }
-
-    # Encrypt with the user's public key
-    encrypted_data = encrypt_with_public_key(azure_data, current_user.public_key)
-
-    # Update the secrets with encrypted values
-    secrets.azure_client_id = encrypted_data["azure_client_id"]
-    secrets.azure_client_secret = encrypted_data["azure_client_secret"]
-    secrets.azure_tenant_id = encrypted_data["azure_tenant_id"]
-    secrets.azure_subscription_id = encrypted_data["azure_subscription_id"]
-    secrets.azure_created_at = datetime.now(UTC)
-    await db.commit()
-
-    return AzureUpdateSecretMessageSchema(
-        message="Azure credentials updated successfully"
+    return MessageSchema(
+        message=f"{creds.provider.value.upper()} credentials successfully verified and updated."
     )

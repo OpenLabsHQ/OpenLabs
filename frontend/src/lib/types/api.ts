@@ -191,25 +191,8 @@ export interface PasswordUpdateResponse {
   message: string;
 }
 
-// AWS secrets types
-export interface AWSSecretsRequest {
-  aws_access_key: string;
-  aws_secret_key: string;
-}
-
-export interface AWSSecretsResponse {
-  message: string;
-}
-
-// Azure secrets types
-export interface AzureSecretsRequest {
-  azure_client_id: string;
-  azure_client_secret: string;
-  azure_tenant_id: string;
-  azure_subscription_id: string;
-}
-
-export interface AzureSecretsResponse {
+// Secrets verification response
+export interface SecretsResponse {
   message: string;
 }
 
