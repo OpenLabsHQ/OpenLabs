@@ -196,7 +196,48 @@ class AWSProvider(PulumiProvider):
                 route_table_id=nat_route_table.id,
             )
 
-            # Step 11: Create range VPCs, Subnets, and Hosts
+            # Step 11: Create Transit Gateway to allow traffic to go anywhere in the range (connects all the range vpcs with each other)
+            tgw_name = f"{stack_name}-transit-gateway"
+            tgw = aws.ec2transitgateway.TransitGateway(
+                tgw_name,
+                description="Transit Gateway for internal routing",
+                tags={"Name": tgw_name},
+            )
+
+            # --- TGW Route to NAT Gateway (via Public VPC Attachment) ---
+            # This route directs traffic destined for the internet (0.0.0.0/0) coming *from*
+            # the range VPCs *towards* the Public VPC attachment ENI (which is in jumpbox_public_subnet inside jumpbox_vpc).
+            # The new_vpc_private_route_table then directs it to the NAT GW.
+
+            # --- Public VPC TGW Attachment ---
+            # Step 12: Attach the jumpbox private subnet to the transit gateway
+            # The jumpbox will be able to initiate communication with the range network to access the machines, but the range machines will
+            # Not be able to initate communication back to the jumpbox (one-way)
+
+            # Step 12: Attach the jumpbox private subnet to the transit gateway
+            jumpbox_vpc_tgw_attachment_name = f"{stack_name}-public-vpc-tgw-attachment"
+            jumpbox_vpc_tgw_attachment = aws.ec2transitgateway.VpcAttachment(
+                jumpbox_vpc_tgw_attachment_name,
+                subnet_ids=[jumpbox_vpc_private_subnet.id],
+                transit_gateway_id=tgw.id,
+                vpc_id=jumpbox_vpc.id,
+                transit_gateway_default_route_table_association=True,
+                transit_gateway_default_route_table_propagation=True,
+                tags={"Name": jumpbox_vpc_tgw_attachment_name},
+            )
+
+            # Step 13: Add Routing to the Transit Gateway
+            # Any traffic destined for the internet will route through the transit gateway to the jumpbox private subnet
+            # From there the traffic will use the NAT routing table to route to the NAT gateway to access the internet
+            tgw_internet_route_name = f"{stack_name}-tgw-internet-route"
+            aws.ec2transitgateway.Route(
+                tgw_internet_route_name,
+                destination_cidr_block="0.0.0.0/0",
+                transit_gateway_attachment_id=jumpbox_vpc_tgw_attachment.id,
+                transit_gateway_route_table_id=tgw.association_default_route_table_id,
+            )
+
+            # Step 14: Create range VPCs, Subnets, and Hosts
             for vpc in range_obj.vpcs:
                 vpc_name = normalize_name(vpc.name)
                 vpc_prefix = f"{stack_name}-{vpc_name}"
@@ -214,6 +255,38 @@ class AWSProvider(PulumiProvider):
                 # Export VPC resource ID
                 pulumi.export(f"{vpc_prefix}-resource-id", range_vpc.id)
 
+                # Create security group for access to range hosts
+                private_vpc_sg_name = f"{vpc_prefix}-shared-private-sg"
+                private_vpc_sg = aws.ec2.SecurityGroup(
+                    private_vpc_sg_name,
+                    vpc_id=range_vpc.id,
+                    tags={"Name": "RangePrivateInternalSecurityGroup"},
+                    ingress=[
+                        aws.ec2.SecurityGroupIngressArgs(
+                            from_port=0,
+                            to_port=0,
+                            protocol="-1",
+                            cidr_blocks=["10.255.99.0/24"],  # Allow from Jumpbox
+                        ),
+                        aws.ec2.SecurityGroupIngressArgs(
+                            from_port=0,
+                            to_port=0,
+                            protocol="-1",
+                            cidr_blocks=["0.0.0.0/0"],  # Allow all internal traffic
+                        ),
+                    ],
+                    egress=[
+                        aws.ec2.SecurityGroupEgressArgs(
+                            from_port=0,
+                            to_port=0,
+                            protocol="-1",
+                            cidr_blocks=["0.0.0.0/0"],  # Allow all outbound
+                        ),
+                    ],
+                )
+
+                current_vpc_subnets = []
+
                 for subnet in vpc.subnets:
                     subnet_name = normalize_name(subnet.name)
                     subnet_prefix = f"{vpc_prefix}-{subnet_name}"
@@ -229,51 +302,14 @@ class AWSProvider(PulumiProvider):
                         tags={"Name": subnet_resource_name},
                     )
 
-                    # Create Route Table for Subnet (basic local routing)
-                    subnet_route_table_name = f"{subnet_prefix}-route-table"
-                    subnet_route_table = aws.ec2.RouteTable(
-                        subnet_route_table_name,
-                        vpc_id=range_vpc.id,
-                        tags={"Name": subnet_route_table_name},
-                    )
-
-                    # Associate Route Table with Subnet
-                    aws.ec2.RouteTableAssociation(
-                        f"{subnet_prefix}-route-association",
-                        subnet_id=range_subnet.id,
-                        route_table_id=subnet_route_table.id,
-                    )
-
                     # Export Subnet resource ID
                     pulumi.export(f"{subnet_prefix}-resource-id", range_subnet.id)
+                    current_vpc_subnets.append(range_subnet)
 
+                    # Create EC2 instances in the subnet
                     for host in subnet.hosts:
                         host_prefix = f"{subnet_prefix}-{host.hostname}"
                         host_resource_name = f"{host_prefix}-instance"
-
-                        # Create Security Group for Host
-                        host_sg_name = f"{host_prefix}-security-group"
-                        host_sg = aws.ec2.SecurityGroup(
-                            host_sg_name,
-                            vpc_id=range_vpc.id,
-                            tags={"Name": host_sg_name},
-                            ingress=[
-                                aws.ec2.SecurityGroupIngressArgs(
-                                    from_port=22,
-                                    to_port=22,
-                                    protocol="tcp",
-                                    cidr_blocks=["10.255.0.0/16"],
-                                )
-                            ],
-                            egress=[
-                                aws.ec2.SecurityGroupEgressArgs(
-                                    from_port=0,
-                                    to_port=0,
-                                    protocol="-1",
-                                    cidr_blocks=["0.0.0.0/0"],
-                                )
-                            ],
-                        )
 
                         # Get AMI and instance type
                         ami = AWS_OS_MAP[host.os]
@@ -285,10 +321,10 @@ class AWSProvider(PulumiProvider):
                             ami=ami,
                             instance_type=instance_type,
                             subnet_id=range_subnet.id,
-                            vpc_security_group_ids=[host_sg.id],
+                            vpc_security_group_ids=[private_vpc_sg.id],
                             associate_public_ip_address=False,
                             key_name=key_pair.key_name,
-                            tags={"Name": host_resource_name},
+                            tags={"Name": host.hostname},
                         )
 
                         # Export Host resource ID and private IP
@@ -296,6 +332,57 @@ class AWSProvider(PulumiProvider):
                         pulumi.export(
                             f"{host_prefix}-ip-address", host_instance.private_ip
                         )
+
+                # Step 15: Attach VPC to Transit Gateway
+                private_vpc_tgw_attachment_name = f"{vpc_prefix}-private-vpc-tgw-attachment"
+                aws.ec2transitgateway.VpcAttachment(
+                    private_vpc_tgw_attachment_name,
+                    subnet_ids=[current_vpc_subnets[0].id],
+                    transit_gateway_id=tgw.id,
+                    vpc_id=range_vpc.id,
+                    transit_gateway_default_route_table_association=True,
+                    transit_gateway_default_route_table_propagation=True,
+                    tags={"Name": private_vpc_tgw_attachment_name},
+                )
+
+                # Step 16: Create Routing in range VPC (Routes to TGW to access other range VPCs or the internet via the NAT gateway)
+                new_vpc_private_route_table_name = f"{vpc_prefix}-private-route-table"
+                new_vpc_private_route_table = aws.ec2.RouteTable(
+                    new_vpc_private_route_table_name,
+                    vpc_id=range_vpc.id,
+                    tags={"Name": new_vpc_private_route_table_name},
+                )
+                tgw_route_name = f"{vpc_prefix}-private-tgw-route"
+                aws.ec2.Route(
+                    tgw_route_name,
+                    route_table_id=new_vpc_private_route_table.id,
+                    destination_cidr_block="0.0.0.0/0",
+                    transit_gateway_id=tgw.id,
+                )
+
+                # Associate VPC subnets with Route Table
+                for i, created_subnet in enumerate(current_vpc_subnets):
+                    aws.ec2.RouteTableAssociation(
+                        f"{vpc_prefix}-private-subnet-route-table-association-{i+1}",
+                        subnet_id=created_subnet.id,
+                        route_table_id=new_vpc_private_route_table.id,
+                    )
+
+                # Step 20: Create Routing in Jumpbox VPC
+                # Add route to the Jumpbox VPC's Public route table
+                aws.ec2.Route(
+                    f"{vpc_prefix}-public-rtb-to-private-vpc-route",
+                    route_table_id=jumpbox_route_table.id,
+                    destination_cidr_block=str(vpc.cidr),
+                    transit_gateway_id=tgw.id,
+                )
+                # Add route to the Jumpbox VPC's NAT route table
+                aws.ec2.Route(
+                    f"{vpc_prefix}-public-vpc-tgw-subnet-rtb-to-private-vpc-route",
+                    route_table_id=nat_route_table.id,
+                    destination_cidr_block=str(vpc.cidr),
+                    transit_gateway_id=tgw.id,
+                )
 
         return pulumi_program
 
