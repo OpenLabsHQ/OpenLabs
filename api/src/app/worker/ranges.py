@@ -120,7 +120,7 @@ async def deploy_range(
 
                 # Every jumpbox has Wireguard configured so
                 # grab the public key even when VPN is not
-                # configure so if users decide to enable the
+                # configured so if users decide to enable the
                 # VPN later we don't need to run this again.
                 #
                 # Range with no VPN enabled can just hide the

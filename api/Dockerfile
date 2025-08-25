@@ -54,8 +54,7 @@ RUN apt-get update && \
         wget \
         gpg \
         ca-certificates \
-        wireguard \
-        zstd && \
+        wireguard-tools && \
     # Install Pulumi CLI
     curl -fsSL https://get.pulumi.com | sh && \
     # Clean up to keep the image size down

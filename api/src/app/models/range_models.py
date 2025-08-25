@@ -40,6 +40,13 @@ class BlueprintRangeModel(Base, OwnableObjectMixin, RangeMixin):
         passive_deletes=True,
     )
 
+    vpn_gateways = relationship(
+        "BlueprintVPNGatewayModel",
+        back_populates="range",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     def is_standalone(self) -> bool:
         """Return whether blueprint range model is standalone.
 
@@ -75,9 +82,6 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
     jumpbox_public_ip: Mapped[IPv4Address] = mapped_column(INET, nullable=False)
     range_private_key: Mapped[str] = mapped_column(String, nullable=False)
 
-    # Wireguard VPN
-    wg_vpn_public_key: Mapped[str | None] = mapped_column(String, nullable=False)
-
     vpcs = relationship(
         "DeployedVPCModel",
         back_populates="range",
@@ -85,9 +89,8 @@ class DeployedRangeModel(Base, OwnableObjectMixin, RangeMixin):
         passive_deletes=True,
     )
 
-    # Add this new relationship
-    vpn_clients = relationship(
-        "VPNClientModel",
+    vpn_gateways = relationship(
+        "DeployedVPNGatewayModel",
         back_populates="range",
         cascade="all, delete-orphan",
         passive_deletes=True,

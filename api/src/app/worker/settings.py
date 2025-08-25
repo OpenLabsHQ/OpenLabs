@@ -8,7 +8,7 @@ from ..core.config import settings
 from ..core.logger import LOG_DIR  # noqa: F401
 from .hooks import shutdown, startup
 from .ranges import deploy_range, destroy_range
-from .vpns import generate_wireguard_vpn_client
+from .vpns import add_vpn_client
 
 
 class WorkerSettings:
@@ -17,7 +17,7 @@ class WorkerSettings:
     functions: ClassVar[list[Callable[..., Any]]] = [
         deploy_range,
         destroy_range,
-        generate_wireguard_vpn_client,
+        add_vpn_client,
     ]
     redis_settings = RedisSettings(
         host=settings.REDIS_QUEUE_HOST,

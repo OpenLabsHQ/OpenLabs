@@ -1,0 +1,21 @@
+# ===============================================================
+# WireGuard Server Configuration (wg0.conf)
+#
+# This file is managed by Ansible. Do not edit manually.
+#
+# This template creates the base [Interface] section.
+# Your OpenLabs application should append [Peer] sections
+# to this file to add new clients.
+# ===============================================================
+[Interface]
+Address = {{ wireguard_network }}
+ListenPort = {{ wireguard_port }}
+PrivateKey = {{ wg_private_key }}
+
+# --- NAT and Firewall Rules ---
+# The wg-nat.sh script is called to dynamically find the correct
+# network interface and apply the firewall rules.
+# %i is replaced with the interface name (e.g., wg0).
+# ---------------------------------------------------------------
+PostUp = /etc/wireguard/wg-nat.sh up %i {{ wireguard_network }}
+PostDown = /etc/wireguard/wg-nat.sh down %i {{ wireguard_network }}

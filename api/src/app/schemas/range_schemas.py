@@ -14,6 +14,12 @@ from pydantic import (
 from ..enums.providers import OpenLabsProvider
 from ..enums.range_states import RangeState
 from ..enums.regions import OpenLabsRegion
+from ..schemas.vpn_gateway_schemas import (
+    BlueprintVPNGatewayCreateSchema,
+    BlueprintVPNGatewaySchema,
+    DeployedVPNGatewayCreateSchema,
+    DeployedVPNGatewaySchema,
+)
 from ..validators.names import OPENLABS_NAME_REGEX
 from ..validators.network import mutually_exclusive_networks_v4
 from .vpc_schemas import (
@@ -36,7 +42,6 @@ class RangeCommonSchema(BaseModel):
         ..., pattern=OPENLABS_NAME_REGEX, examples=["openlabs-practice-1"]
     )
     vnc: bool = Field(default=False, description="Automatic VNC configuration.")
-    vpn: bool = Field(default=False, description="Automatic VPN configuration.")
 
 
 # ==================== Blueprints =====================
@@ -52,8 +57,6 @@ class BlueprintRangeBaseSchema(RangeCommonSchema):
         examples=["This is my test range."],
     )
 
-    pass
-
 
 class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
     """Schema to create blueprint range objects."""
@@ -61,6 +64,32 @@ class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
     vpcs: list[BlueprintVPCCreateSchema] = Field(
         ..., description="All blueprint VPCs in range."
     )
+    vpns: list[BlueprintVPNGatewayCreateSchema] = Field(
+        default_factory=list, description="All blueprint VPN gateways in the range."
+    )
+
+    @model_validator(mode="after")
+    def validate_mutually_exclusive_vpn_gateways(self) -> Self:
+        """Check that VPN gateways do not overlap."""
+        vpn_gateway_cidrs = [gateway.cidr for gateway in self.vpns if gateway.cidr]
+
+        if not mutually_exclusive_networks_v4(vpn_gateway_cidrs):
+            msg = "All VPN gateway CIDRs should be mutually exclusive (not overlap)."
+            raise ValueError(msg)
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_mutually_exclusive_vpcs_and_vpn_gateways(self) -> Self:
+        """Check that VPCs and VPN gateways do not overlap."""
+        vpc_cidrs = [vpc.cidr for vpc in self.vpcs]
+        vpn_gateway_cidrs = [gateway.cidr for gateway in self.vpns if gateway.cidr]
+
+        if not mutually_exclusive_networks_v4([*vpc_cidrs, *vpn_gateway_cidrs]):
+            msg = "All VPN gateways CIDRs should not overlap with VPCs."
+            raise ValueError(msg)
+
+        return self
 
     @field_validator("vpcs")
     @classmethod
@@ -98,6 +127,9 @@ class BlueprintRangeSchema(BlueprintRangeBaseSchema):
     id: int = Field(..., description="Blueprint range unique identifier.")
     vpcs: list[BlueprintVPCSchema] = Field(
         ..., description="All blueprint VPCs in range."
+    )
+    vpns: list[BlueprintVPNGatewaySchema] = Field(
+        default_factory=list, description="All blueprint VPN gateways in the range."
     )
 
     model_config = ConfigDict(from_attributes=True)
@@ -161,23 +193,6 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
         min_length=1,
         description="SSH private key for the range.",
     )
-    wg_vpn_public_key: str | None = Field(
-        default=None,
-        min_length=1,
-        description="Public key of the Wireguard range VPN.",
-    )
-
-    # @model_validator(mode="after")
-    # def valid_vpn_config(self: Self) -> Self:
-    #     """Ensure the correct VPN attributes are populated when VPN is configured."""
-    #     if not self.vpn:
-    #         return self
-
-    #     if not self.wg_vpn_public_key:
-    #         msg = "Ranges with VPN configured must have a WireGuard VPN public key configured as well."
-    #         raise ValueError(msg)
-
-    #     return self
 
 
 class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
@@ -186,6 +201,32 @@ class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
     vpcs: list[DeployedVPCCreateSchema] = Field(
         ..., description="Deployed VPCs in the range."
     )
+    vpns: list[DeployedVPNGatewayCreateSchema] = Field(
+        ..., min_length=1, description="Deployed VPN gateways in the range."
+    )
+
+    @model_validator(mode="after")
+    def validate_mutually_exclusive_vpn_gateways(self) -> Self:
+        """Check that VPN gateways do not overlap."""
+        vpn_gateway_cidrs = [gateway.cidr for gateway in self.vpns]
+
+        if not mutually_exclusive_networks_v4(vpn_gateway_cidrs):
+            msg = "All VPN gateway CIDRs should be mutually exclusive (not overlap)."
+            raise ValueError(msg)
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_mutually_exclusive_vpcs_and_vpn_gateways(self) -> Self:
+        """Check that VPCs and VPN gateways do not overlap."""
+        vpc_cidrs = [vpc.cidr for vpc in self.vpcs]
+        vpn_gateway_cidrs = [gateway.cidr for gateway in self.vpns]
+
+        if not mutually_exclusive_networks_v4([*vpc_cidrs, *vpn_gateway_cidrs]):
+            msg = "All VPN gateways CIDRs should not overlap with VPCs."
+            raise ValueError(msg)
+
+        return self
 
     @field_validator("vpcs")
     @classmethod
@@ -223,6 +264,9 @@ class DeployedRangeSchema(DeployedRangeBaseSchema):
     id: int = Field(..., description="Deployed range unique identifier.")
     vpcs: list[DeployedVPCSchema] = Field(
         ..., description="All deployed VPCs in the range."
+    )
+    vpns: list[DeployedVPNGatewaySchema] = Field(
+        ..., min_length=1, description="Deployed VPN gateways in the range."
     )
 
     model_config = ConfigDict(from_attributes=True)

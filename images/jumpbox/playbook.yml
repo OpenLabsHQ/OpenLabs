@@ -1,0 +1,89 @@
+---
+- name: Configure WireGuard Server
+  hosts: all
+  become: true # Use 'sudo' to execute tasks
+  gather_facts: true
+
+  vars:
+    wireguard_conf_dir: "/etc/wireguard"
+    wireguard_private_key_path: "{{ wireguard_conf_dir }}/private.key"
+    wireguard_public_key_path: "{{ wireguard_conf_dir }}/public.key"
+    wireguard_interface: "wg0"
+    wireguard_port: "51820"
+    wireguard_network: "10.250.0.1/16"
+
+  tasks:
+      - name: Ensure wireguard package is installed
+        ansible.builtin.apt:
+          name: wireguard
+          state: present
+          update_cache: yes
+
+      - name: Generate WireGuard private and public keys
+        ansible.builtin.shell:
+          # This command does three things in one go:
+          # 1. `wg genkey`: Creates a private key and outputs it to stdout.
+          # 2. `tee private.key`: Reads the private key from stdin, writes it to the private.key file, and passes it through to stdout.
+          # 3. `wg pubkey`: Reads the private key from stdin and outputs the corresponding public key, which is redirected to the public.key file.
+          # `umask 077` ensures the files are created with secure permissions (0600).
+          cmd: "umask 077 && wg genkey | tee {{ wireguard_private_key_path }} | wg pubkey > {{ wireguard_public_key_path }}"
+        args:
+          chdir: "{{ wireguard_conf_dir }}"
+          creates: "{{ wireguard_private_key_path }}" # Makes the task idempotent
+        register: key_generation
+        changed_when: key_generation.rc == 0 and "exists" not in key_generation.stdout # A more accurate change condition
+
+      - name: Ensure wireguard directory is accessible
+        ansible.builtin.file:
+          path: "{{ wireguard_conf_dir }}"
+          state: directory
+          mode: '0711'
+
+      - name: Ensure correct public key permissions
+        ansible.builtin.file:
+          path: "{{ wireguard_public_key_path }}"
+          mode: '0644'
+
+      - name: Read the private key for use in the template
+        ansible.builtin.slurp:
+          src: "{{ wireguard_private_key_path }}"
+        register: wg_private_key_content
+
+      - name: Copy NAT helper script to the server
+        ansible.builtin.copy:
+          src: ./wg-nat.sh
+          dest: "{{ wireguard_conf_dir }}/wg-nat.sh"
+          owner: root
+          group: root
+          mode: '0755' # Make it executable
+
+      - name: Enable IP forwarding
+        ansible.posix.sysctl:
+          name: net.ipv4.ip_forward
+          value: '1'
+          sysctl_set: true
+          state: present
+          reload: true
+
+      - name: Create WireGuard server configuration file from template
+        ansible.builtin.template:
+          src: ./wg0.conf.j2
+          dest: "{{ wireguard_conf_dir }}/{{ wireguard_interface }}.conf"
+          owner: root
+          group: root
+          mode: '0600'
+        vars:
+          wg_private_key: "{{ wg_private_key_content['content'] | b64decode | trim }}"
+        notify: Restart WireGuard
+
+      - name: Ensure WireGuard service is enabled and started
+        ansible.builtin.systemd_service:
+          name: "wg-quick@{{ wireguard_interface }}"
+          enabled: true
+          state: started
+
+  handlers:
+    - name: Restart WireGuard
+      ansible.builtin.systemd_service:
+        name: "wg-quick@{{ wireguard_interface }}"
+        state: restarted

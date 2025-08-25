@@ -12,13 +12,13 @@ from src.app.enums.operating_systems import OpenLabsOS
 from src.app.enums.specs import OpenLabsSpec
 
 from ..enums.operating_systems import OS_SIZE_THRESHOLD
-from ..validators.network import is_valid_disk_size, is_valid_hostname
+from ..validators.network import Hostname, is_valid_disk_size
 
 
 class HostCommonSchema(BaseModel):
     """Common host attributes."""
 
-    hostname: str = Field(
+    hostname: Hostname = Field(
         ...,
         description="Hostname of host",
         min_length=1,
@@ -72,15 +72,6 @@ class HostCommonSchema(BaseModel):
                 msg = f"Tags must be 63 characters or less. Shorten tag: {tag}"
                 raise ValueError(msg)
         return tags
-
-    @field_validator("hostname")
-    @classmethod
-    def validate_hostname(cls, hostname: str) -> str:
-        """Check VM hostname is conforms to RFC1035."""
-        if not is_valid_hostname(hostname):
-            msg = f"Invalid hostname: {hostname}"
-            raise ValueError(msg)
-        return hostname
 
     @field_validator("size")
     @classmethod

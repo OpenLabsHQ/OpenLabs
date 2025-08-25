@@ -1,10 +1,13 @@
 import os
+from ipaddress import IPv4Address, IPv4Network
+from typing import Self
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ..utils.path_utils import find_git_root
 from ..utils.pulumi_utils import create_pulumi_dir
+from ..validators.network import DNSEntry
 
 env_path = os.path.join(str(find_git_root(marker=".env")), ".env")
 settings_config = SettingsConfigDict(
@@ -99,8 +102,36 @@ class PulumiSettings(BaseSettings):
     PULUMI_CONFIG_PASSPHRASE: str = "ChangeMe123!"  # noqa: S105
 
 
+class VPNSettings(BaseSettings):
+    """VPN settings."""
+
+    model_config = settings_config
+
+    # Applicable to all VPN types
+    VPN_SUPERNET_CIDR: IPv4Network = IPv4Network("10.253.0.0/16")
+    VPN_DNS_SERVERS: list[DNSEntry] = [IPv4Address("1.1.1.1"), IPv4Address("1.0.0.1")]
+
+    # VPN client type specific settings
+    VPN_WIREGUARD_CIDR: IPv4Network = IPv4Network("10.253.0.0/22")
+
+    @model_validator(mode="after")
+    def validate_vpn_cidrs(self) -> Self:
+        """Validate that specific VPN type CIDRs are subnets of the supernet."""
+        if self.VPN_WIREGUARD_CIDR and not self.VPN_WIREGUARD_CIDR.subnet_of(
+            self.VPN_SUPERNET_CIDR
+        ):
+            msg = f"VPN_WIREGUARD_CIDR ({self.VPN_WIREGUARD_CIDR}) is not a valid subnet of VPN_SUPERNET_CIDR ({self.VPN_SUPERNET_CIDR})."
+            raise ValueError(msg)
+        return self
+
+
 class Settings(
-    AppSettings, PostgresSettings, PulumiSettings, AuthSettings, RedisQueueSettings
+    AppSettings,
+    PostgresSettings,
+    PulumiSettings,
+    AuthSettings,
+    RedisQueueSettings,
+    VPNSettings,
 ):
     """FastAPI app settings."""
 

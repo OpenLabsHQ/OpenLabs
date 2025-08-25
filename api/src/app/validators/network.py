@@ -1,5 +1,8 @@
 import re
-from ipaddress import IPv4Network
+from ipaddress import IPv4Address, IPv4Network, IPv6Address
+from typing import Annotated, Union
+
+from pydantic import AfterValidator
 
 from ..enums.operating_systems import OS_SIZE_THRESHOLD, OpenLabsOS
 
@@ -35,6 +38,19 @@ def is_valid_hostname(hostname: str) -> bool:
 
     allowed = re.compile(r"(?!-)[a-z0-9-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(allowed.match(label) for label in labels)
+
+
+def pydantic_hostname_validator(value: str) -> str:
+    """Pydantic validator that calls is_valid_hostname."""
+    if not is_valid_hostname(value):
+        msg = f"'{value}' is not a valid hostname."
+        raise ValueError(msg)
+    return value
+
+
+# Pydantic validation types
+Hostname = Annotated[str, AfterValidator(pydantic_hostname_validator)]
+DNSEntry = Union[IPv4Address, IPv6Address, Hostname]
 
 
 def max_num_hosts_in_subnet(subnet: IPv4Network) -> int:
