@@ -324,7 +324,7 @@ class AWSProvider(PulumiProvider):
                             vpc_security_group_ids=[private_vpc_sg.id],
                             associate_public_ip_address=False,
                             key_name=key_pair.key_name,
-                            tags={"Name": host.hostname},
+                            tags={"Name": host_resource_name},
                         )
 
                         # Export Host resource ID and private IP
