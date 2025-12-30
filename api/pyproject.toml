@@ -31,13 +31,12 @@ extend-exclude='''
 (src/app/enums/.*)
 '''
 
-[tool.mypy]
-packages = ["."]
-python_version = "3.12"
-strict = true
-ignore_missing_imports = true
-disallow_untyped_decorators = false
-plugins = ["pydantic.mypy"]
+[tool.ty.environment]
+python-version = "3.12"
+root = ["src"]
+
+[tool.ty.src]
+include = ["src", "tests"]
 
 [tool.ruff]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
@@ -160,7 +159,6 @@ dev = [
     "black>=25.1.0",
     "gevent>=24.11.1",
     "httpx>=0.28.1",
-    "mypy>=1.14.1",
     "paramiko>=3.5.1",
     "pre-commit>=4.1.0",
     "psycopg2-binary>=2.9.10",
@@ -172,6 +170,7 @@ dev = [
     "python-dotenv>=1.1.0",
     "ruff>=0.9.4",
     "testcontainers>=4.9.1",
+    "ty>=0.0.8",
     "types-aiofiles>=24.1.0",
     "types-paramiko>=3.5.0",
     "types-pyyaml>=6.0.12",

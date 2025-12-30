@@ -53,7 +53,7 @@ jobs:
           cd api
           uv run black --check --diff .
 
-  mypy:
+  ty:
     runs-on: ubuntu-latest
 
     steps:
@@ -80,11 +80,11 @@ jobs:
           cd api
           uv sync --all-extras
 
-      # Run MyPy checks
-      - name: Run MyPy
+      # Run ty checks
+      - name: Run ty
         run: |
           cd api
-          uv run mypy --install-types --non-interactive .
+          uv run ty check
 
   ruff:
     runs-on: ubuntu-latest
