@@ -40,7 +40,10 @@ async def close_redis_queue_pool() -> None:
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
     """Set thread limit."""
-    limiter = anyio.to_thread.current_default_thread_limiter()
+    # TODO: Remove type ignore when ty properly handles module __getattr__ with specific return types
+    # ty incorrectly infers anyio.to_thread as type[BrokenWorkerInterpreter] due to anyio.__getattr__
+    # returning that type for deprecated aliases. See anyio/__init__.py:99-111
+    limiter = anyio.to_thread.current_default_thread_limiter()  # type: ignore[attr-defined]
     limiter.total_tokens = number_of_tokens
 
 
@@ -147,7 +150,7 @@ def create_application(
         )
 
         app.add_middleware(
-            CORSMiddleware,
+            CORSMiddleware,  # type: ignore[arg-type]  # TODO: Remove ignore when https://github.com/astral-sh/ty/issues/1635 is fixed
             allow_origins=cors_origins,
             allow_credentials=settings.CORS_CREDENTIALS,
             allow_methods=cors_methods,

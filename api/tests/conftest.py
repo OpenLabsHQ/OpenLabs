@@ -564,6 +564,7 @@ async def provider_deployed_ranges_for_provider(
             creds = get_provider_test_creds(provider)
             if not creds:
                 pytest.skip(f"Credentials for {provider_upper} not set.")
+            assert creds is not None
 
             added_creds = await add_cloud_credentials(client, provider, creds)
             if not added_creds:
@@ -583,6 +584,7 @@ async def provider_deployed_ranges_for_provider(
                     pytest.fail(
                         f"Failed to create range blueprint: {blueprint_range.name}"
                     )
+                assert blueprint_header is not None
 
                 # Deploy range
                 job_details = await deploy_range(client, blueprint_header.id)

@@ -33,7 +33,7 @@ extend-exclude='''
 
 [tool.ty.environment]
 python-version = "3.12"
-root = ["src"]
+root = [".", "src"]
 
 [tool.ty.src]
 include = ["src", "tests"]
