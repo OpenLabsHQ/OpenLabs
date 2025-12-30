@@ -13,9 +13,12 @@ RUN apt-get update && apt-get install -y git curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Install python dependencies
-COPY api/requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY api/pyproject.toml api/uv.lock /code/
+RUN uv sync --frozen --no-dev
 
 COPY api/src /code/src
 COPY .env /code/.env
@@ -31,8 +34,8 @@ FROM builder AS test_builder
 
 COPY api/tests /code/tests
 
-COPY api/dev-requirements.txt /code/dev-requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
+# Install dev dependencies
+RUN uv sync --frozen --all-extras
 
 COPY api/pyproject.toml /code/pyproject.toml 
 
@@ -40,7 +43,7 @@ COPY api/pyproject.toml /code/pyproject.toml
 # Adds debug capabilities
 FROM builder AS api_debug
 
-RUN pip install --no-cache-dir debugpy
+RUN uv pip install --no-cache debugpy
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
  CMD ["python", "-m", "src.scripts.health_check"]
