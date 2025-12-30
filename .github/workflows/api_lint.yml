@@ -33,24 +33,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: |
-            api/requirements.txt
-            api/dev-requirements.txt
+
+      # Install uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "api/uv.lock"
 
       # Install dependencies
       - name: Install dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r dev-requirements.txt
+          uv sync --all-extras
 
       # Run Black formatter
       - name: Run Black
         run: |
           cd api
-          black --check --diff .
+          uv run black --check --diff .
 
   mypy:
     runs-on: ubuntu-latest
@@ -65,24 +66,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: |
-            api/requirements.txt
-            api/dev-requirements.txt
+
+      # Install uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "api/uv.lock"
 
       # Install dependencies
       - name: Install dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r dev-requirements.txt
+          uv sync --all-extras
 
       # Run MyPy checks
       - name: Run MyPy
         run: |
           cd api
-          mypy --install-types --non-interactive .
+          uv run mypy --install-types --non-interactive .
 
   ruff:
     runs-on: ubuntu-latest
@@ -97,21 +99,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ vars.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: |
-            api/requirements.txt
-            api/dev-requirements.txt
+
+      # Install uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "api/uv.lock"
 
       # Install dependencies
       - name: Install dependencies
         run: |
           cd api
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r dev-requirements.txt
+          uv sync --all-extras
 
       # Run Ruff linter and formatter
       - name: Run Ruff
         run: |
           cd api
-          ruff check .
+          uv run ruff check .
