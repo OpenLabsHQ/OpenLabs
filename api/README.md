@@ -77,24 +77,22 @@ src/
 
 ## Environment Setup
 
-Create environment:
+Install uv (if not already installed):
 
 ```bash
-python3.12 -m venv venv
-```
-
-Activate environment:
-
-```bash
-source venv/bin/activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 Install dependencies:
 
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r dev-requirements.txt
+uv sync --all-extras
+```
+
+Activate environment:
+
+```bash
+source .venv/bin/activate
 ```
 
 ## Tests
@@ -103,16 +101,16 @@ Run tests:
 
 ```bash
 # Unit tests
-pytest -m unit
+uv run pytest -m unit
 
 # Integration tests (no deployments)
-pytest -m "integration and not deploy"
+uv run pytest -m "integration and not deploy"
 
 # Configure provider credentials
 cp .env.tests.example .env.tests
 
 # Provider specific tests
-pytest -m aws
+uv run pytest -m aws
 ```
 
 > See `marks` defined in `pyproject.toml` for more options.
