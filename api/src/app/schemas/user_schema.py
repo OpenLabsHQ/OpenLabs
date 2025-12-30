@@ -1,5 +1,12 @@
 from email_validator import EmailNotValidError, validate_email
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 class UserBaseSchema(BaseModel):
@@ -51,34 +58,37 @@ class UserCreateBaseSchema(UserBaseSchema):
         examples=["Adam Hassan", "Alex Christy", "Naresh Panchal"],
     )
 
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, email: str, info: ValidationInfo) -> str:
-        """Check that email format is valid.
+    is_admin: bool = Field(
+        default=False,
+        description="Whether user is admin (used for validation context)",
+        exclude=True,
+    )
+
+    @model_validator(mode="after")
+    def validate_email_deliverability(self) -> "UserCreateBaseSchema":
+        """Validate email deliverability based on admin status.
 
         Args:
         ----
-            cls: OpenLabsUser object.
-            email (str): User email address.
-            info (ValidatonInfo): Validator context
+            self: The model instance after field validation.
 
         Returns:
         -------
-            str: User email address.
+            UserCreateBaseSchema: The validated model.
+
+        Raises:
+        ------
+            ValueError: If email validation fails.
 
         """
-        is_admin: bool = info.data.get("is_admin", False)
         try:
-            # Skip deliverability check if user is admin (system default)
-            if is_admin:
-                emailinfo = validate_email(email, check_deliverability=False)
-                return emailinfo.normalized
+            if self.is_admin:
+                emailinfo = validate_email(self.email, check_deliverability=False)
+            else:
+                emailinfo = validate_email(self.email, check_deliverability=True)
 
-            # Makes a DNS query to validate deliverability
-            # We do this, as users will only be added to DB on registration
-            emailinfo = validate_email(email, check_deliverability=True)
-
-            return emailinfo.normalized
+            self.email = emailinfo.normalized
+            return self
         except EmailNotValidError as e:
             msg = "Provided email address is invalid."
             raise ValueError(msg) from e
