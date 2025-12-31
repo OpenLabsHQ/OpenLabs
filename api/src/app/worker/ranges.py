@@ -1,11 +1,8 @@
-import asyncio
 import base64
 import logging
 import time
 import uuid
 from typing import Any
-
-import uvloop
 
 from ..core.db.database import get_db_session_context
 from ..crud.crud_ranges import create_deployed_range, delete_deployed_range
@@ -18,8 +15,6 @@ from ..schemas.range_schemas import (
 )
 from ..schemas.user_schema import UserID
 from ..utils.job_utils import track_job_status
-
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger(__name__)
 

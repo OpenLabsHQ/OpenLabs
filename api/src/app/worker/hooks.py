@@ -1,12 +1,7 @@
-import asyncio
 import logging
 from typing import Any
 
-import uvloop
-
 from ..core.db.database import async_engine
-
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 logger = logging.getLogger(__name__)
 
