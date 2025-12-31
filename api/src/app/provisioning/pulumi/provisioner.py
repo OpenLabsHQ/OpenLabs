@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Self
@@ -61,8 +62,16 @@ class PulumiOperation:
 
     async def __aenter__(self) -> Self:
         """Create the workspace and initialize the Pulumi Stack object."""
+        start_time = time.time()
+        logger.info("[TIMING] Starting Pulumi stack initialization for '%s'", self.stack_name)
+
         async with self._stack_lock:
+            lock_acquired_time = time.time()
+            logger.info("[TIMING] Lock acquired in %.2fs", lock_acquired_time - start_time)
+
             await aio_os.makedirs(self.work_dir, exist_ok=True)
+            dir_created_time = time.time()
+            logger.info("[TIMING] Working directory created in %.2fs", dir_created_time - lock_acquired_time)
 
             self.stack = await asyncio.to_thread(
                 auto.create_or_select_stack,
@@ -80,13 +89,19 @@ class PulumiOperation:
                     },
                 ),
             )
+            stack_created_time = time.time()
+            logger.info("[TIMING] Pulumi stack created/selected in %.2fs", stack_created_time - dir_created_time)
 
         # Set the Pulumi configuration values
         config_values = self.pulumi_provider.get_config_values(
             self.region, self.secrets
         )
         self.stack.set_all_config(config_values)
+        config_set_time = time.time()
+        logger.info("[TIMING] Configuration set in %.2fs", config_set_time - stack_created_time)
 
+        total_init_time = config_set_time - start_time
+        logger.info("[TIMING] Total stack initialization: %.2fs", total_init_time)
         logger.info("Pulumi stack '%s' initialized.", self.stack_name)
         return self
 
@@ -238,14 +253,29 @@ class PulumiOperation:
             msg = "Stack not initialized."
             raise RuntimeError(msg)
 
+        start_time = time.time()
+        logger.info("[TIMING] Starting Pulumi 'up' operation for stack '%s'", self.stack_name)
+
         logger.info("Applying infrastructure for stack '%s'.", self.stack_name)
         up_result = await asyncio.to_thread(self.stack.up, on_output=logger.info)
+        up_completed_time = time.time()
+        up_duration = up_completed_time - start_time
+        logger.info("[TIMING] Pulumi 'up' completed in %.2fs (%.2f minutes)", up_duration, up_duration / 60)
 
         if up_result.summary.result.lower() != "succeeded":
             msg = f"Pulumi up failed: {up_result.summary.result}"
             raise RuntimeError(msg)
 
-        return self._parse_outputs(dict(up_result.outputs))
+        logger.info("[TIMING] Starting output parsing")
+        result = self._parse_outputs(dict(up_result.outputs))
+        parse_completed_time = time.time()
+        parse_duration = parse_completed_time - up_completed_time
+        logger.info("[TIMING] Output parsing completed in %.2fs", parse_duration)
+
+        total_duration = parse_completed_time - start_time
+        logger.info("[TIMING] Total 'up' operation: %.2fs (%.2f minutes)", total_duration, total_duration / 60)
+
+        return result
 
     async def destroy(self) -> None:
         """Run the Pulumi 'destroy' command."""
@@ -253,10 +283,16 @@ class PulumiOperation:
             msg = "Stack not initialized."
             raise RuntimeError(msg)
 
+        start_time = time.time()
+        logger.info("[TIMING] Starting Pulumi 'destroy' operation for stack '%s'", self.stack_name)
+
         logger.info("Destroying infrastructure for stack '%s'.", self.stack_name)
         destroy_result = await asyncio.to_thread(
             self.stack.destroy, on_output=logger.info
         )
+        destroy_completed_time = time.time()
+        destroy_duration = destroy_completed_time - start_time
+        logger.info("[TIMING] Pulumi 'destroy' completed in %.2fs (%.2f minutes)", destroy_duration, destroy_duration / 60)
 
         if destroy_result.summary.result != "succeeded":
             msg = f"Pulumi destroy failed: {destroy_result.summary.result}"

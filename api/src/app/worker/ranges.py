@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+import time
 import uuid
 from typing import Any
 
@@ -48,6 +49,7 @@ async def deploy_range(
         dict[str, Any]: DeployedRangeHeaderSchema dumped with pydantic's `model_dump(mode='json')`.
 
     """
+    job_start_time = time.time()
     deploy_request = DeployRangeSchema.model_validate(deploy_request_dump)
     blueprint_range = BlueprintRangeSchema.model_validate(blueprint_range_dump)
 
@@ -58,7 +60,9 @@ async def deploy_range(
         blueprint_range.id,
         blueprint_range.provider.value.upper(),
     )
+    logger.info("[TIMING] Worker job started")
 
+    db_fetch_start = time.time()
     async with get_db_session_context() as db:
         # Fetch user info
         user = await get_user_by_id(db, UserID(id=user_id))
@@ -84,6 +88,10 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
+    db_fetch_time = time.time() - db_fetch_start
+    logger.info("[TIMING] Database fetch and credential decryption: %.2fs", db_fetch_time)
+
+    validation_start = time.time()
     pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
     if not pulumi_provider:
         msg = f"Pulumi provider not available for {blueprint_range.provider.value.upper()}"
@@ -96,8 +104,11 @@ async def deploy_range(
         raise RuntimeError(msg)
 
     deployment_id = str(uuid.uuid4().hex)[:8]  # or use your own short hash util
+    validation_time = time.time() - validation_start
+    logger.info("[TIMING] Provider validation: %.2fs", validation_time)
 
     # Apply range using Pulumi context manager
+    pulumi_start = time.time()
     async with PulumiOperation(
         deployment_id=deployment_id,
         range_obj=blueprint_range,
@@ -109,12 +120,17 @@ async def deploy_range(
     ) as pulumi:
         try:
             deployed_range = await pulumi.up()
+            pulumi_up_time = time.time() - pulumi_start
+            logger.info("[TIMING] Pulumi context (including up): %.2fs (%.2f minutes)", pulumi_up_time, pulumi_up_time / 60)
 
             # Save to database
+            db_save_start = time.time()
             async with get_db_session_context() as db:
                 deployed_range_header = await create_deployed_range(
                     db, deployed_range, user_id=user.id
                 )
+            db_save_time = time.time() - db_save_start
+            logger.info("[TIMING] Database save: %.2fs", db_save_time)
         except Exception as original_exc:
             # The main operation failed
             logger.exception(
@@ -124,7 +140,10 @@ async def deploy_range(
 
             # Wrap cleanup to prevent masking original exception
             try:
+                cleanup_start = time.time()
                 await pulumi.destroy()
+                cleanup_time = time.time() - cleanup_start
+                logger.info("[TIMING] Cleanup destroy: %.2fs", cleanup_time)
             except Exception as cleanup_exc:
                 logger.critical(
                     "Automatic deploy resource clean up failed for deployment_id: %s. Exception: %s",
@@ -134,6 +153,8 @@ async def deploy_range(
 
             raise original_exc
 
+    total_time = time.time() - job_start_time
+    logger.info("[TIMING] Total worker job time: %.2fs (%.2f minutes)", total_time, total_time / 60)
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
         deployed_range_header.name,

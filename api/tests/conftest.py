@@ -518,9 +518,9 @@ async def provider_deployed_ranges_for_provider(
                 deploy_job_ids.append(job_details.arq_job_id)
                 job_to_range_type[job_details.arq_job_id] = range_type
 
-            # Poll for deployment completion
+            # Poll for deployment completion (increased timeout for real AWS infrastructure)
             deploy_job_results = await wait_for_jobs(
-                client, deploy_job_ids, timeout=600
+                client, deploy_job_ids, timeout=1800  # 30 minutes for complex infrastructure
             )
 
             # Fetch deployed range details
