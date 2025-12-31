@@ -177,3 +177,8 @@ cython_debug/
 *.swp
 .vscode/*
 !.vscode/launch.json
+
+# Temporary scripts and documentation
+check_*.py
+*-test-results.md
+*-instrumentation.md
