@@ -1,3 +1,16 @@
+[project]
+name = "openlabs-e2e"
+version = "0.1.0"
+description = "OpenLabs E2E Tests"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest~=8.4",
+    "pytest-playwright~=0.7",
+    "playwright~=1.53",
+    "testcontainers~=4.10",
+    "python-dotenv~=1.1",
+]
+
 [tool.black]
 line-length = 88
 target-version = ['py312']
