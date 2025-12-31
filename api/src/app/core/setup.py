@@ -40,10 +40,7 @@ async def close_redis_queue_pool() -> None:
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
     """Set thread limit."""
-    # TODO: Remove type ignore when ty properly handles module __getattr__ with specific return types
-    # ty incorrectly infers anyio.to_thread as type[BrokenWorkerInterpreter] due to anyio.__getattr__
-    # returning that type for deprecated aliases. See anyio/__init__.py:99-111
-    limiter = anyio.to_thread.current_default_thread_limiter()  # type: ignore[attr-defined]
+    limiter = anyio.to_thread.current_default_thread_limiter() # type: ignore[attr-defined]  # TODO: Remove when https://github.com/astral-sh/ruff/pull/22314 is merged
     limiter.total_tokens = number_of_tokens
 
 
