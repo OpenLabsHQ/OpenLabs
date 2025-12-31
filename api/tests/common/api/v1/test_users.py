@@ -153,7 +153,7 @@ class TestUsersNoAuth:
 
     async def test_update_password_flow(self, api_client: AsyncClient) -> None:
         """Test the complete password update flow."""
-        _, email, password, name = await register_user(api_client)
+        _, email, password, _name = await register_user(api_client)
         assert await login_user(api_client, email, password)
 
         # Set old password
