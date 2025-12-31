@@ -4,12 +4,16 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /code
 
-RUN apt-get update && apt-get install -y git curl \
+RUN apt-get update && apt-get install -y \
+        git \
+        curl \
+        wget \
+        gnupg \
+        gnupg2 \
+        software-properties-common \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get update \
     && apt-get install -y nodejs \
-    && apt-get install -y gnupg software-properties-common \
-    && apt-get install -y wget \
-    && apt-get install -y gnupg2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
