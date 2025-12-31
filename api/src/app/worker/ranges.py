@@ -11,8 +11,6 @@ from ..core.db.database import get_db_session_context
 from ..crud.crud_ranges import create_deployed_range, delete_deployed_range
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
 from ..enums.range_states import RangeState
-from ..provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
-from ..provisioning.pulumi.provisioner import PulumiOperation
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,
@@ -52,6 +50,12 @@ async def deploy_range(
     job_start_time = time.time()
     deploy_request = DeployRangeSchema.model_validate(deploy_request_dump)
     blueprint_range = BlueprintRangeSchema.model_validate(blueprint_range_dump)
+
+    # Import Pulumi after event loop is set up to avoid gRPC/uvloop conflicts
+    from ..provisioning.pulumi.providers.provider_registry import (  # noqa: PLC0415
+        PROVIDER_REGISTRY,
+    )
+    from ..provisioning.pulumi.provisioner import PulumiOperation  # noqa: PLC0415
 
     logger.info(
         "Starting deployment of range: %s from blueprint: %s (%s) to %s...",
@@ -188,6 +192,12 @@ async def destroy_range(
 
     """
     deployed_range = DeployedRangeSchema.model_validate(deployed_range_dump)
+
+    # Import Pulumi after event loop is set up to avoid gRPC/uvloop conflicts
+    from ..provisioning.pulumi.providers.provider_registry import (  # noqa: PLC0415
+        PROVIDER_REGISTRY,
+    )
+    from ..provisioning.pulumi.provisioner import PulumiOperation  # noqa: PLC0415
 
     logger.info(
         "Starting destruction of range: %s (%s) on %s...",
