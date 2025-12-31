@@ -69,7 +69,7 @@ services:
     container_name: fastapi_init_openlabs
     env_file:
       - .env
-    command: ["python", "-m", "src.scripts.create_admin"]
+    command: ["uv", "run", "python", "-m", "src.scripts.create_admin"]
     depends_on:
       fastapi:
         condition: service_healthy
