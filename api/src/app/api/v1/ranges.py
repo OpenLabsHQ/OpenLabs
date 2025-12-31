@@ -5,7 +5,6 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from ...core.auth.auth import get_current_user
-from ...core.cdktf.ranges.range_factory import RangeFactory
 from ...core.db.database import async_get_db
 from ...crud.crud_jobs import add_job
 from ...crud.crud_ranges import (
@@ -17,6 +16,7 @@ from ...crud.crud_ranges import (
 from ...crud.crud_users import get_decrypted_secrets
 from ...enums.job_status import JobSubmissionDetail
 from ...models.user_model import UserModel
+from ...provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
 from ...schemas.job_schemas import (
     JobCreateSchema,
     JobSubmissionResponseSchema,
@@ -250,22 +250,24 @@ async def deploy_range_from_blueprint_endpoint(
             detail="Failed to decrypt cloud credentials. Please try logging in again.",
         )
 
-    # Create deployable range object
-    range_to_deploy = RangeFactory.create_range(
-        name=deploy_request.name,
-        range_obj=blueprint_range,
-        region=deploy_request.region,
-        description=deploy_request.description,
-        secrets=decrypted_secrets,
-    )
+    pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
+    if not pulumi_provider:
+        logger.error(
+            "Pulumi provider not available for %s",
+            blueprint_range.provider.value.upper(),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{blueprint_range.provider.value.upper()} provider not supported!",
+        )
 
-    if not range_to_deploy.has_secrets():
+    if not pulumi_provider.has_secrets(decrypted_secrets):
         logger.info(
-            "Failed to queue deploy request for range: %s. User: %s (%s) does not have credentials for provider: %s.",
-            deploy_request.name,
+            "User: %s (%s) does not have credentials for provider: %s. Failed to queue deploy request for range: %s.",
             current_user.email,
             current_user.id,
-            blueprint_range.provider.value,
+            blueprint_range.provider.value.upper(),
+            deploy_request.name,
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -308,9 +310,7 @@ async def deploy_range_from_blueprint_endpoint(
         )
         detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(
-        arq_job_id=arq_job_id, detail=detail_message.value
-    )
+    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)
 
 
 @router.delete("/{range_id}", status_code=status.HTTP_202_ACCEPTED)
@@ -388,24 +388,24 @@ async def delete_range_endpoint(
             detail="Failed to decrypt cloud credentials. Please try logging in again.",
         )
 
-    # Build range object
-    range_to_destroy = RangeFactory.create_range(
-        name=deployed_range.name,
-        range_obj=deployed_range,
-        region=deployed_range.region,
-        description=deployed_range.description,
-        secrets=decrypted_secrets,
-        state_file=deployed_range.state_file,
-    )
+    pulumi_provider = PROVIDER_REGISTRY.get(deployed_range.provider)
+    if not pulumi_provider:
+        logger.error(
+            "Pulumi provider not available for %s",
+            deployed_range.provider.value.upper(),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{deployed_range.provider.value.upper()} provider not supported!",
+        )
 
-    if not range_to_destroy.has_secrets():
+    if not pulumi_provider.has_secrets(decrypted_secrets):
         logger.info(
-            "Failed to queue destroy request for range: %s (%s). User: %s (%s) does not have credentials for provider: %s.",
-            deployed_range.name,
-            deployed_range.id,
+            "User: %s (%s) does not have credentials for provider: %s. Failed to queue destroy request for range: %s.",
             current_user.email,
             current_user.id,
-            deployed_range.provider.value,
+            deployed_range.provider.value.upper(),
+            deployed_range.name,
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -447,6 +447,4 @@ async def delete_range_endpoint(
         )
         detail_message = JobSubmissionDetail.DB_SAVE_FAILURE
 
-    return JobSubmissionResponseSchema(
-        arq_job_id=arq_job_id, detail=detail_message.value
-    )
+    return JobSubmissionResponseSchema(arq_job_id=arq_job_id, detail=detail_message)

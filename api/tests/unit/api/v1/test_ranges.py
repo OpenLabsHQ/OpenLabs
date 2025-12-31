@@ -2,13 +2,14 @@ import copy
 import random
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 from fastapi import status
 from httpx import AsyncClient
+from pytest_mock import MockerFixture
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.enums.job_status import JobSubmissionDetail
@@ -90,8 +91,17 @@ def mock_decrypt_example_valid_aws_secrets(
 
 
 @pytest.fixture
+def mock_no_pulumi_provider(
+    mocker: MockerFixture, range_api_v1_endpoints_path: str
+) -> None:
+    """Mock the pulumi provider registry to be empty."""
+    mocker.patch(f"{range_api_v1_endpoints_path}.PROVIDER_REGISTRY", new={})
+
+
+@pytest.fixture
 def mock_retrieve_deployed_range_success(
-    monkeypatch: pytest.MonkeyPatch, range_api_v1_endpoints_path: str
+    monkeypatch: pytest.MonkeyPatch,
+    range_api_v1_endpoints_path: str,
 ) -> None:
     """Simulate successfully retrieving a deployed range from the database."""
 
@@ -184,18 +194,29 @@ async def test_deploy_without_valid_secrets(
     assert "credential" in response.json()["detail"].lower()
 
 
-async def test_deploy_range_deploy_success(  # noqa: PLR0913
+async def test_deploy_invalid_pulumi_provider(
+    auth_client: AsyncClient,
+    mock_decrypt_no_secrets: None,
+    mock_deploy_payload: dict[str, Any],
+    mock_no_pulumi_provider: None,
+) -> None:
+    """Test that attempting to deploy a range to a invalid/nonexistent pulumi provider."""
+    response = await auth_client.post(
+        f"{BASE_ROUTE}/ranges/deploy",
+        json=mock_deploy_payload,
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "provider not supported" in response.json()["detail"].lower()
+
+
+async def test_deploy_range_deploy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_range_factory: Callable[..., MagicMock],
     mock_job_enqueue_success: None,
     mock_add_job_to_db_success: None,
     mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID."""
-    # Mock range object
-    mock_range_factory()
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
         json=mock_deploy_payload,
@@ -207,18 +228,14 @@ async def test_deploy_range_deploy_success(  # noqa: PLR0913
     assert JobSubmissionDetail.DB_SAVE_SUCCESS.value == response.json()["detail"]
 
 
-async def test_deploy_range_add_job_db_failure(  # noqa: PLR0913
+async def test_deploy_range_add_job_db_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_range_factory: Callable[..., MagicMock],
     mock_job_enqueue_success: None,
     mock_add_job_to_db_failed: None,
     mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test to deploy a range successfully with a returned the associated job ID, but indicates the job record wasn't added."""
-    # Mock range object
-    mock_range_factory()
-
     # The job is successfully submitted, so the response code
     # is still a success but the message to the user changes
     # to reflect that the job might not be in the database for
@@ -238,13 +255,9 @@ async def test_deploy_range_failed_job_queue(
     auth_client: AsyncClient,
     mock_job_enqueue_failed: None,
     mock_decrypt_example_valid_aws_secrets: None,
-    mock_range_factory: Callable[..., MagicMock],
     mock_deploy_payload: dict[str, Any],
 ) -> None:
     """Test that the endpoint returns a 500 error when it fails to queue up a deploy job."""
-    # Mock range object
-    mock_range_factory()
-
     response = await auth_client.post(
         f"{BASE_ROUTE}/ranges/deploy",
         json=mock_deploy_payload,
@@ -298,7 +311,6 @@ async def test_destroy_without_valid_secrets(
     auth_client: AsyncClient,
     mock_decrypt_no_secrets: None,
     mock_retrieve_deployed_range_success: None,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that attempting to destroy a range without valid cloud provider credentials will fail (no secrets in database for user)."""
     response = await auth_client.delete(
@@ -308,18 +320,28 @@ async def test_destroy_without_valid_secrets(
     assert "credential" in response.json()["detail"].lower()
 
 
-async def test_destroy_range_destroy_success(  # noqa: PLR0913
+async def test_destroy_invalid_pulumi_provider(
+    auth_client: AsyncClient,
+    mock_decrypt_no_secrets: None,
+    mock_retrieve_deployed_range_success: None,
+    mock_no_pulumi_provider: None,
+) -> None:
+    """Test that attempting to destroy a range without valid cloud provider credentials will fail (no secrets in database for user)."""
+    response = await auth_client.delete(
+        f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "provider not supported" in response.json()["detail"].lower()
+
+
+async def test_destroy_range_destroy_success(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
     mock_add_job_to_db_success: None,
     mock_job_enqueue_success: None,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test to destroy a range successfully with a returned the associated job ID."""
-    # Mock range object
-    mock_range_factory()
-
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )
@@ -330,18 +352,14 @@ async def test_destroy_range_destroy_success(  # noqa: PLR0913
     assert JobSubmissionDetail.DB_SAVE_SUCCESS.value == response.json()["detail"]
 
 
-async def test_destroy_range_add_job_db_failure(  # noqa: PLR0913
+async def test_destroy_range_add_job_db_failure(
     auth_client: AsyncClient,
     mock_decrypt_example_valid_aws_secrets: None,
     mock_retrieve_deployed_range_success: None,
     mock_add_job_to_db_failed: None,
     mock_job_enqueue_success: None,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test to destroy a range successfully with a returned the associated job ID, but indicates the job record wasn't added."""
-    # Mock range object
-    mock_range_factory()
-
     # The job is successfully submitted, so the response code
     # is still a success but the message to the user changes
     # to reflect that the job might not be in the database for
@@ -361,12 +379,8 @@ async def test_destroy_range_failed_job_queue(
     mock_decrypt_example_valid_aws_secrets: None,
     mock_job_enqueue_failed: None,
     mock_retrieve_deployed_range_success: None,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the endpoint returns a 500 error when it fails to queue up a destroy job."""
-    # Mock range object
-    mock_range_factory()
-
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/1",
     )

@@ -1,22 +1,23 @@
 import asyncio
 import base64
 import logging
+import uuid
 from typing import Any
 
 import uvloop
 
-from src.app.crud.crud_ranges import create_deployed_range, delete_deployed_range
-from src.app.enums.range_states import RangeState
-from src.app.schemas.user_schema import UserID
-
-from ..core.cdktf.ranges.range_factory import RangeFactory
 from ..core.db.database import get_db_session_context
+from ..crud.crud_ranges import create_deployed_range, delete_deployed_range
 from ..crud.crud_users import get_decrypted_secrets, get_user_by_id
+from ..enums.range_states import RangeState
+from ..provisioning.pulumi.providers.provider_registry import PROVIDER_REGISTRY
+from ..provisioning.pulumi.provisioner import PulumiOperation
 from ..schemas.range_schemas import (
     BlueprintRangeSchema,
     DeployedRangeSchema,
     DeployRangeSchema,
 )
+from ..schemas.user_schema import UserID
 from ..utils.job_utils import track_job_status
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -83,81 +84,55 @@ async def deploy_range(
         user_id = user.id
         user_email = user.email
 
-    range_to_deploy = RangeFactory.create_range(
-        name=deploy_request.name,
-        range_obj=blueprint_range,
-        region=deploy_request.region,
-        description=deploy_request.description,
-        secrets=decrypted_secrets,
-    )
+    pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
+    if not pulumi_provider:
+        msg = f"Pulumi provider not available for {blueprint_range.provider.value.upper()}"
+        logger.error(msg)
+        raise RuntimeError(msg)
 
-    # Validate deployment
-    if not range_to_deploy.has_secrets():
-        msg = f"No credentials found for provider: {blueprint_range.provider.value.upper()} for user: {user_email} ({user_id})"
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        msg = f"User: {user_email} ({user_id}) does not have credentials for provider: {blueprint_range.provider.value.upper()}."
         logger.info(msg)
         raise RuntimeError(msg)
 
-    # Synthesize range
-    successful_synth = await range_to_deploy.synthesize()
-    if not successful_synth:
-        msg = f"Failed to synthesize range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id}) for user: {user_email} ({user_id})"
-        logger.error(msg)
-        raise RuntimeError(msg)
+    deployment_id = str(uuid.uuid4().hex)[:8]  # or use your own short hash util
 
-    # Deploy range
-    created_range = await range_to_deploy.deploy()
-    if not created_range:
-        msg = f"Failed to deploy range: {range_to_deploy.name} from blueprint: {blueprint_range.name} ({blueprint_range.id}) for user: {user_email} ({user_id})"
-        logger.error(msg)
-        raise RuntimeError(msg)
+    # Apply range using Pulumi context manager
+    async with PulumiOperation(
+        deployment_id=deployment_id,
+        range_obj=blueprint_range,
+        region=deploy_request.region,
+        secrets=decrypted_secrets,
+        name=deploy_request.name,
+        provider=blueprint_range.provider,
+        description=deploy_request.description or "",
+    ) as pulumi:
+        try:
+            deployed_range = await pulumi.up()
 
-    cleanup_required = False
-
-    try:
-        async with get_db_session_context() as db:
-            try:
+            # Save to database
+            async with get_db_session_context() as db:
                 deployed_range_header = await create_deployed_range(
-                    db, created_range, user_id=user.id
+                    db, deployed_range, user_id=user.id
                 )
-            except Exception as e:
-                cleanup_required = True
-                logger.exception(
-                    "Failed to save range: %s to database on behalf of user: %s (%s)! Exception: %s",
-                    range_to_deploy.name,
-                    user_email,
-                    user_id,
-                    e,
-                )
-
-                # Fail job
-                raise e
-    finally:
-        if cleanup_required:
-            logger.info(
-                "Starting auto clean up of deployed range: %s for user %s (%s)...",
-                range_to_deploy.name,
-                user_email,
-                user_id,
+        except Exception as original_exc:
+            # The main operation failed
+            logger.exception(
+                "Deployment failed for deployment_id: %s. Cleaning up resources...",
+                deployment_id,
             )
 
-            successful_destroy = await range_to_deploy.destroy()
-            if not successful_destroy:
-                # Don't raise an exception to prevent masking
+            # Wrap cleanup to prevent masking original exception
+            try:
+                await pulumi.destroy()
+            except Exception as cleanup_exc:
                 logger.critical(
-                    "Auto clean up failed! Failed to destroy range: %s from blueprint: %s (%s) for user: %s (%s)",
-                    range_to_deploy.name,
-                    blueprint_range.name,
-                    blueprint_range.id,
-                    user_email,
-                    user_id,
+                    "Automatic deploy resource clean up failed for deployment_id: %s. Exception: %s",
+                    deployment_id,
+                    cleanup_exc,
                 )
 
-            logger.info(
-                "Finished auto clean up of deployed range: %s for user %s (%s)!",
-                range_to_deploy.name,
-                user_email,
-                user_id,
-            )
+            raise original_exc
 
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
@@ -225,52 +200,42 @@ async def destroy_range(
         user_id = user.id
         user_is_admin = user.is_admin
 
-    # Build range object
-    range_to_destroy = RangeFactory.create_range(
-        name=deployed_range.name,
+    pulumi_provider = PROVIDER_REGISTRY.get(deployed_range.provider)
+    if not pulumi_provider:
+        msg = (
+            f"Pulumi provider not available for {deployed_range.provider.value.upper()}"
+        )
+        logger.error(msg)
+        raise RuntimeError(msg)
+
+    if not pulumi_provider.has_secrets(decrypted_secrets):
+        msg = f"User: {user_id} does not have credentials for provider: {deployed_range.provider.value.upper()}."
+        logger.info(msg)
+        raise RuntimeError(msg)
+
+    async with PulumiOperation(
+        deployment_id=deployed_range.deployment_id,
         range_obj=deployed_range,
         region=deployed_range.region,
-        description=deployed_range.description,
         secrets=decrypted_secrets,
-        state_file=deployed_range.state_file,
-    )
-
-    # Validate deployment
-    if not range_to_destroy.has_secrets():
-        # Higher level error as users should
-        # have an account in a state where they
-        # don't have credentials to destroy their
-        # own deployed ranges.
-        msg = f"No credentials found for provider: {deployed_range.provider.value.upper()} for user: {user_id}"
-        logger.critical(msg)
-        raise RuntimeError(msg)
-
-    # Destroy range
-    successful_synth = await range_to_destroy.synthesize()
-    if not successful_synth:
-        msg = f"Failed to synthesize range: {range_to_destroy.name} for user: {user_id}"
-        logger.error(msg)
-        raise RuntimeError(msg)
-
-    successful_destroy = await range_to_destroy.destroy()
-    if not successful_destroy:
-        msg = f"Failed to deploy range: {range_to_destroy.name} for user: {user_id}"
-        logger.error(msg)
-        raise RuntimeError(msg)
-
-    async with get_db_session_context() as db:
-        # Delete range from database
+        name=deployed_range.name,
+        provider=deployed_range.provider,
+        description=deployed_range.description or "",
+    ) as pulumi:
         try:
-            deleted_from_db = await delete_deployed_range(
-                db, deployed_range.id, user_id, user_is_admin
-            )
-            if not deleted_from_db:
-                msg = "Failed to delete destroyed range from DB!"
-                raise RuntimeError(msg)
+            await pulumi.destroy()
+
+            async with get_db_session_context() as db:
+                deleted_from_db = await delete_deployed_range(
+                    db, deployed_range.id, user_id, user_is_admin
+                )
+                if not deleted_from_db:
+                    msg = "Failed to delete destroyed range from DB!"
+                    raise RuntimeError(msg)
         except Exception as e:
             logger.exception(
                 "Failed to delete range: %s from database on behalf of user: %s! Exception: %s",
-                range_to_destroy.name,
+                deployed_range.name,
                 user_id,
                 e,
             )

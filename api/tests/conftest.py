@@ -4,8 +4,7 @@ import shutil
 import socket
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable, Generator, Iterator
-from unittest.mock import MagicMock
+from typing import AsyncGenerator, Callable, Generator
 
 import dotenv
 import pytest
@@ -13,7 +12,6 @@ import pytest_asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from pytest_mock import MockerFixture
 from sqlalchemy import NullPool, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
@@ -29,17 +27,13 @@ from src.app.core.config import settings
 from src.app.core.db.database import Base, async_get_db
 from src.app.enums.job_status import OpenLabsJobStatus
 from src.app.enums.providers import OpenLabsProvider
-from src.app.enums.regions import OpenLabsRegion
 from src.app.schemas.range_schemas import (
     BlueprintRangeCreateSchema,
-    BlueprintRangeSchema,
-    DeployedRangeCreateSchema,
     DeployedRangeSchema,
 )
-from src.app.schemas.secret_schema import SecretSchema
 from src.app.utils.api_utils import get_api_base_route
-from src.app.utils.cdktf_utils import create_cdktf_dir
 from src.app.utils.path_utils import find_git_root
+from src.app.utils.pulumi_utils import create_pulumi_dir
 from tests.api_test_utils import (
     add_blueprint_range,
     add_cloud_credentials,
@@ -55,7 +49,6 @@ from tests.api_test_utils import (
 from tests.common.api.v1.config import (
     valid_blueprint_range_create_payload,
     valid_blueprint_range_multi_create_payload,
-    valid_deployed_range_data,
 )
 from tests.deploy_test_utils import (
     RangeType,
@@ -99,16 +92,10 @@ def pytest_collection_modifyitems(
             item.add_marker("integration")
             item.add_marker("slow")
 
-        # Rule 3: All tests under any folder named 'cdktf' marked accordingly
-        # These tests are slow because of the loading time for providers
-        if "cdktf" in item.path.parts:
-            item.add_marker("cdktf")
-            item.add_marker("slow")
-
         # Rule 4: All tests under an 'api' folder marked accordingly
         # These are slow because of docker container fixture setup and
         # import CDKTF dependencies through the range endpoints.
-        if "api" in item.path.parts:
+        if "v1" in item.path.parts:
             item.add_marker("api")
             item.add_marker("slow")
 
@@ -131,12 +118,12 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(autouse=True)
-def create_test_cdktf_dir(request: pytest.FixtureRequest) -> None:
+def create_test_pulumi_dir(request: pytest.FixtureRequest) -> None:
     """Override settings CDKTF dir for testing."""
-    settings.CDKTF_DIR = create_cdktf_dir()
+    settings.PULUMI_DIR = create_pulumi_dir()
 
     # Register a finalizer to remove the directory after the test module finishes
-    request.addfinalizer(lambda: shutil.rmtree(settings.CDKTF_DIR, ignore_errors=True))
+    request.addfinalizer(lambda: shutil.rmtree(settings.PULUMI_DIR, ignore_errors=True))
 
 
 @pytest.fixture(scope="session")
@@ -191,72 +178,6 @@ def create_db_schema(postgres_container: str) -> Generator[str, None, None]:
     finally:
         sync_engine.dispose()
         logger.info("Sync engine disposed after schema creation.")
-
-
-@pytest.fixture(scope="module")
-def synthesize_factory() -> (
-    Callable[[type[Any], BlueprintRangeSchema, str, OpenLabsRegion], str]
-):
-    """Get factory to generate CDKTF synthesis for different stack classes."""
-    # Import here to avoid CDKTF long loading phase
-    from cdktf import Testing  # noqa: PLC0415
-
-    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
-
-    def _synthesize(
-        stack_cls: type[AbstractBaseStack],
-        cyber_range: BlueprintRangeSchema,
-        stack_name: str = "test_range",
-        region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-    ) -> str:
-        """Synthesize generic stack using CDKTF testing library."""
-        app = Testing.app()
-
-        # Synthesize the stack using the provided stack class
-        return str(
-            Testing.synth(
-                stack_cls(
-                    app,
-                    cyber_range,
-                    stack_name,
-                    settings.CDKTF_DIR,
-                    region,
-                    "test-range",
-                )
-            )
-        )
-
-    return _synthesize
-
-
-@pytest.fixture(scope="module")
-def range_factory() -> Callable[
-    [Any, BlueprintRangeSchema, OpenLabsRegion],
-    Any,
-]:
-    """Get factory to generate range object sythesis output."""
-    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
-    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
-
-    def _range_synthesize(
-        range_cls: type[AbstractBaseRange],
-        range_blueprint: BlueprintRangeSchema,
-        region: OpenLabsRegion = OpenLabsRegion.US_EAST_1,
-        state_file: None = None,
-    ) -> AbstractBaseRange:
-        """Create range object and return synth() output."""
-        secrets = SecretSchema()
-
-        return RangeFactory.create_range(
-            name="test-range",
-            description="Range for testing purposes!",
-            range_obj=range_blueprint,
-            region=region,
-            secrets=secrets,
-            state_file=state_file,
-        )
-
-    return _range_synthesize
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -697,85 +618,3 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
     """
     return request.getfixturevalue(request.param)
 
-
-@pytest.fixture
-def mock_range_factory(
-    mocker: MockerFixture,
-) -> Iterator[Callable[..., MagicMock]]:
-    """Provide a factory function to create and patch a customizable AbstractBaseRange mock.
-
-    This fixture patches `RangeFactory.create_range` to return a `MagicMock`
-    that is configured based on the arguments passed to the factory function.
-
-    Yields:
-        Callable[..., MagicMock]: A function to create and patch the mock.
-
-    """
-    from src.app.core.cdktf.ranges.base_range import AbstractBaseRange  # noqa: PLC0415
-    from src.app.core.cdktf.ranges.range_factory import RangeFactory  # noqa: PLC0415
-    from src.app.core.cdktf.stacks.base_stack import AbstractBaseStack  # noqa: PLC0415
-
-    def _create_and_patch(  # noqa: D417, PLR0913
-        # Arguments as specified in the user's original request
-        has_secrets: bool = True,
-        synthesize: bool = True,
-        destroy: bool = True,
-        deploy: DeployedRangeCreateSchema | None = None,
-        get_provider_stack_class: type[AbstractBaseStack] | None = None,
-        get_cred_env_vars: dict[str, Any] | None = None,
-    ) -> MagicMock:
-        """Patch RangeFactory.create_range and configures the mock's behavior.
-
-        Args:
-            (all): Arguments to configure the mock's methods and properties.
-
-        Returns:
-            MagicMock: The configured mock object.
-
-        """
-        deployed_create_schema = DeployedRangeCreateSchema.model_validate(
-            valid_deployed_range_data
-        )
-
-        if deploy is None:
-            deploy = deployed_create_schema
-
-        if get_provider_stack_class is None:
-
-            class FakeStack(AbstractBaseStack):
-                def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
-                    pass
-
-                def build_resources(
-                    self, *args: Any, **kwargs: Any  # noqa: ANN401
-                ) -> None:
-                    return None
-
-            # Set the default value
-            get_provider_stack_class = FakeStack
-
-        # Fake class to appease unittest mocking
-        class _RangeSpec(AbstractBaseRange):
-            name: str = ""
-
-        # Fail tests that call non-existent methods/attributes
-        mock_range = MagicMock(
-            spec_set=_RangeSpec, name="Mocked Range Factory Range Object"
-        )
-
-        # Configure mock methods based on args
-        mock_range.has_secrets.return_value = has_secrets
-        mock_range.synthesize.return_value = synthesize
-        mock_range.deploy.return_value = deploy
-        mock_range.destroy.return_value = destroy
-        mock_range.get_cred_env_vars.return_value = (
-            get_cred_env_vars if get_cred_env_vars is not None else {}
-        )
-        mock_range.get_provider_stack_class.return_value = get_provider_stack_class
-
-        # Patch factory method to return mock
-        mocker.patch.object(RangeFactory, "create_range", return_value=mock_range)
-
-        return mock_range
-
-    yield _create_and_patch

@@ -294,6 +294,7 @@ valid_deployed_range_data: dict[str, Any] = {
     "jumpbox_public_ip": "203.0.113.25",
     "range_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDIfSjVkaDRtKNO\n... (rest of a mock SSH private key) ...\nhNUC8ZLe06edaNBX6N2jS9Wp3mk3JNGxQjagtrh9TGUrscedop4hCQABAoGALKe1\n-----END OPENSSH PRIVATE KEY-----",
     "provider": "aws",
+    "deployment_id": "abcde12345",
     "name": "openlabs-deployed-test-v2",
     "vnc": True,
     "vpn": False,

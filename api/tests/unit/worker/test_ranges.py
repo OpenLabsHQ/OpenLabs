@@ -9,9 +9,12 @@ import pytest
 from pytest_mock import MockerFixture
 
 import src.app.worker.ranges as worker_range_funcs
+from src.app.enums.providers import OpenLabsProvider
 from src.app.models.user_model import UserModel
+from src.app.provisioning.pulumi.provisioner import PulumiOperation
 from src.app.schemas.range_schemas import (
     BlueprintRangeSchema,
+    DeployedRangeCreateSchema,
     DeployedRangeHeaderSchema,
     DeployedRangeSchema,
 )
@@ -74,9 +77,62 @@ def destroy_range() -> Callable[..., Awaitable[dict[str, Any]]]:
 
 
 @pytest.fixture
-def mock_worker_deploy_range_success(
+def mock_pulumi_provider(mocker: MockerFixture, worker_ranges_path: str) -> MagicMock:
+    """Mock the pulumi provider registry."""
+    mock_pulumi_provider = MagicMock()
+
+    mock_provider_registry = {
+        OpenLabsProvider.AWS: mock_pulumi_provider,
+    }
+    mocker.patch(f"{worker_ranges_path}.PROVIDER_REGISTRY", new=mock_provider_registry)
+    return mock_pulumi_provider
+
+
+@pytest.fixture
+def mock_no_pulumi_provider(mocker: MockerFixture, worker_ranges_path: str) -> None:
+    """Mock the pulumi provider registry to be empty."""
+    mocker.patch(f"{worker_ranges_path}.PROVIDER_REGISTRY", new={})
+
+
+@pytest.fixture
+def mock_pulumi_operation_class(
+    mocker: MockerFixture, worker_ranges_path: str
+) -> AsyncMock:
+    """Mock the entire PulumiOperation class."""
+    pulumi_operation_class_mock = MagicMock(spec=PulumiOperation)
+
+    mocker.patch(
+        f"{worker_ranges_path}.PulumiOperation", new=pulumi_operation_class_mock
+    )
+    return pulumi_operation_class_mock
+
+
+@pytest.fixture
+def mock_pulumi_operation_instance(
     mocker: MockerFixture,
     worker_ranges_path: str,
+    mock_pulumi_operation_class: AsyncMock,
+) -> AsyncMock:
+    """Mock the PulumiOperation class."""
+    pulumi_instance_mock = AsyncMock()
+
+    mock_pulumi_operation_class.return_value.__aenter__.return_value = (
+        pulumi_instance_mock
+    )
+
+    mocker.patch(
+        f"{worker_ranges_path}.PulumiOperation", new=mock_pulumi_operation_class
+    )
+
+    return pulumi_instance_mock
+
+
+@pytest.fixture
+def mock_worker_deploy_range_success(
+    mocker: MockerFixture,
+    mock_pulumi_provider: MagicMock,
+    worker_ranges_path: str,
+    mock_pulumi_operation_instance: AsyncMock,
 ) -> None:
     """Patch over all non-range object external dependencies to ensure the deploy function returns as if successful."""
     # Patch database connection
@@ -94,6 +150,14 @@ def mock_worker_deploy_range_success(
         f"{worker_ranges_path}.get_decrypted_secrets", return_value=mock_secrets
     )
 
+    # Mock pulumi provider calls
+    mock_pulumi_provider.has_secrets.return_value = True
+
+    # Mock pulumi operation instance calls
+    mock_pulumi_operation_instance.up.return_value = (
+        DeployedRangeCreateSchema.model_validate(valid_deployed_range_data)
+    )
+
     # Patch create range calls
     mock_create_deployed_range = AsyncMock()
     fake_range_header = DeployedRangeHeaderSchema.model_validate(
@@ -109,6 +173,8 @@ def mock_worker_deploy_range_success(
 def mock_worker_destroy_range_success(
     mocker: MockerFixture,
     worker_ranges_path: str,
+    mock_pulumi_provider: MagicMock,
+    mock_pulumi_operation_instance: AsyncMock,
 ) -> None:
     """Patch over all non-range object external dependencies to ensure the delete function returns as if successful."""
     # Patch database connection
@@ -126,6 +192,12 @@ def mock_worker_destroy_range_success(
         f"{worker_ranges_path}.get_decrypted_secrets", return_value=mock_secrets
     )
 
+    # Mock pulumi provider calls
+    mock_pulumi_provider.has_secrets.return_value = True
+
+    # Mock pulumi operation instance calls
+    mock_pulumi_operation_instance.destroy.return_value = None
+
     # Patch create range calls
     mock_delete_deployed_range = AsyncMock()
     fake_range_header = DeployedRangeHeaderSchema.model_validate(
@@ -137,17 +209,14 @@ def mock_worker_destroy_range_success(
     )
 
 
-async def test_worker_deploy_range_success(  # noqa: PLR0913
+async def test_worker_deploy_range_success(
     mock_arq_ctx: MagicMock,
     deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the deploy_range worker function returns data when it succeeds."""
-    mock_range_factory()
-
     assert await deploy_range(
         mock_arq_ctx,
         mock_enc_key,
@@ -157,17 +226,14 @@ async def test_worker_deploy_range_success(  # noqa: PLR0913
     )
 
 
-async def test_worker_destroy_range_success(  # noqa: PLR0913
+async def test_worker_destroy_range_success(
     mock_arq_ctx: MagicMock,
     destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the destroy_range worker function returns data when it succeeds."""
-    mock_range_factory()
-
     assert await destroy_range(
         mock_arq_ctx,
         mock_enc_key,
@@ -303,13 +369,50 @@ async def test_worker_destroy_range_no_decrypted_secrets(  # noqa: PLR0913
         )
 
 
-async def test_worker_deploy_range_invalid_range_secrets(  # noqa: PLR0913
+async def test_worker_deploy_range_no_pulumi_provider(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
+    mock_no_pulumi_provider: None,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
+) -> None:
+    """Test that the worker deploy function raises an exception if there is no pulumi provider available."""
+    with pytest.raises(RuntimeError, match="provider"):
+        await deploy_range(
+            mock_arq_ctx,
+            mock_enc_key,
+            deploy_request_dump=valid_range_deploy_payload,
+            blueprint_range_dump=blueprint_range.model_dump(mode="json"),
+            user_id=1,
+        )
+
+
+async def test_worker_destroy_range_invalid_no_pulumi_provider(  # noqa: PLR0913
+    mock_arq_ctx: MagicMock,
+    destroy_range: Callable[..., Awaitable[dict[str, Any]]],
+    mock_worker_destroy_range_success: None,
+    mock_no_pulumi_provider: None,
+    deployed_range: DeployedRangeSchema,
+    mock_enc_key: str,
+) -> None:
+    """Test that the worker destroy function raises an exception if there is no pulumi provider available."""
+    with pytest.raises(RuntimeError, match="provider"):
+        await destroy_range(
+            mock_arq_ctx,
+            mock_enc_key,
+            deployed_range_dump=deployed_range.model_dump(mode="json"),
+            user_id=1,
+        )
+
+
+async def test_worker_deploy_range_invalid_range_secrets(  # noqa: PLR0913
+    mock_arq_ctx: MagicMock,
+    deploy_range: Callable[..., Awaitable[dict[str, Any]]],
+    mock_pulumi_provider: MagicMock,
+    mock_worker_deploy_range_success: None,
+    blueprint_range: BlueprintRangeSchema,
+    mock_enc_key: str,
 ) -> None:
     """Test that the deploy_range worker function returns raises a RuntimeError when has_secrets() returns False.
 
@@ -317,7 +420,7 @@ async def test_worker_deploy_range_invalid_range_secrets(  # noqa: PLR0913
     correct values are stored/populated to be able to deploy to the provider specified in
     it's range object (Blueprint, etc.).
     """
-    mock_range_factory(has_secrets=False)
+    mock_pulumi_provider.has_secrets.return_value = False
 
     with pytest.raises(RuntimeError, match="credentials"):
         await deploy_range(
@@ -332,10 +435,10 @@ async def test_worker_deploy_range_invalid_range_secrets(  # noqa: PLR0913
 async def test_worker_destroy_range_invalid_range_secrets(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     destroy_range: Callable[..., Awaitable[dict[str, Any]]],
+    mock_pulumi_provider: MagicMock,
     mock_worker_destroy_range_success: None,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
     """Test that the destroy_range worker function returns raises a RuntimeError when has_secrets() returns False.
 
@@ -343,7 +446,7 @@ async def test_worker_destroy_range_invalid_range_secrets(  # noqa: PLR0913
     correct values are stored/populated to be able to destroy infrastructure hosted on the
     provider specified in it's range object (Deployed, etc.).
     """
-    mock_range_factory(has_secrets=False)
+    mock_pulumi_provider.has_secrets.return_value = False
 
     with pytest.raises(RuntimeError, match="credentials"):
         await destroy_range(
@@ -358,14 +461,19 @@ async def test_worker_deploy_range_failed_synthesis(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
+    mock_pulumi_operation_class: MagicMock,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
-    """Test that the deploy_range worker function returns raises a RuntimeError when it can't synthesize the range."""
-    mock_range_factory(synthesize=False)
+    """Test that the deploy_range worker function returns raises a RuntimeError when it can't synthesize the range.
 
-    with pytest.raises(RuntimeError, match="synthesize"):
+    Here we are testing that pulumi errors are passed up and properly raised to fail the worker function.
+    """
+    mock_pulumi_operation_class.return_value.__aenter__.side_effect = RuntimeError(
+        "Mock stack synth error!"
+    )
+
+    with pytest.raises(RuntimeError, match="synth"):
         await deploy_range(
             mock_arq_ctx,
             mock_enc_key,
@@ -379,14 +487,19 @@ async def test_worker_destroy_range_failed_synthesis(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
+    mock_pulumi_operation_class: MagicMock,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
-    """Test that the destroy_range worker function returns raises a RuntimeError when it can't synthesize the range."""
-    mock_range_factory(synthesize=False)
+    """Test that the destroy_range worker function returns raises a RuntimeError when it can't synthesize the range.
 
-    with pytest.raises(RuntimeError, match="synthesize"):
+    Here we are testing that pulumi errors are passed up and properly raised to fail the worker function.
+    """
+    mock_pulumi_operation_class.return_value.__aenter__.side_effect = RuntimeError(
+        "Mock stack synth error!"
+    )
+
+    with pytest.raises(RuntimeError, match="synth"):
         await destroy_range(
             mock_arq_ctx,
             mock_enc_key,
@@ -399,13 +512,12 @@ async def test_worker_deploy_range_failed_deploy(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     deploy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_deploy_range_success: None,
+    mock_pulumi_operation_instance: AsyncMock,
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
-    """Test that the deploy_range worker function returns raises a RuntimeError when it can't deploy the range."""
-    # Dummy falsey value to trigger error
-    mock_range_factory(deploy=False)
+    """Test that the deploy_range worker function fails due to pulumi errors from the up (deploy) method."""
+    mock_pulumi_operation_instance.up.side_effect = RuntimeError("Mock deploy error!")
 
     with pytest.raises(RuntimeError, match="deploy"):
         await deploy_range(
@@ -416,19 +528,24 @@ async def test_worker_deploy_range_failed_deploy(  # noqa: PLR0913
             user_id=1,
         )
 
+    # Check that we attempt cleanup
+    mock_pulumi_operation_instance.destroy.assert_awaited_once()
+
 
 async def test_worker_destroy_range_failed_destroy(  # noqa: PLR0913
     mock_arq_ctx: MagicMock,
     destroy_range: Callable[..., Awaitable[dict[str, Any]]],
     mock_worker_destroy_range_success: None,
+    mock_pulumi_operation_instance: AsyncMock,
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
-    mock_range_factory: Callable[..., MagicMock],
 ) -> None:
-    """Test that the destroy_range worker function returns raises a RuntimeError when it can't destroy the range."""
-    mock_range_factory(destroy=False)
+    """Test that the destroy_range worker function fails due to pulumi errors from the destroy method."""
+    mock_pulumi_operation_instance.destroy.side_effect = RuntimeError(
+        "Mock destroy error!"
+    )
 
-    with pytest.raises(RuntimeError, match="deploy"):
+    with pytest.raises(RuntimeError, match="destroy"):
         await destroy_range(
             mock_arq_ctx,
             mock_enc_key,
@@ -444,7 +561,7 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
     blueprint_range: BlueprintRangeSchema,
     mock_enc_key: str,
     worker_ranges_path: str,
-    mock_range_factory: Callable[..., MagicMock],
+    mock_pulumi_operation_instance: AsyncMock,
     mock_worker_deploy_range_success: None,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -456,8 +573,10 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
         side_effect=RuntimeError(fake_error_msg),
     )
 
-    # Simulate a failed auto cleanup
-    mock_range = mock_range_factory(destroy=False)
+    # Force destroy error
+    mock_pulumi_operation_instance.destroy.side_effect = RuntimeError(
+        "Fake destroy error!"
+    )
 
     with pytest.raises(RuntimeError, match=fake_error_msg):
         await deploy_range(
@@ -469,7 +588,7 @@ async def test_worker_deploy_range_db_exception_and_failed_clean_up(  # noqa: PL
         )
 
     # Check we auto destroy the range
-    mock_range.destroy.assert_awaited_once()
+    mock_pulumi_operation_instance.destroy.assert_awaited_once()
 
     # Ensure that we log the failed cleanup
     except_log_keywords = "clean up failed"
@@ -487,7 +606,6 @@ async def test_worker_destroy_range_db_failure(  # noqa: PLR0913
     deployed_range: DeployedRangeSchema,
     mock_enc_key: str,
     worker_ranges_path: str,
-    mock_range_factory: Callable[..., MagicMock],
     mock_worker_destroy_range_success: None,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -497,8 +615,6 @@ async def test_worker_destroy_range_db_failure(  # noqa: PLR0913
         f"{worker_ranges_path}.delete_deployed_range",
         return_value=None,
     )
-
-    mock_range_factory()
 
     with pytest.raises(RuntimeError, match="delete"):
         await destroy_range(

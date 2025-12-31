@@ -2,12 +2,11 @@ import os
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from setuptools_scm import get_version
 
-from ..utils.cdktf_utils import create_cdktf_dir
 from ..utils.path_utils import find_git_root
+from ..utils.pulumi_utils import create_pulumi_dir
 
-env_path = os.path.join(str(find_git_root()), ".env")
+env_path = os.path.join(str(find_git_root(marker=".env")), ".env")
 settings_config = SettingsConfigDict(
     # Provide the full, absolute path to your file
     env_file=env_path,
@@ -23,9 +22,7 @@ class AppSettings(BaseSettings):
 
     APP_NAME: str = "OpenLabs API"
     APP_DESCRIPTION: str | None = "OpenLabs backend API."
-    APP_VERSION: str | None = get_version(
-        root=str(find_git_root())
-    )  # Latest tagged release
+    APP_VERSION: str | None = "dev"
     LICENSE_NAME: str | None = "AGPL-3.0"
     LICENSE_URL: str | None = "https://github.com/OpenLabsHQ/OpenLabs/blob/main/LICENSE"
     CONTACT_NAME: str | None = "OpenLabs Support"
@@ -50,14 +47,6 @@ class AuthSettings(BaseSettings):
     ADMIN_EMAIL: str = "admin@test.com"
     ADMIN_PASSWORD: str = "admin123"  # noqa: S105 (Default)
     ADMIN_NAME: str = "Administrator"
-
-
-class CDKTFSettings(BaseSettings):
-    """CDKTF settings."""
-
-    model_config = settings_config
-
-    CDKTF_DIR: str = create_cdktf_dir()
 
 
 class DatabaseSettings(BaseSettings):
@@ -90,8 +79,6 @@ class PostgresSettings(DatabaseSettings):
             f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
-    POSTGRES_URL: str | None = None
-
 
 class RedisQueueSettings(BaseSettings):
     """Redis queue settings."""
@@ -103,12 +90,25 @@ class RedisQueueSettings(BaseSettings):
     REDIS_QUEUE_PASSWORD: str = "ChangeMe123!"  # noqa: S105 (Default)
 
 
+class PulumiSettings(BaseSettings):
+    """Pulumi settings."""
+
+    model_config = settings_config
+
+    PULUMI_DIR: str = create_pulumi_dir()
+    PULUMI_CONFIG_PASSPHRASE: str = "ChangeMe123!"  # noqa: S105
+
+
 class Settings(
-    AppSettings, PostgresSettings, CDKTFSettings, AuthSettings, RedisQueueSettings
+    AppSettings, PostgresSettings, PulumiSettings, AuthSettings, RedisQueueSettings
 ):
     """FastAPI app settings."""
 
-    pass
+    # Pulumi settings
+    @computed_field
+    def PULUMI_BACKEND_URL(self) -> str:  # noqa: N802
+        """Pulumi Postgres state backend URL."""
+        return f"postgres://{self.POSTGRES_URI}?sslmode=disable"
 
 
 settings = Settings()

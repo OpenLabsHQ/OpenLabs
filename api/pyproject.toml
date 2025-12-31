@@ -8,11 +8,11 @@ dependencies = [
     "arq>=0.26.3",
     "asyncpg~=0.30",
     "bcrypt>=5.0.0",
-    "cdktf>=0.21.0",
-    "cdktf-cdktf-provider-aws>=21.0.0",
     "cryptography>=46.0.0",
     "fastapi[standard]~=0.115",
     "pydantic-settings~=2.7",
+    "pulumi>=3.0.0",
+    "pulumi-aws>=6.61.0",
     "pyjwt>=2.10.1",
     "pyyaml~=6.0",
     "setuptools-scm~=9.0",
@@ -101,7 +101,9 @@ addopts = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 filterwarnings = [
-    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning"
+    "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning",
+    "ignore:.*s3(\\.|/).*:DeprecationWarning",
+    "ignore:.*uses PyType_Spec with a metaclass that has custom tp_new.*:DeprecationWarning",
 ]
 
 # Register markers to easily select unit or integration tests.
@@ -112,7 +114,6 @@ markers = [
     "api: marks tests that interact with API endpoints.",
     "worker: marks tests that cover the ARQ worker code.",
     "deploy: marks tests that deploy live infrastructure.",
-    "cdktf: marks tests related to or that import cdktf code.",
     "aws: marks tests related to AWS specific functionality."
 ]
 

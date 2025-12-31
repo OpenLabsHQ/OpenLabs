@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from ipaddress import IPv4Address
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
@@ -123,7 +122,11 @@ class DeployedRangeBaseSchema(RangeCommonSchema):
     readme: str | None = Field(
         default=None, description="Markdown readme for deployed range."
     )
-    state_file: dict[str, Any] = Field(..., description="Terraform state file.")
+    deployment_id: str = Field(
+        ...,
+        description="ID unique to the deployment.",
+        examples=["1234567890"],
+    )
     state: RangeState = Field(
         ...,
         description="State of deployed range.",
