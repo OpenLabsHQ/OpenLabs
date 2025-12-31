@@ -142,13 +142,8 @@ async def get_user_secrets(
             azure=CloudSecretStatusSchema(has_credentials=False, created_at=None),
         )
 
-    aws_created_at = None
-    if secrets.aws_created_at:
-        aws_created_at = secrets.aws_created_at.isoformat()
-
-    azure_created_at = None
-    if secrets.azure_created_at:
-        azure_created_at = secrets.azure_created_at.isoformat()
+    aws_created_at = secrets.aws_created_at
+    azure_created_at = secrets.azure_created_at
 
     return UserSecretResponseSchema(
         aws=CloudSecretStatusSchema(

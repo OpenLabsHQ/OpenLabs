@@ -40,7 +40,7 @@ async def close_redis_queue_pool() -> None:
 
 async def set_threadpool_tokens(number_of_tokens: int = 100) -> None:
     """Set thread limit."""
-    limiter = anyio.to_thread.current_default_thread_limiter()
+    limiter = anyio.to_thread.current_default_thread_limiter()  # type: ignore[attr-defined]
     limiter.total_tokens = number_of_tokens
 
 
@@ -147,7 +147,7 @@ def create_application(
         )
 
         app.add_middleware(
-            CORSMiddleware,
+            CORSMiddleware,  # type: ignore[arg-type]
             allow_origins=cors_origins,
             allow_credentials=settings.CORS_CREDENTIALS,
             allow_methods=cors_methods,

@@ -26,6 +26,7 @@ async def initialize_admin_user() -> None:
                 email=settings.ADMIN_EMAIL,
                 password=settings.ADMIN_PASSWORD,
                 name=settings.ADMIN_NAME,
+                is_admin=True,
             )
 
             admin_user = await get_user(session, settings.ADMIN_EMAIL)

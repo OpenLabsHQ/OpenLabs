@@ -99,7 +99,7 @@ class TestJobs:
     ) -> None:
         """Test we can fetch individual jobs."""
         deployed_range = provider_deployed_ranges_for_provider[range_type]
-        range_info, email, password = deployed_range
+        _range_info, email, password = deployed_range
 
         assert await login_user(
             integration_client, email, password
@@ -140,7 +140,7 @@ class TestJobs:
     ) -> None:
         """Test we can't fetch jobs from an unauthorized account."""
         deployed_range = provider_deployed_ranges_for_provider[range_type]
-        range_info, email, password = deployed_range
+        _range_info, email, password = deployed_range
 
         assert await login_user(
             integration_client, email, password

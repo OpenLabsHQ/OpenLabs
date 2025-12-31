@@ -213,7 +213,7 @@ async def test_add_job_defers_on_conflict() -> None:
     dummy_db.execute.assert_called_once()
     stmt = dummy_db.execute.call_args[0][0]
 
-    stmt_str = str(stmt.compile(dialect=postgresql.dialect())).lower()  # type: ignore
+    stmt_str = str(stmt.compile(dialect=postgresql.dialect())).lower()
 
     # Check the function defers on conflict
     assert "on conflict" in stmt_str
@@ -240,7 +240,7 @@ async def test_arq_upsert_job_updates_on_conflict() -> None:
     # 3. Verification
     dummy_db.execute.assert_called_once()
     stmt = dummy_db.execute.call_args[0][0]
-    stmt_str = str(stmt.compile(dialect=postgresql.dialect())).lower()  # type: ignore
+    stmt_str = str(stmt.compile(dialect=postgresql.dialect())).lower()
 
     # Check we are updating on conflict
     assert "on conflict" in stmt_str

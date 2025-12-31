@@ -4,18 +4,24 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /code
 
-RUN apt-get update && apt-get install -y git curl \
+RUN apt-get update && apt-get install -y \
+        git \
+        curl \
+        wget \
+        gnupg \
+        gnupg2 \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get update \
     && apt-get install -y nodejs \
-    && apt-get install -y gnupg software-properties-common \
-    && apt-get install -y wget \
-    && apt-get install -y gnupg2 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Install python dependencies
-COPY api/requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY api/pyproject.toml api/uv.lock /code/
+RUN uv sync --frozen --no-dev
 
 COPY api/src /code/src
 COPY .env /code/.env
@@ -31,8 +37,8 @@ FROM builder AS test_builder
 
 COPY api/tests /code/tests
 
-COPY api/dev-requirements.txt /code/dev-requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/dev-requirements.txt
+# Install dev dependencies
+RUN uv sync --frozen --all-extras
 
 COPY api/pyproject.toml /code/pyproject.toml 
 
@@ -40,10 +46,10 @@ COPY api/pyproject.toml /code/pyproject.toml
 # Adds debug capabilities
 FROM builder AS api_debug
 
-RUN pip install --no-cache-dir debugpy
+RUN uv pip install --no-cache debugpy
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
 
 # ========= API Test Image =========
@@ -51,7 +57,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
 FROM test_builder AS api_test
 
 HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
 
 # ========= Worker Image =========
@@ -76,7 +82,7 @@ RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code
 
-CMD ["arq", "src.app.worker.settings.WorkerSettings"]
+CMD ["uv", "run", "arq", "src.app.worker.settings.WorkerSettings"]
 
 
 # ========= Prod Image =========
@@ -84,6 +90,6 @@ CMD ["arq", "src.app.worker.settings.WorkerSettings"]
 FROM builder AS prod
 
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+CMD ["uv", "run", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
