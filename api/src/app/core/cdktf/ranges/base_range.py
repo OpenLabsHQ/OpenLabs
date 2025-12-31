@@ -443,7 +443,7 @@ class AbstractBaseRange(ABC):
                     return None
                 current_vpc["resource_id"] = raw_outputs[vpc_key]["value"]
 
-                for y, subnet in enumerate(vpc.subnets):  # type: ignore
+                for y, subnet in enumerate(vpc.subnets):
 
                     normalized_subnet_name = normalize_name(subnet.name)
 

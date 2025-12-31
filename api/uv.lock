@@ -1204,18 +1204,18 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
-    { name = "argon2-cffi", specifier = ">=23.1.0" },
+    { name = "argon2-cffi", specifier = ">=25.1.0" },
     { name = "arq", specifier = ">=0.26.3" },
     { name = "asyncpg", specifier = "~=0.30" },
     { name = "bcrypt", specifier = ">=5.0.0" },
-    { name = "cdktf", specifier = ">=0.20" },
-    { name = "cdktf-cdktf-provider-aws", specifier = ">=19.60" },
-    { name = "cryptography", specifier = ">=41.0.0" },
+    { name = "cdktf", specifier = ">=0.21.0" },
+    { name = "cdktf-cdktf-provider-aws", specifier = ">=21.0.0" },
+    { name = "cryptography", specifier = ">=46.0.0" },
     { name = "fastapi", extras = ["standard"], specifier = "~=0.115" },
     { name = "pydantic-settings", specifier = "~=2.7" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "pyyaml", specifier = "~=6.0" },
-    { name = "setuptools-scm", specifier = "~=8.1" },
+    { name = "setuptools-scm", specifier = "~=9.0" },
     { name = "sqlalchemy", specifier = "~=2.0" },
     { name = "tenacity", specifier = ">=9.1.2" },
 ]
@@ -1234,8 +1234,8 @@ dev = [
     { name = "pytest-docker", specifier = ">=3.2.0" },
     { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
-    { name = "ruff", specifier = ">=0.9.4" },
-    { name = "testcontainers", specifier = ">=4.9.1" },
+    { name = "ruff", specifier = ">=0.14.10" },
+    { name = "testcontainers", specifier = ">=4.13.3" },
     { name = "ty", specifier = ">=0.0.8" },
     { name = "types-aiofiles", specifier = ">=24.1.0" },
     { name = "types-paramiko", specifier = ">=3.5.0" },
@@ -1887,15 +1887,15 @@ wheels = [
 
 [[package]]
 name = "setuptools-scm"
-version = "8.3.1"
+version = "9.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
     { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/19/7ae64b70b2429c48c3a7a4ed36f50f94687d3bfcd0ae2f152367b6410dff/setuptools_scm-8.3.1.tar.gz", hash = "sha256:3d555e92b75dacd037d32bafdf94f97af51ea29ae8c7b234cf94b7a5bd242a63", size = 78088, upload-time = "2025-04-23T11:53:19.739Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/b1/19587742aad604f1988a8a362e660e8c3ac03adccdb71c96d86526e5eb62/setuptools_scm-9.2.2.tar.gz", hash = "sha256:1c674ab4665686a0887d7e24c03ab25f24201c213e82ea689d2f3e169ef7ef57", size = 203385, upload-time = "2025-10-19T22:08:05.608Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/ac/8f96ba9b4cfe3e4ea201f23f4f97165862395e9331a424ed325ae37024a8/setuptools_scm-8.3.1-py3-none-any.whl", hash = "sha256:332ca0d43791b818b841213e76b1971b7711a960761c5bea5fc5cdb5196fbce3", size = 43935, upload-time = "2025-04-23T11:53:17.922Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/ea/ac2bf868899d0d2e82ef72d350d97a846110c709bacf2d968431576ca915/setuptools_scm-9.2.2-py3-none-any.whl", hash = "sha256:30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7", size = 62975, upload-time = "2025-10-19T22:08:04.007Z" },
 ]
 
 [[package]]

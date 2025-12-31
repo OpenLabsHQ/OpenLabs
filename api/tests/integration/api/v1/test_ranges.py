@@ -247,6 +247,7 @@ class TestRange:
                 hostname = host_data["hostname"]
 
                 target_client = None
+                username = "unknown"
                 try:
                     # Create a tunnel channel through the jumpbox
                     src_addr = (str(range_info.jumpbox_public_ip), 22)
@@ -268,6 +269,8 @@ class TestRange:
                         username = AZURE_SSH_USERNAME_MAP[os_enum]
                     else:
                         pytest.fail(f"Unsupported provider: {range_info.provider}")
+
+                    assert username is not None
 
                     await asyncio.to_thread(
                         target_client.connect,

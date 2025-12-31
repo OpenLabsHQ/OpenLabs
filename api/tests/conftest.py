@@ -644,6 +644,7 @@ async def provider_deployed_ranges_for_provider(
 
         finally:
             destroy_job_ids: list[str] = []
+            destroy_job_to_range_type: dict[str, RangeType] = {}
             if destroy_data:
                 # Send destroy requests
                 for range_type, range_id in destroy_data.items():
@@ -657,6 +658,7 @@ async def provider_deployed_ranges_for_provider(
                         continue
 
                     destroy_job_ids.append(job_details.arq_job_id)
+                    destroy_job_to_range_type[job_details.arq_job_id] = range_type
 
                 # Wait for results
                 destroy_job_results = await wait_for_jobs(
@@ -665,11 +667,12 @@ async def provider_deployed_ranges_for_provider(
 
                 # Check results
                 for job_id in destroy_job_ids:
+                    current_range_type = destroy_job_to_range_type[job_id]
                     job = destroy_job_results[job_id]
                     if not job or job.status == OpenLabsJobStatus.FAILED:
                         logger.critical(
                             "Failed to destroy %s %s test range. Possible dangling resources!",
-                            range_type.value.upper(),
+                            current_range_type.value.upper(),
                             provider_upper,
                         )
                         continue
@@ -682,7 +685,7 @@ def api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only used for unauthenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)  # type: ignore
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture
@@ -692,7 +695,7 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only use for authenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)  # type: ignore
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture

@@ -15,7 +15,7 @@ async def test_blueprint_vpc_create_database_error(
 ) -> None:
     """Test that when crud function fails to create the VPC blueprint we return a 500 error."""
 
-    def fake_db_error(*args: dict, **kwargs: dict) -> Never:  # type: ignore
+    def fake_db_error(*args: dict, **kwargs: dict) -> Never:
         msg = "Fake database error!"
         raise RuntimeError(msg)
 
@@ -35,7 +35,7 @@ async def test_blueprint_vpc_delete_database_error(
 ) -> None:
     """Test that when crud function fails to delete the VPC blueprint we return a 500 error."""
 
-    def fake_db_error(*args: dict, **kwargs: dict) -> Never:  # type: ignore
+    def fake_db_error(*args: dict, **kwargs: dict) -> Never:
         msg = "Fake database error!"
         raise RuntimeError(msg)
 
