@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y \
         wget \
         gnupg \
         gnupg2 \
-        software-properties-common \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get update \
     && apt-get install -y nodejs \
