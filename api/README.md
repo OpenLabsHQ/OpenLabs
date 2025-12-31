@@ -4,7 +4,7 @@
 <a href="https://github.com/OpenLabsHQ/OpenLabs"><img alt="Latest version" src="https://img.shields.io/github/v/release/OpenLabsHQ/OpenLabs"></a>
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 <a href="https://github.com/astral-sh/ruff"><img alt="Linting: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
-<a href="https://mypy-lang.org/"><img alt="Checked with mypy" src="https://www.mypy-lang.org/static/mypy_badge.svg"></a>
+<a href="https://docs.astral.sh/ty/"><img alt="Type checked with ty" src="https://img.shields.io/badge/type_checker-ty-blue.svg"></a>
 </p>
 
 
@@ -159,7 +159,7 @@ The app will only be started once you run the debugger in VScode using the `Pyth
 
 * `api-black.yml` - Runs the Black code formatter in check mode to verify code formatting.
 * `api-ruff.yml` - Runs the Ruff linter to check for code quality issues.
-* `api-mypy.yml` - Performs static type checking with MyPy.
+* `api-ty.yml` - Performs static type checking with ty.
 * `api-unit_tests.yml` - Runs all unit tests.
 * `api-integration_tests.yml` Runs integration tests that do **not** deploy live infrastructure.
 * `api-aws_tests.yml` - Run all AWS specific tests including live deploy tests.
