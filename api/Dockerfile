@@ -49,7 +49,7 @@ FROM builder AS api_debug
 RUN uv pip install --no-cache debugpy
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
 
 # ========= API Test Image =========
@@ -57,7 +57,7 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
 FROM test_builder AS api_test
 
 HEALTHCHECK --interval=5s --timeout=5s --start-period=300s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
 
 # ========= Worker Image =========
@@ -82,7 +82,7 @@ RUN terraform init
 RUN rm -rf .terraform*
 WORKDIR /code
 
-CMD ["arq", "src.app.worker.settings.WorkerSettings"]
+CMD ["uv", "run", "arq", "src.app.worker.settings.WorkerSettings"]
 
 
 # ========= Prod Image =========
@@ -90,6 +90,6 @@ CMD ["arq", "src.app.worker.settings.WorkerSettings"]
 FROM builder AS prod
 
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
- CMD ["python", "-m", "src.scripts.health_check"]
+ CMD ["uv", "run", "python", "-m", "src.scripts.health_check"]
 
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
+CMD ["uv", "run", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "4"]
