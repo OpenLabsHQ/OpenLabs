@@ -20,7 +20,8 @@ async def test_create_admin_script(
     original_wait_for_api_ready = wait_for_api_ready
 
     async def wait_for_api_ready_wrapper(
-        *args: Any, **kwargs: Any  # noqa: ANN401
+        *args: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> bool:
         """Wrap wait_for_api_ready to inject test client fixture."""
         kwargs["client"] = client
@@ -60,7 +61,8 @@ async def test_create_admin_script_duplicate_user(
     original_wait_for_api_ready = wait_for_api_ready
 
     async def wait_for_api_ready_wrapper(
-        *args: Any, **kwargs: Any  # noqa: ANN401
+        *args: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> bool:
         """Wrap wait_for_api_ready to inject test client fixture."""
         kwargs["client"] = client
@@ -101,7 +103,8 @@ async def test_initialize_admin_user_api_not_ready(
 
     # Mock wait_for_api_ready to return False
     async def mock_wait_for_api_ready(
-        *args: Any, **kwargs: Any  # noqa: ANN401
+        *args: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> bool:
         return False
 
@@ -129,7 +132,8 @@ async def test_initialize_admin_user_exception(
 
     # Mock wait_for_api_ready to return True
     async def mock_wait_for_api_ready(
-        *args: Any, **kwargs: Any  # noqa: ANN401
+        *args: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> bool:
         return True
 

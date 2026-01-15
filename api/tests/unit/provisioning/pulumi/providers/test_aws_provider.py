@@ -8,7 +8,8 @@ from src.app.schemas.secret_schema import SecretSchema
 def test_has_secrets_with_valid_keys_returns_true() -> None:
     """Test that has secrets checks for the correct secrets schema attributes."""
     test_secrets = SecretSchema(
-        aws_access_key="string", aws_secret_key="string"  # noqa: S106
+        aws_access_key="string",
+        aws_secret_key="string",  # noqa: S106
     )
     assert aws_provider.has_secrets(test_secrets)
 
@@ -33,7 +34,8 @@ def test_has_secrets_with_invalid_or_missing_keys_returns_false(
 def test_get_config_values_with_valid_inputs_returns_correct_dict() -> None:
     """Test the happy path for get_config_values."""
     test_secrets = SecretSchema(
-        aws_access_key="my-access-key", aws_secret_key="my-secret-key"  # noqa: S106
+        aws_access_key="my-access-key",
+        aws_secret_key="my-secret-key",  # noqa: S106
     )
     test_region = OpenLabsRegion.US_EAST_1
 
@@ -56,7 +58,8 @@ def test_get_config_values_with_missing_credentials_raises_value_error() -> None
 def test_get_cred_env_vars_with_valid_secrets_returns_correct_dict() -> None:
     """Test the happy path for get_cred_env_vars."""
     test_secrets = SecretSchema(
-        aws_access_key="fake-key", aws_secret_key="fake-secret"  # noqa: S106
+        aws_access_key="fake-key",
+        aws_secret_key="fake-secret",  # noqa: S106
     )
     env_vars = aws_provider.get_cred_env_vars(test_secrets)
     assert env_vars["AWS_ACCESS_KEY_ID"] == test_secrets.aws_access_key

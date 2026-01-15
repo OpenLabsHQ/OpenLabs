@@ -38,9 +38,9 @@ from src.app.validators.names import OPENLABS_NAME_REGEX
 )
 def test_valid_names(test_name: str) -> None:
     """Test strings that should successfully match the OpenLabs name regex."""
-    assert re.match(
-        OPENLABS_NAME_REGEX, test_name
-    ), f"Expected '{test_name}' to be a valid name, but it failed to match."
+    assert re.match(OPENLABS_NAME_REGEX, test_name), (
+        f"Expected '{test_name}' to be a valid name, but it failed to match."
+    )
 
 
 @pytest.mark.parametrize(
@@ -82,6 +82,6 @@ def test_valid_names(test_name: str) -> None:
 )
 def test_invalid_names(test_name: str) -> None:
     """Tests strings that should NOT match the OpenLabs name regex pattern."""
-    assert not re.match(
-        OPENLABS_NAME_REGEX, test_name
-    ), f"Expected '{test_name}' to be an invalid name, but it matched."
+    assert not re.match(OPENLABS_NAME_REGEX, test_name), (
+        f"Expected '{test_name}' to be an invalid name, but it matched."
+    )

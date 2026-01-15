@@ -419,7 +419,7 @@ class AWSProvider(PulumiProvider):
                 # Associate VPC subnets with Route Table
                 for i, created_subnet in enumerate(current_vpc_subnets):
                     route_table_association.RouteTableAssociation(
-                        f"{vpc_prefix}-private-subnet-route-table-association-{i+1}",
+                        f"{vpc_prefix}-private-subnet-route-table-association-{i + 1}",
                         subnet_id=created_subnet.id,
                         route_table_id=new_vpc_private_route_table.id,
                     )

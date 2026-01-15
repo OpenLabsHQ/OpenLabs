@@ -43,9 +43,9 @@ class TestJobs:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to deployed range account."
+        )
 
         # Get jobs
         complete_jobs = await get_jobs(
@@ -71,9 +71,9 @@ class TestJobs:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to deployed range account."
+        )
 
         # Get jobs
         complete_jobs = await get_jobs(integration_client, job_status=None)
@@ -101,9 +101,9 @@ class TestJobs:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         _range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to deployed range account."
+        )
 
         # Get jobs
         complete_jobs = await get_jobs(
@@ -123,12 +123,14 @@ class TestJobs:
 
         # By ARQ ID
         arq_id_job_details = await get_job(integration_client, random_job.arq_job_id)
-        assert (
-            arq_id_job_details
-        ), f"Failed to fetch job {random_job.id} (ARQ ID: {random_job.arq_job_id}) by arq_job_id."
+        assert arq_id_job_details, (
+            f"Failed to fetch job {random_job.id} (ARQ ID: {random_job.arq_job_id}) by arq_job_id."
+        )
         assert arq_id_job_details.model_dump(mode="json") == random_job.model_dump(
             mode="json"
-        ), f"Job {random_job.id} (ARQ ID: {random_job.arq_job_id}) fetched by arq_job_id not identical."
+        ), (
+            f"Job {random_job.id} (ARQ ID: {random_job.arq_job_id}) fetched by arq_job_id not identical."
+        )
 
     async def test_get_job_unauthorized_job_fails(
         self,
@@ -142,9 +144,9 @@ class TestJobs:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         _range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to deployed range account."
+        )
 
         # Get jobs
         complete_jobs = await get_jobs(integration_client, job_status=None)
@@ -163,6 +165,6 @@ class TestJobs:
 
         # Ensure that it fails
         job_details = await get_job(integration_client, random_job.id)
-        assert (
-            job_details is None
-        ), f"Fetched job {random_job.id} with UNauthorized account!"
+        assert job_details is None, (
+            f"Fetched job {random_job.id} with UNauthorized account!"
+        )

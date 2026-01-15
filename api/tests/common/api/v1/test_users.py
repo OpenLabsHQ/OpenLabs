@@ -37,9 +37,7 @@ class TestUsersAuth:
         # Try update with wrong current password
         invalid_payload = copy.deepcopy(password_update_payload)
         # Using an incorrect password to test validation - not a security risk
-        invalid_payload["current_password"] = (
-            "incorrect-password-for-testing"  # noqa: S105
-        )
+        invalid_payload["current_password"] = "incorrect-password-for-testing"  # noqa: S105
 
         update_response = await auth_api_client.post(
             f"{BASE_ROUTE}/users/me/password", json=invalid_payload

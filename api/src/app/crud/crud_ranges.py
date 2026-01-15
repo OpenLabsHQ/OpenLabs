@@ -168,7 +168,7 @@ async def create_blueprint_range(
 
     # Sanity check that we only have a single range model
     if len(built_models) != 1:
-        msg = f"Built {len(built_models) } range blueprint models from a single schema!"
+        msg = f"Built {len(built_models)} range blueprint models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 
@@ -470,7 +470,7 @@ async def create_deployed_range(
 
     # Sanity check that we only have a single range model
     if len(built_models) != 1:
-        msg = f"Built {len(built_models) } deployed range models from a single schema!"
+        msg = f"Built {len(built_models)} deployed range models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 

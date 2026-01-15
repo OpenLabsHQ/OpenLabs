@@ -355,7 +355,7 @@ class TestBlueprintVPCAuth:
 
         # Delete VPC blueprint
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/vpcs/{blueprint_vpc["id"]}"
+            f"{BASE_ROUTE}/blueprints/vpcs/{blueprint_vpc['id']}"
         )
         assert response.status_code == status.HTTP_200_OK
 

@@ -133,7 +133,10 @@ class PulumiOperation:
         return self
 
     async def __aexit__(
-        self, exc_type: Any, exc_val: Any, exc_tb: Any  # noqa: ANN401
+        self,
+        exc_type: Any,
+        exc_val: Any,
+        exc_tb: Any,  # noqa: ANN401
     ) -> None:
         """Clean up Pulumi operation context.
 

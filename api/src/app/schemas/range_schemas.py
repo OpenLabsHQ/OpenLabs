@@ -77,7 +77,6 @@ class BlueprintRangeCreateSchema(BlueprintRangeBaseSchema):
         vpc_cidrs = [vpc.cidr for vpc in vpcs]
 
         if not mutually_exclusive_networks_v4(vpc_cidrs):
-
             msg = "All VPCs in range should be mutually exclusive (not overlap)."
             raise ValueError(msg)
 
@@ -185,7 +184,6 @@ class DeployedRangeCreateSchema(DeployedRangeBaseSchema):
         vpc_cidrs = [vpc.cidr for vpc in vpcs]
 
         if not mutually_exclusive_networks_v4(vpc_cidrs):
-
             msg = "All VPCs in range should be mutually exclusive (not overlap)."
             raise ValueError(msg)
 

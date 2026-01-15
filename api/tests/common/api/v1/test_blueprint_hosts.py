@@ -214,7 +214,7 @@ class TestBlueprintHostAuth:
 
         # Try to delete non-standalone host blueprint
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/hosts/{blueprint_host["id"]}"
+            f"{BASE_ROUTE}/blueprints/hosts/{blueprint_host['id']}"
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 

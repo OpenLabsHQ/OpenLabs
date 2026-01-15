@@ -163,7 +163,7 @@ async def create_blueprint_vpc(
 
     # Sanity check that we only have a single VPC model
     if len(built_models) != 1:
-        msg = f"Built {len(built_models) } VPC blueprint models from a single schema!"
+        msg = f"Built {len(built_models)} VPC blueprint models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 

@@ -86,9 +86,9 @@ class TestBlueprintRangeAuth:
         """Test for 422 response when VPC CIDR is invalid."""
         # Use deepcopy to ensure all nested dicts are copied
         invalid_payload = copy.deepcopy(valid_blueprint_range_create_payload)
-        invalid_payload["vpcs"][0][
-            "cidr"
-        ] = "192.168.300.0/24"  # Assign the invalid CIDR block
+        invalid_payload["vpcs"][0]["cidr"] = (
+            "192.168.300.0/24"  # Assign the invalid CIDR block
+        )
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
@@ -121,9 +121,9 @@ class TestBlueprintRangeAuth:
         """Test for 422 response when subnet CIDR is invalid."""
         # Use deepcopy to ensure all nested dicts are copied
         invalid_payload = copy.deepcopy(valid_blueprint_range_create_payload)
-        invalid_payload["vpcs"][0]["subnets"][0][
-            "cidr"
-        ] = "192.168.300.0/24"  # Assign the invalid CIDR block
+        invalid_payload["vpcs"][0]["subnets"][0]["cidr"] = (
+            "192.168.300.0/24"  # Assign the invalid CIDR block
+        )
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
@@ -140,9 +140,9 @@ class TestBlueprintRangeAuth:
         invalid_payload["vpcs"][0]["cidr"] = "192.168.0.0/16"
 
         # Subnet CIDR
-        invalid_payload["vpcs"][0]["subnets"][0][
-            "cidr"
-        ] = "172.16.1.0/24"  # Assign the invalid CIDR block
+        invalid_payload["vpcs"][0]["subnets"][0]["cidr"] = (
+            "172.16.1.0/24"  # Assign the invalid CIDR block
+        )
 
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
@@ -176,9 +176,9 @@ class TestBlueprintRangeAuth:
     ) -> None:
         """Test for a 422 response when a hostname is invalid."""
         invalid_payload = copy.deepcopy(valid_blueprint_range_create_payload)
-        invalid_payload["vpcs"][0]["subnets"][0]["hosts"][0][
-            "hostname"
-        ] = "-i-am-invalid"
+        invalid_payload["vpcs"][0]["subnets"][0]["hosts"][0]["hostname"] = (
+            "-i-am-invalid"
+        )
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
@@ -263,9 +263,9 @@ class TestBlueprintRangeAuth:
     ) -> None:
         """Test that we get a 422 error when more hosts in subnet that CIDR allows."""
         invalid_payload = copy.deepcopy(valid_blueprint_range_create_payload)
-        invalid_payload["vpcs"][0]["subnets"][0][
-            "cidr"
-        ] = "192.168.1.0/31"  # Maximum 2 hosts
+        invalid_payload["vpcs"][0]["subnets"][0]["cidr"] = (
+            "192.168.1.0/31"  # Maximum 2 hosts
+        )
 
         # Add extra hosts
         for i in range(3):
@@ -376,7 +376,7 @@ class TestBlueprintRangeAuth:
 
         # Delete standalone range blueprint
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/ranges/{blueprint_range["id"]}"
+            f"{BASE_ROUTE}/blueprints/ranges/{blueprint_range['id']}"
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -459,7 +459,7 @@ class TestBlueprintRangeAuth:
 
         # Delete range blueprint
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/ranges/{blueprint_range["id"]}"
+            f"{BASE_ROUTE}/blueprints/ranges/{blueprint_range['id']}"
         )
         assert response.status_code == status.HTTP_200_OK
 

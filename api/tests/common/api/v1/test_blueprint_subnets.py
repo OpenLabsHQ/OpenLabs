@@ -245,7 +245,7 @@ class TestBlueprintSubnetAuth:
 
         # Try to delete non-standalone blueprint subnet
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/subnets/{blueprint_subnet["id"]}"
+            f"{BASE_ROUTE}/blueprints/subnets/{blueprint_subnet['id']}"
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -318,7 +318,7 @@ class TestBlueprintSubnetAuth:
 
         # Delete subnet blueprint
         response = await auth_api_client.delete(
-            f"{BASE_ROUTE}/blueprints/subnets/{blueprint_subnet["id"]}"
+            f"{BASE_ROUTE}/blueprints/subnets/{blueprint_subnet['id']}"
         )
         assert response.status_code == status.HTTP_200_OK
 

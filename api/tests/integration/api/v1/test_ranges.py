@@ -68,15 +68,15 @@ class TestRange:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to deployed range account."
+        )
 
         # Attempt to fetch range
         recieved_range_info = await get_range(integration_client, range_info.id)
-        assert (
-            recieved_range_info
-        ), f"Could not retrieve one-all range with ID: {range_info.id}"
+        assert recieved_range_info, (
+            f"Could not retrieve one-all range with ID: {range_info.id}"
+        )
 
         # Validate the data is correct
         assert recieved_range_info.model_dump() == range_info.model_dump()
@@ -99,14 +99,14 @@ class TestRange:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to the deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to the deployed range account."
+        )
 
         private_key_str = await get_range_key(integration_client, range_info.id)
-        assert (
-            private_key_str
-        ), f"Could not retrieve key for range with ID: {range_info.id}"
+        assert private_key_str, (
+            f"Could not retrieve key for range with ID: {range_info.id}"
+        )
 
         ssh_client = None
         try:
@@ -141,9 +141,9 @@ class TestRange:
             error_output = stderr.read().decode("utf-8").strip()
 
             assert jumpbox_username in command_output
-            assert (
-                not error_output
-            ), f"Error executing 'id' command on jumpbox: {error_output}"
+            assert not error_output, (
+                f"Error executing 'id' command on jumpbox: {error_output}"
+            )
             print("Successfully verified user identity on jumpbox.")
 
             # Verify internet connectivity
@@ -155,12 +155,12 @@ class TestRange:
             public_ip_output = stdout.read().decode("utf-8").strip()
             error_output = stderr.read().decode("utf-8").strip()
 
-            assert (
-                not error_output
-            ), f"Error executing internet check on jumpbox: {error_output}"
-            assert public_ip_output == str(
-                range_info.jumpbox_public_ip
-            ), f"Internet check failed: Expected IP '{range_info.jumpbox_public_ip}', but got '{public_ip_output}'"
+            assert not error_output, (
+                f"Error executing internet check on jumpbox: {error_output}"
+            )
+            assert public_ip_output == str(range_info.jumpbox_public_ip), (
+                f"Internet check failed: Expected IP '{range_info.jumpbox_public_ip}', but got '{public_ip_output}'"
+            )
 
         except paramiko.AuthenticationException:
             pytest.fail(
@@ -188,14 +188,14 @@ class TestRange:
         deployed_range = provider_deployed_ranges_for_provider[range_type]
         range_info, email, password = deployed_range
 
-        assert await login_user(
-            integration_client, email, password
-        ), "Failed to login to the deployed range account."
+        assert await login_user(integration_client, email, password), (
+            "Failed to login to the deployed range account."
+        )
 
         private_key_str = await get_range_key(integration_client, range_info.id)
-        assert (
-            private_key_str
-        ), f"Could not retrieve key for range with ID: {range_info.id}"
+        assert private_key_str, (
+            f"Could not retrieve key for range with ID: {range_info.id}"
+        )
 
         # Extract all private IPs and their OS from range_info
         host_info: list[dict[str, str]] = []
@@ -288,12 +288,12 @@ class TestRange:
                     command_output = stdout.read().decode("utf-8").strip()
                     error_output = stderr.read().decode("utf-8").strip()
 
-                    assert (
-                        username in command_output
-                    ), f"Expected username '{username}' not found in output: {command_output}"
-                    assert (
-                        not error_output
-                    ), f"Error executing 'id' command on {hostname} ({ip}): {error_output}"
+                    assert username in command_output, (
+                        f"Expected username '{username}' not found in output: {command_output}"
+                    )
+                    assert not error_output, (
+                        f"Error executing 'id' command on {hostname} ({ip}): {error_output}"
+                    )
                     print(
                         f"Successfully verified user identity on {hostname} ({ip}) with username '{username}'"
                     )

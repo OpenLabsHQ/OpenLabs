@@ -160,9 +160,7 @@ async def create_blueprint_subnet(
 
     # Sanity check that we only have a single subnet model
     if len(built_models) != 1:
-        msg = (
-            f"Built {len(built_models) } subnet blueprint models from a single schema!"
-        )
+        msg = f"Built {len(built_models)} subnet blueprint models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 

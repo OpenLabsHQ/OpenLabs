@@ -156,7 +156,7 @@ async def create_blueprint_host(
 
     # Sanity check that we only have a single host model
     if len(built_models) != 1:
-        msg = f"Built {len(built_models) } host blueprint models from a single schema!"
+        msg = f"Built {len(built_models)} host blueprint models from a single schema!"
         logger.error(msg)
         raise RuntimeError(msg)
 
