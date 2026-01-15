@@ -165,6 +165,7 @@ class AWSProvider(PulumiProvider):
                 associate_public_ip_address=True,
                 key_name=key_pair_resource.key_name,
                 tags={"Name": jumpbox_instance_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             pulumi.export(f"{stack_name}-jumpbox-resource-id", jumpbox.id)
@@ -179,6 +180,7 @@ class AWSProvider(PulumiProvider):
                 igw_name,
                 vpc_id=jumpbox_vpc.id,
                 tags={"Name": igw_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 7: Create a NAT Gateway for range network with EIP
@@ -187,6 +189,7 @@ class AWSProvider(PulumiProvider):
                 eip_name,
                 domain="vpc",
                 tags={"Name": eip_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             nat_gateway_name = f"{stack_name}-nat-gateway"
@@ -195,6 +198,7 @@ class AWSProvider(PulumiProvider):
                 subnet_id=jumpbox_public_subnet.id,
                 allocation_id=eip_resource.id,
                 tags={"Name": nat_gateway_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 8: Create Routing for Jumpbox
@@ -203,6 +207,7 @@ class AWSProvider(PulumiProvider):
                 jumpbox_route_table_name,
                 vpc_id=jumpbox_vpc.id,
                 tags={"Name": jumpbox_route_table_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             route.Route(
@@ -210,12 +215,14 @@ class AWSProvider(PulumiProvider):
                 route_table_id=jumpbox_route_table.id,
                 destination_cidr_block="0.0.0.0/0",
                 gateway_id=igw.id,
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             route_table_association.RouteTableAssociation(
                 f"{stack_name}-public-route-association",
                 subnet_id=jumpbox_public_subnet.id,
                 route_table_id=jumpbox_route_table.id,
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 9: Create private subnet in the jumpbox vpc
@@ -227,6 +234,7 @@ class AWSProvider(PulumiProvider):
                 availability_zone="us-east-1a",
                 map_public_ip_on_launch=False,
                 tags={"Name": jumpbox_private_subnet_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 10: Create Routing for range network (Using NAT gateway)
@@ -235,6 +243,7 @@ class AWSProvider(PulumiProvider):
                 nat_route_table_name,
                 vpc_id=jumpbox_vpc.id,
                 tags={"Name": nat_route_table_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             route.Route(
@@ -242,12 +251,14 @@ class AWSProvider(PulumiProvider):
                 route_table_id=nat_route_table.id,
                 destination_cidr_block="0.0.0.0/0",
                 nat_gateway_id=nat_gateway_resource.id,
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             route_table_association.RouteTableAssociation(
                 f"{stack_name}-private-route-association",
                 subnet_id=jumpbox_vpc_private_subnet.id,
                 route_table_id=nat_route_table.id,
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 11: Create Transit Gateway to allow traffic to go anywhere in the range (connects all the range vpcs with each other)
@@ -256,6 +267,7 @@ class AWSProvider(PulumiProvider):
                 tgw_name,
                 description="Transit Gateway for internal routing",
                 tags={"Name": tgw_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # --- TGW Route to NAT Gateway (via Public VPC Attachment) ---
@@ -278,6 +290,7 @@ class AWSProvider(PulumiProvider):
                 transit_gateway_default_route_table_association=True,
                 transit_gateway_default_route_table_propagation=True,
                 tags={"Name": jumpbox_vpc_tgw_attachment_name},
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 13: Add Routing to the Transit Gateway
@@ -289,6 +302,7 @@ class AWSProvider(PulumiProvider):
                 destination_cidr_block="0.0.0.0/0",
                 transit_gateway_attachment_id=jumpbox_vpc_tgw_attachment.id,
                 transit_gateway_route_table_id=tgw.association_default_route_table_id,
+                opts=pulumi.ResourceOptions(provider=provider),
             )
 
             # Step 14: Create range VPCs, Subnets, and Hosts
@@ -304,6 +318,7 @@ class AWSProvider(PulumiProvider):
                     enable_dns_support=True,
                     enable_dns_hostnames=True,
                     tags={"Name": vpc_resource_name},
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
 
                 # Export VPC resource ID
@@ -337,6 +352,7 @@ class AWSProvider(PulumiProvider):
                             cidr_blocks=["0.0.0.0/0"],  # Allow all outbound
                         ),
                     ],
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
 
                 current_vpc_subnets = []
@@ -354,6 +370,7 @@ class AWSProvider(PulumiProvider):
                         availability_zone="us-east-1a",
                         map_public_ip_on_launch=False,
                         tags={"Name": subnet_resource_name},
+                        opts=pulumi.ResourceOptions(provider=provider),
                     )
 
                     # Export Subnet resource ID
@@ -379,6 +396,7 @@ class AWSProvider(PulumiProvider):
                             associate_public_ip_address=False,
                             key_name=key_pair_resource.key_name,
                             tags={"Name": host_resource_name},
+                            opts=pulumi.ResourceOptions(provider=provider),
                         )
 
                         # Export Host resource ID and private IP
@@ -399,6 +417,7 @@ class AWSProvider(PulumiProvider):
                     transit_gateway_default_route_table_association=True,
                     transit_gateway_default_route_table_propagation=True,
                     tags={"Name": private_vpc_tgw_attachment_name},
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
 
                 # Step 16: Create Routing in range VPC (Routes to TGW to access other range VPCs or the internet via the NAT gateway)
@@ -407,6 +426,7 @@ class AWSProvider(PulumiProvider):
                     new_vpc_private_route_table_name,
                     vpc_id=range_vpc.id,
                     tags={"Name": new_vpc_private_route_table_name},
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
                 tgw_route_name = f"{vpc_prefix}-private-tgw-route"
                 route.Route(
@@ -414,6 +434,7 @@ class AWSProvider(PulumiProvider):
                     route_table_id=new_vpc_private_route_table.id,
                     destination_cidr_block="0.0.0.0/0",
                     transit_gateway_id=tgw.id,
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
 
                 # Associate VPC subnets with Route Table
@@ -422,6 +443,7 @@ class AWSProvider(PulumiProvider):
                         f"{vpc_prefix}-private-subnet-route-table-association-{i + 1}",
                         subnet_id=created_subnet.id,
                         route_table_id=new_vpc_private_route_table.id,
+                        opts=pulumi.ResourceOptions(provider=provider),
                     )
 
                 # Step 20: Create Routing in Jumpbox VPC
@@ -431,6 +453,7 @@ class AWSProvider(PulumiProvider):
                     route_table_id=jumpbox_route_table.id,
                     destination_cidr_block=str(vpc_obj.cidr),
                     transit_gateway_id=tgw.id,
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
                 # Add route to the Jumpbox VPC's NAT route table
                 route.Route(
@@ -438,6 +461,7 @@ class AWSProvider(PulumiProvider):
                     route_table_id=nat_route_table.id,
                     destination_cidr_block=str(vpc_obj.cidr),
                     transit_gateway_id=tgw.id,
+                    opts=pulumi.ResourceOptions(provider=provider),
                 )
 
         return pulumi_program
