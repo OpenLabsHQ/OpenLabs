@@ -257,7 +257,7 @@ async def deploy_range_from_blueprint_endpoint(
             blueprint_range.provider.value.upper(),
         )
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{blueprint_range.provider.value.upper()} provider not supported!",
         )
 
@@ -270,7 +270,7 @@ async def deploy_range_from_blueprint_endpoint(
             deploy_request.name,
         )
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"No credentials found for provider: {blueprint_range.provider}",
         )
 
@@ -395,7 +395,7 @@ async def delete_range_endpoint(
             deployed_range.provider.value.upper(),
         )
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{deployed_range.provider.value.upper()} provider not supported!",
         )
 
@@ -408,7 +408,7 @@ async def delete_range_endpoint(
             deployed_range.name,
         )
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"No credentials found for provider: {deployed_range.provider}",
         )
 

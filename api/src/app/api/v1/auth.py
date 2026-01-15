@@ -123,7 +123,7 @@ async def register_new_user(
 
     if not created_user:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Unable to create user",
         )
 

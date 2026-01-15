@@ -15,7 +15,7 @@ from tests.common.api.v1.config import (
 user_register_payload = copy.deepcopy(base_user_register_payload)
 user_login_payload = copy.deepcopy(base_user_login_payload)
 
-user_register_payload["email"] = "test-auth@ufsit.club"
+user_register_payload["email"] = f"test-auth-{uuid.uuid4()}@ufsit.club"
 user_login_payload["email"] = user_register_payload["email"]
 
 
@@ -45,7 +45,7 @@ class TestAuth:
         response = await api_client.post(
             f"{BASE_ROUTE}/auth/register", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_duplicate_user_register(self, api_client: AsyncClient) -> None:
         """Test that we get a 400 response when registering a user with the same email."""
@@ -82,7 +82,7 @@ class TestAuth:
         response = await api_client.post(
             f"{BASE_ROUTE}/auth/register", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         invalid_payload = copy.deepcopy(user_register_payload)
         invalid_payload.pop("password")
@@ -90,7 +90,7 @@ class TestAuth:
         response = await api_client.post(
             f"{BASE_ROUTE}/auth/register", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         invalid_payload = copy.deepcopy(user_register_payload)
         invalid_payload.pop("name")
@@ -98,7 +98,7 @@ class TestAuth:
         response = await api_client.post(
             f"{BASE_ROUTE}/auth/register", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_user_login_correct_pass(self, api_client: AsyncClient) -> None:
         """Test that we get a 200 response when logging in a user and get a valid JWT cookie."""

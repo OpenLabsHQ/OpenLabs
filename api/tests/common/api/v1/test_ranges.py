@@ -82,7 +82,7 @@ class TestRangesAuth:
             for i in range(random.randint(1, 10))  # noqa: S311
         )
         response = await auth_api_client.delete(f"{BASE_ROUTE}/ranges/{random_str}")
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_destroy_without_valid_enc_key(
         self, auth_api_client: AsyncClient
