@@ -3,7 +3,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import aiofiles.os as aio_os
 import pulumi.automation as auto
@@ -19,6 +19,7 @@ from ...schemas.range_schemas import (
 )
 from ...schemas.secret_schema import SecretSchema
 from ...utils.name_utils import normalize_name
+from .providers.protocol import PulumiProvider
 from .providers.provider_registry import PROVIDER_REGISTRY
 
 # Configure logging
@@ -58,20 +59,40 @@ class PulumiOperation:
         if not pulumi_provider:
             msg = f"Provider {provider.value} not found"
             raise ValueError(msg)
-        self.pulumi_provider = pulumi_provider
+        # Type narrowing for static analysis
+        self.pulumi_provider: PulumiProvider = cast(PulumiProvider, pulumi_provider)
 
     async def __aenter__(self) -> Self:
         """Create the workspace and initialize the Pulumi Stack object."""
         start_time = time.time()
-        logger.info("[TIMING] Starting Pulumi stack initialization for '%s'", self.stack_name)
+        logger.info(
+            "[TIMING] Starting Pulumi stack initialization for '%s'", self.stack_name
+        )
 
         async with self._stack_lock:
             lock_acquired_time = time.time()
-            logger.info("[TIMING] Lock acquired in %.2fs", lock_acquired_time - start_time)
+            logger.info(
+                "[TIMING] Lock acquired in %.2fs", lock_acquired_time - start_time
+            )
 
             await aio_os.makedirs(self.work_dir, exist_ok=True)
             dir_created_time = time.time()
-            logger.info("[TIMING] Working directory created in %.2fs", dir_created_time - lock_acquired_time)
+            logger.info(
+                "[TIMING] Working directory created in %.2fs",
+                dir_created_time - lock_acquired_time,
+            )
+
+            # Prepare environment variables for Pulumi workspace
+            # Include both Pulumi config and cloud provider credentials
+            workspace_env_vars = {
+                "PULUMI_BACKEND_URL": str(settings.PULUMI_BACKEND_URL),
+                "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
+            }
+
+            # Add cloud provider credentials as environment variables
+            # This ensures the provider can access them in inline execution mode
+            cred_env_vars = self.pulumi_provider.get_cred_env_vars(self.secrets)
+            workspace_env_vars.update(cred_env_vars)
 
             self.stack = await asyncio.to_thread(
                 auto.create_or_select_stack,
@@ -83,22 +104,28 @@ class PulumiOperation:
                 ),
                 opts=auto.LocalWorkspaceOptions(
                     work_dir=str(self.work_dir),
-                    env_vars={
-                        "PULUMI_BACKEND_URL": str(settings.PULUMI_BACKEND_URL),
-                        "PULUMI_CONFIG_PASSPHRASE": settings.PULUMI_CONFIG_PASSPHRASE,
-                    },
+                    env_vars=workspace_env_vars,
                 ),
             )
             stack_created_time = time.time()
-            logger.info("[TIMING] Pulumi stack created/selected in %.2fs", stack_created_time - dir_created_time)
+            logger.info(
+                "[TIMING] Pulumi stack created/selected in %.2fs",
+                stack_created_time - dir_created_time,
+            )
 
         # Set the Pulumi configuration values
         config_values = self.pulumi_provider.get_config_values(
             self.region, self.secrets
         )
+
+        if self.stack is None:
+            msg = "Stack must be initialized before setting config"
+            raise RuntimeError(msg)
         self.stack.set_all_config(config_values)
         config_set_time = time.time()
-        logger.info("[TIMING] Configuration set in %.2fs", config_set_time - stack_created_time)
+        logger.info(
+            "[TIMING] Configuration set in %.2fs", config_set_time - stack_created_time
+        )
 
         total_init_time = config_set_time - start_time
         logger.info("[TIMING] Total stack initialization: %.2fs", total_init_time)
@@ -202,7 +229,7 @@ class PulumiOperation:
                 ].value
 
                 # Populate subnets
-                for j, subnet in enumerate(vpc.subnets):
+                for j, subnet in enumerate(vpc.subnets):  # type: ignore[attr-defined]
                     subnet_prefix = f"{vpc_prefix}-{normalize_name(subnet.name)}"
                     subnet_resource_id_key = f"{subnet_prefix}-resource-id"
 
@@ -254,13 +281,19 @@ class PulumiOperation:
             raise RuntimeError(msg)
 
         start_time = time.time()
-        logger.info("[TIMING] Starting Pulumi 'up' operation for stack '%s'", self.stack_name)
+        logger.info(
+            "[TIMING] Starting Pulumi 'up' operation for stack '%s'", self.stack_name
+        )
 
         logger.info("Applying infrastructure for stack '%s'.", self.stack_name)
         up_result = await asyncio.to_thread(self.stack.up, on_output=logger.info)
         up_completed_time = time.time()
         up_duration = up_completed_time - start_time
-        logger.info("[TIMING] Pulumi 'up' completed in %.2fs (%.2f minutes)", up_duration, up_duration / 60)
+        logger.info(
+            "[TIMING] Pulumi 'up' completed in %.2fs (%.2f minutes)",
+            up_duration,
+            up_duration / 60,
+        )
 
         if up_result.summary.result.lower() != "succeeded":
             msg = f"Pulumi up failed: {up_result.summary.result}"
@@ -273,7 +306,11 @@ class PulumiOperation:
         logger.info("[TIMING] Output parsing completed in %.2fs", parse_duration)
 
         total_duration = parse_completed_time - start_time
-        logger.info("[TIMING] Total 'up' operation: %.2fs (%.2f minutes)", total_duration, total_duration / 60)
+        logger.info(
+            "[TIMING] Total 'up' operation: %.2fs (%.2f minutes)",
+            total_duration,
+            total_duration / 60,
+        )
 
         return result
 
@@ -284,7 +321,10 @@ class PulumiOperation:
             raise RuntimeError(msg)
 
         start_time = time.time()
-        logger.info("[TIMING] Starting Pulumi 'destroy' operation for stack '%s'", self.stack_name)
+        logger.info(
+            "[TIMING] Starting Pulumi 'destroy' operation for stack '%s'",
+            self.stack_name,
+        )
 
         logger.info("Destroying infrastructure for stack '%s'.", self.stack_name)
         destroy_result = await asyncio.to_thread(
@@ -292,7 +332,11 @@ class PulumiOperation:
         )
         destroy_completed_time = time.time()
         destroy_duration = destroy_completed_time - start_time
-        logger.info("[TIMING] Pulumi 'destroy' completed in %.2fs (%.2f minutes)", destroy_duration, destroy_duration / 60)
+        logger.info(
+            "[TIMING] Pulumi 'destroy' completed in %.2fs (%.2f minutes)",
+            destroy_duration,
+            destroy_duration / 60,
+        )
 
         if destroy_result.summary.result != "succeeded":
             msg = f"Pulumi destroy failed: {destroy_result.summary.result}"
