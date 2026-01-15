@@ -4,7 +4,7 @@ import shutil
 import socket
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator, Callable, Generator
+from typing import AsyncGenerator, Callable, Generator, cast
 
 import dotenv
 import pytest
@@ -520,7 +520,9 @@ async def provider_deployed_ranges_for_provider(
 
             # Poll for deployment completion (increased timeout for real AWS infrastructure)
             deploy_job_results = await wait_for_jobs(
-                client, deploy_job_ids, timeout=1800  # 30 minutes for complex infrastructure
+                client,
+                deploy_job_ids,
+                timeout=1800,  # 30 minutes for complex infrastructure
             )
 
             # Fetch deployed range details
@@ -606,7 +608,7 @@ def api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only used for unauthenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)
+    return cast(AsyncClient, request.getfixturevalue(request.param))
 
 
 @pytest.fixture
@@ -616,5 +618,4 @@ def auth_api_client(request: pytest.FixtureRequest) -> AsyncClient:
     Only use for authenticated client fixtures.
 
     """
-    return request.getfixturevalue(request.param)
-
+    return cast(AsyncClient, request.getfixturevalue(request.param))

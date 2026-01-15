@@ -77,32 +77,37 @@ def destroy_range() -> Callable[..., Awaitable[dict[str, Any]]]:
 
 
 @pytest.fixture
-def mock_pulumi_provider(mocker: MockerFixture, worker_ranges_path: str) -> MagicMock:
+def mock_pulumi_provider(mocker: MockerFixture) -> MagicMock:
     """Mock the pulumi provider registry."""
     mock_pulumi_provider = MagicMock()
 
     mock_provider_registry = {
         OpenLabsProvider.AWS: mock_pulumi_provider,
     }
-    mocker.patch(f"{worker_ranges_path}.PROVIDER_REGISTRY", new=mock_provider_registry)
+    mocker.patch(
+        "src.app.provisioning.pulumi.providers.provider_registry.PROVIDER_REGISTRY",
+        new=mock_provider_registry,
+    )
     return mock_pulumi_provider
 
 
 @pytest.fixture
-def mock_no_pulumi_provider(mocker: MockerFixture, worker_ranges_path: str) -> None:
+def mock_no_pulumi_provider(mocker: MockerFixture) -> None:
     """Mock the pulumi provider registry to be empty."""
-    mocker.patch(f"{worker_ranges_path}.PROVIDER_REGISTRY", new={})
+    mocker.patch(
+        "src.app.provisioning.pulumi.providers.provider_registry.PROVIDER_REGISTRY",
+        new={},
+    )
 
 
 @pytest.fixture
-def mock_pulumi_operation_class(
-    mocker: MockerFixture, worker_ranges_path: str
-) -> AsyncMock:
+def mock_pulumi_operation_class(mocker: MockerFixture) -> AsyncMock:
     """Mock the entire PulumiOperation class."""
     pulumi_operation_class_mock = MagicMock(spec=PulumiOperation)
 
     mocker.patch(
-        f"{worker_ranges_path}.PulumiOperation", new=pulumi_operation_class_mock
+        "src.app.provisioning.pulumi.provisioner.PulumiOperation",
+        new=pulumi_operation_class_mock,
     )
     return pulumi_operation_class_mock
 
@@ -110,7 +115,6 @@ def mock_pulumi_operation_class(
 @pytest.fixture
 def mock_pulumi_operation_instance(
     mocker: MockerFixture,
-    worker_ranges_path: str,
     mock_pulumi_operation_class: AsyncMock,
 ) -> AsyncMock:
     """Mock the PulumiOperation class."""
@@ -121,7 +125,8 @@ def mock_pulumi_operation_instance(
     )
 
     mocker.patch(
-        f"{worker_ranges_path}.PulumiOperation", new=mock_pulumi_operation_class
+        "src.app.provisioning.pulumi.provisioner.PulumiOperation",
+        new=mock_pulumi_operation_class,
     )
 
     return pulumi_instance_mock

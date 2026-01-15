@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Coroutine
+from typing import Any, Coroutine, cast
 from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
@@ -324,8 +324,9 @@ async def test_update_job_in_db_no_job(
 ) -> None:
     """Test that update job function raises a RuntimeError exception when it fails to fetch a job."""
     with pytest.raises(RuntimeError, match="update job"):
-        # We can call the function without the decorator using __wrapped__
-        await update_job_in_db.__wrapped__(mock_ctx_dict, user_id=-1)
+        # Access the underlying function through __wrapped__ (added by tenacity's retry decorator)
+        unwrapped = cast(Any, update_job_in_db).__wrapped__
+        await unwrapped(mock_ctx_dict, user_id=-1)
 
 
 async def test_update_job_in_db_success(
@@ -334,8 +335,10 @@ async def test_update_job_in_db_success(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test that we log the job status update when the function succeeds."""
+    # Access the underlying function through __wrapped__ (added by tenacity's retry decorator)
+    unwrapped = cast(Any, update_job_in_db).__wrapped__
     # Function should not return any values when it succeeds
-    assert await update_job_in_db.__wrapped__(mock_ctx_dict, user_id=-1) is None
+    assert await unwrapped(mock_ctx_dict, user_id=-1) is None
 
     assert any(
         mock_successful_fetch_job_info.arq_job_id in record.message.lower()
@@ -367,7 +370,7 @@ async def test_track_job_status_success(
     def capture_task_side_effect(coro: Coroutine[Any, Any, Any]) -> AsyncMock:
         """Mock capturing the job and return a mock object with the correct spec."""
         tasks_to_run.append(coro)
-        return mocker.MagicMock(spec=asyncio.Task)
+        return cast(AsyncMock, mocker.MagicMock(spec=asyncio.Task))
 
     # Mock all dependencies
     mock_update_job = mocker.patch(
