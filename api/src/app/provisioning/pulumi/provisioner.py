@@ -232,7 +232,7 @@ class PulumiOperation:
                 ].value
 
                 # Populate subnets
-                for j, subnet in enumerate(vpc.subnets):  # type: ignore[attr-defined]
+                for j, subnet in enumerate(vpc.subnets):
                     subnet_prefix = f"{vpc_prefix}-{normalize_name(subnet.name)}"
                     subnet_resource_id_key = f"{subnet_prefix}-resource-id"
 
