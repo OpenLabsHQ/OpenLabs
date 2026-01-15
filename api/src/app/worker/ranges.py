@@ -88,7 +88,9 @@ async def deploy_range(
         user_email = user.email
 
     db_fetch_time = time.time() - db_fetch_start
-    logger.info("[TIMING] Database fetch and credential decryption: %.2fs", db_fetch_time)
+    logger.info(
+        "[TIMING] Database fetch and credential decryption: %.2fs", db_fetch_time
+    )
 
     validation_start = time.time()
     pulumi_provider = PROVIDER_REGISTRY.get(blueprint_range.provider)
@@ -120,7 +122,11 @@ async def deploy_range(
         try:
             deployed_range = await pulumi.up()
             pulumi_up_time = time.time() - pulumi_start
-            logger.info("[TIMING] Pulumi context (including up): %.2fs (%.2f minutes)", pulumi_up_time, pulumi_up_time / 60)
+            logger.info(
+                "[TIMING] Pulumi context (including up): %.2fs (%.2f minutes)",
+                pulumi_up_time,
+                pulumi_up_time / 60,
+            )
 
             # Save to database
             db_save_start = time.time()
@@ -153,7 +159,11 @@ async def deploy_range(
             raise original_exc
 
     total_time = time.time() - job_start_time
-    logger.info("[TIMING] Total worker job time: %.2fs (%.2f minutes)", total_time, total_time / 60)
+    logger.info(
+        "[TIMING] Total worker job time: %.2fs (%.2f minutes)",
+        total_time,
+        total_time / 60,
+    )
     logger.info(
         "Successfully created and deployed range: %s (%s) for user: %s (%s).",
         deployed_range_header.name,

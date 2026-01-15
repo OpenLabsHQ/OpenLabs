@@ -84,14 +84,14 @@ def add_yaml_middleware_to_router(
                 json_body = json.dumps(yaml_data).encode()
             except ScannerError as e:
                 return JSONResponse(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     content={
                         "detail": f"Unable to parse provided YAML configuration: {e!s}."
                     },
                 )
             except Exception as e:
                 return JSONResponse(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     content={
                         "detail": f"Unknown error when parsing YAML configuration: {e!s}."
                     },
