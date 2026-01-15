@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 def is_valid_enum_value(
     enum_class: Type[Enum],
-    value: Any,
-    strict: bool = True,  # noqa: ANN401
+    value: Any,  # noqa: ANN401
+    strict: bool = True,
 ) -> bool:
     """Check if the provided value is valid for the given Enum class.
 

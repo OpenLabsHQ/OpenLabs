@@ -166,7 +166,7 @@ def track_job_status(
     @functools.wraps(func)
     async def wrapper(
         ctx: dict[str, Any],
-        *args: Any,
+        *args: Any,  # noqa: ANN401
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         background_tasks: set[asyncio.Task[None]] = set()
@@ -213,8 +213,8 @@ def track_job_status(
 
 async def enqueue_arq_job(
     job_name: str,
-    *job_args: Any,
-    user_id: int,  # noqa: ANN401
+    *job_args: Any,  # noqa: ANN401
+    user_id: int,
 ) -> str | None:
     """Queue a job in ARQ.
 
