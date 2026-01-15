@@ -104,6 +104,8 @@ filterwarnings = [
     "ignore:cannot collect test class 'Testing':pytest.PytestCollectionWarning",
     "ignore:.*s3(\\.|/).*:DeprecationWarning",
     "ignore:.*uses PyType_Spec with a metaclass that has custom tp_new.*:DeprecationWarning",
+    "ignore:^The @wait_container_is_ready decorator:DeprecationWarning",
+    "ignore:^The wait_for_logs function:DeprecationWarning",
 ]
 
 # Register markers to easily select unit or integration tests.
@@ -176,6 +178,23 @@ dev = [
     "types-paramiko>=3.5.0",
     "types-pyyaml>=6.0.12",
 ]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "pulumi",
+    "pulumi.*",
+    "pulumi_aws",
+    "pulumi_aws.*",
+    "testcontainers.*",
+]
+ignore_missing_imports = true
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
