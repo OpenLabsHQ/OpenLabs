@@ -190,7 +190,7 @@ async def test_deploy_without_valid_secrets(
         f"{BASE_ROUTE}/ranges/deploy",
         json=mock_deploy_payload,
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "credential" in response.json()["detail"].lower()
 
 
@@ -205,7 +205,7 @@ async def test_deploy_invalid_pulumi_provider(
         f"{BASE_ROUTE}/ranges/deploy",
         json=mock_deploy_payload,
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "provider not supported" in response.json()["detail"].lower()
 
 
@@ -316,7 +316,7 @@ async def test_destroy_without_valid_secrets(
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "credential" in response.json()["detail"].lower()
 
 
@@ -330,7 +330,7 @@ async def test_destroy_invalid_pulumi_provider(
     response = await auth_client.delete(
         f"{BASE_ROUTE}/ranges/{random.randint(-420, -69)}"  # noqa: S311
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "provider not supported" in response.json()["detail"].lower()
 
 

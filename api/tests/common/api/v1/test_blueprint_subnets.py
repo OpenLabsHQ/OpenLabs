@@ -100,7 +100,7 @@ class TestBlueprintSubnetAuth:
         response = await auth_api_client.get(
             f"{BASE_ROUTE}/blueprints/subnets/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         # Test that the valid ID still works
         response = await auth_api_client.get(
@@ -118,7 +118,7 @@ class TestBlueprintSubnetAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/subnets", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_subnet_invalid_public_cidr(
         self,
@@ -130,7 +130,7 @@ class TestBlueprintSubnetAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/subnets", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_subnet_too_many_hosts(
         self, auth_api_client: AsyncClient
@@ -152,7 +152,7 @@ class TestBlueprintSubnetAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/subnets", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_subnet_get_subnet(
         self, auth_api_client: AsyncClient
@@ -218,7 +218,7 @@ class TestBlueprintSubnetAuth:
         response = await auth_api_client.delete(
             f"{BASE_ROUTE}/blueprints/subnets/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_subnet_delete_non_standalone(
         self,

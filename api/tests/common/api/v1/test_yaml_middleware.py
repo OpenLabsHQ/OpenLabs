@@ -144,7 +144,7 @@ class TestYamlMiddleware:
             content=invalid_yaml,
             headers={"Content-Type": "application/yaml"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         assert "yaml" in str(response.json()["detail"]).lower()
 
     async def test_yaml_middleware_scoped_properly(
@@ -163,7 +163,7 @@ class TestYamlMiddleware:
             content=yaml_payload,
             headers={"Content-Type": "application/yaml"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_yaml_tag_propagation(self, auth_api_client: AsyncClient) -> None:
         """Test that tags are processed but the test verifies request conversion not database storage."""

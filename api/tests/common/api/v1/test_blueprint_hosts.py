@@ -81,7 +81,7 @@ class TestBlueprintHostAuth:
         response = await auth_api_client.get(
             f"{BASE_ROUTE}/blueprints/hosts/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         # Test that the valid ID still works
         response = await auth_api_client.get(
@@ -130,7 +130,7 @@ class TestBlueprintHostAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/hosts", json=dup_tags_host
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_host_long_tag(self, auth_api_client: AsyncClient) -> None:
         """Test that we get a 422 error when a host has a tag that is too long."""
@@ -143,7 +143,7 @@ class TestBlueprintHostAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/hosts", json=long_tag_host
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_host_delete(self, auth_api_client: AsyncClient) -> None:
         """Test that we get can successfully delete host blueprints."""
@@ -177,7 +177,7 @@ class TestBlueprintHostAuth:
         response = await auth_api_client.delete(
             f"{BASE_ROUTE}/blueprints/hosts/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_host_delete_non_existent(
         self, auth_api_client: AsyncClient

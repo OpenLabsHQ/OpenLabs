@@ -72,7 +72,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.get(
             f"{BASE_ROUTE}/blueprints/ranges/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
         # Test that the valid ID still works
         response = await auth_api_client.get(
@@ -92,7 +92,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_overlap_vpc_cidr(
         self, auth_api_client: AsyncClient
@@ -112,7 +112,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_invalid_subnet_cidr(
         self,
@@ -127,7 +127,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_invalid_vpc_subnet_cidr_contain(
         self,
@@ -147,7 +147,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_empty_tag(
         self, auth_api_client: AsyncClient
@@ -158,7 +158,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_invalid_provider(
         self, auth_api_client: AsyncClient
@@ -169,7 +169,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_invalid_hostname(
         self, auth_api_client: AsyncClient
@@ -182,7 +182,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_duplicate_vpc_names(
         self,
@@ -196,7 +196,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_duplicate_subnet_names(
         self,
@@ -210,7 +210,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_duplicate_host_hostnames(
         self,
@@ -224,7 +224,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_get_range(
         self, auth_api_client: AsyncClient
@@ -284,7 +284,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_host_size_too_small(
         self,
@@ -298,7 +298,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/ranges", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_delete(self, auth_api_client: AsyncClient) -> None:
         """Test that we can sucessfully delete a blueprint range."""
@@ -332,7 +332,7 @@ class TestBlueprintRangeAuth:
         response = await auth_api_client.delete(
             f"{BASE_ROUTE}/blueprints/ranges/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_range_delete_non_existent(
         self,

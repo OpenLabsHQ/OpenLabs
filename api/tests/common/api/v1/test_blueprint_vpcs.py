@@ -92,7 +92,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.get(
             f"{BASE_ROUTE}/blueprints/vpcs/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_invalid_cidr(
         self, auth_api_client: AsyncClient
@@ -103,7 +103,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_invalid_public_cidr(
         self, auth_api_client: AsyncClient
@@ -114,7 +114,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_invalid_subnet_cidr(
         self, auth_api_client: AsyncClient
@@ -126,7 +126,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_overlap_subnet_cidr(
         self, auth_api_client: AsyncClient
@@ -145,7 +145,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_invalid_vpc_subnet_cidr_contain(
         self,
@@ -164,7 +164,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.post(
             f"{BASE_ROUTE}/blueprints/vpcs", json=invalid_payload
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_get_vpc(self, auth_api_client: AsyncClient) -> None:
         """Test that we can retrieve the correct VPC after saving it in the database."""
@@ -222,7 +222,7 @@ class TestBlueprintVPCAuth:
         response = await auth_api_client.delete(
             f"{BASE_ROUTE}/blueprints/vpcs/{random_str}"
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     async def test_blueprint_vpc_delete_non_existent(
         self,
